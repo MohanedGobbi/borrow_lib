@@ -1,0 +1,130 @@
+import uuid
+
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.db import models
+
+
+class Category(models.Model):
+    """Book categories are staff-managed: name + display color (used to theme the UI)."""
+    name = models.CharField(max_length=60, unique=True)
+    color = models.CharField(max_length=9, default="#CC8800")
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "categories"
+
+    def __str__(self):
+        return self.name
+
+
+class Role(models.TextChoices):
+    MEMBER = "MEMBER"
+    STAFF = "STAFF"
+    ADMIN = "ADMIN"
+
+
+class Status(models.TextChoices):
+    PENDING = "PENDING"
+    READY = "READY"
+    BORROWED = "BORROWED"
+    RETURNED = "RETURNED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+    OVERDUE = "OVERDUE"
+
+
+class Book(models.Model):
+    title = models.CharField(max_length=300)
+    author = models.CharField(max_length=300)
+    isbn = models.CharField(max_length=20, unique=True)
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="books")
+    publisher = models.CharField(max_length=200, blank=True)
+    year = models.PositiveIntegerField(null=True, blank=True)
+    total_copies = models.PositiveIntegerField(default=1)
+    available_copies = models.PositiveIntegerField(default=1)
+    shelf_location = models.CharField(max_length=50, blank=True)
+    cover_color = models.CharField(max_length=9, default="#C55221")
+    cover_image = models.ImageField(upload_to="covers/", null=True, blank=True)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.title} — {self.author}"
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    student_or_staff_id = models.CharField(max_length=30, unique=True)
+    phone_number = models.CharField(max_length=40, blank=True)
+    address = models.CharField(max_length=300, blank=True)
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.MEMBER)
+    membership_start_date = models.DateField(auto_now_add=True)
+    max_borrow_limit = models.PositiveIntegerField(default=5)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.user.get_full_name() or self.user.username} ({self.role})"
+
+
+class BorrowRecord(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="borrow_records")
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="borrow_records")
+    requested_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    pickup_deadline = models.DateTimeField(null=True, blank=True)
+    borrowed_at = models.DateTimeField(null=True, blank=True)
+    due_date = models.DateTimeField(null=True, blank=True)
+    returned_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    approved_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_records"
+    )
+
+    class Meta:
+        ordering = ["-requested_at"]
+
+    def __str__(self):
+        return f"{self.user} · {self.book} · {self.status}"
+
+
+class Reservation(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reservations")
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="reservations")
+    reserved_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["reserved_at"]
+
+
+class ActivityLog(models.Model):
+    at = models.DateTimeField(auto_now_add=True)
+    actor_name = models.CharField(max_length=150)
+    action = models.CharField(max_length=40)
+    detail = models.CharField(max_length=500)
+
+    class Meta:
+        ordering = ["-at"]
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    at = models.DateTimeField(auto_now_add=True)
+    message = models.CharField(max_length=500)
+    read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-at"]
+
+
+def log_activity(actor_name: str, action: str, detail: str) -> ActivityLog:
+    return ActivityLog.objects.create(actor_name=actor_name, action=action, detail=detail)
+
+
+def notify(user: User, message: str) -> Notification:
+    return Notification.objects.create(user=user, message=message)
+
+
+def display_name(user: User) -> str:
+    return user.get_full_name() or user.username

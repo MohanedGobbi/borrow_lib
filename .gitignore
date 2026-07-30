@@ -1,0 +1,13 @@
+# dependencies
+node_modules/
+backend/.venv/
+__pycache__/
+*.pyc
+
+# build output
+dist/
+
+# local data / secrets
+backend/db.sqlite3
+.env
+*.log
