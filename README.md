@@ -9,6 +9,16 @@ Built end-to-end to the spec in `library_platform_agent_prompt.md`, styled with 
   (PostgreSQL-ready), ReportLab + QR digital ID cards, cron-ready management commands.
 - **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS + shadcn/ui.
 
+## Screenshots
+
+<table>
+<tr><td align="center" width="50%"><img src="screenshots/LibBorrow_01_Landing.png" width="420"><br/><sub>Landing</sub></td><td align="center" width="50%"><img src="screenshots/LibBorrow_02_Catalog.png" width="420"><br/><sub>Catalog</sub></td></tr>
+<tr><td align="center" width="50%"><img src="screenshots/LibBorrow_03_Overview.png" width="420"><br/><sub>Overview</sub></td><td align="center" width="50%"><img src="screenshots/LibBorrow_04_Approvals.png" width="420"><br/><sub>Approvals</sub></td></tr>
+<tr><td align="center" width="50%"><img src="screenshots/LibBorrow_05_Pickups.png" width="420"><br/><sub>Pickups</sub></td><td align="center" width="50%"><img src="screenshots/LibBorrow_06_Loans.png" width="420"><br/><sub>Loans</sub></td></tr>
+<tr><td align="center" width="50%"><img src="screenshots/LibBorrow_07_Inventory.png" width="420"><br/><sub>Inventory</sub></td><td align="center" width="50%"><img src="screenshots/LibBorrow_08_Analytics.png" width="420"><br/><sub>Analytics</sub></td></tr>
+</table>
+
+
 ## The spine of the system
 
 A loan does **not** start at approval. It starts only when the member physically picks
