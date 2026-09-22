@@ -40,13 +40,38 @@
 
 1. `npm ci && npm run build` → static site in `dist/`.
 2. Host `dist/` on any static host / CDN (Netlify, Vercel, S3+CloudFront, nginx).
-3. The app calls `/api/...` — either:
-   - serve the SPA and the API from the **same origin** (reverse-proxy `/api` →
-     Django, e.g. nginx `location /api/ { proxy_pass http://127.0.0.1:8000; }`), or
-   - run the API on a separate origin and add it to `CORS_ALLOWED_ORIGINS`, then
-     change `BASE` in `src/api/client.ts` to the absolute API URL before building.
+3. The app calls `${VITE_API_URL}/api/...` — either:
+   - leave `VITE_API_URL` empty and serve the SPA and the API from the **same
+     origin** (reverse-proxy `/api` → Django, e.g. nginx
+     `location /api/ { proxy_pass http://127.0.0.1:8000; }`), or
+   - run the API on a separate origin, set `VITE_API_URL=https://api.example.com`
+     at build time, and add the frontend origin to `CORS_ALLOWED_ORIGINS`.
 4. SPA fallback: configure the host to serve `index.html` for unknown paths
    (client-side routing).
+
+### Vercel
+
+The repo is Vercel-ready: `vercel.json` sets the Vite build, the SPA fallback
+and long-lived caching for `/assets/*`; `.vercelignore` keeps `backend/` out of
+the upload. Vercel hosts **only the frontend** — deploy Django elsewhere
+(Render, Railway, Fly.io, a VPS) with PostgreSQL and persistent media storage.
+
+1. Import the repo in Vercel (framework preset: **Vite**, root: repo root).
+2. Environment variable (Production + Preview):
+   `VITE_API_URL=https://<your-backend-host>` — no trailing slash, no `/api`.
+3. On the backend set:
+   - `CORS_ALLOWED_ORIGINS=https://<project>.vercel.app` (plus any custom domain)
+   - `CORS_ALLOWED_ORIGIN_REGEXES=^https://<project>-.*\.vercel\.app$` for preview URLs
+   - `FRONTEND_URL=https://<project>.vercel.app` so ID-card QR codes open the deployed app
+   - `DJANGO_ALLOWED_HOSTS=<your-backend-host>`, `DJANGO_DEBUG=0`, a real `DJANGO_SECRET_KEY`
+
+**Alternative — same-origin proxy (no CORS):** leave `VITE_API_URL` empty and
+add these rewrites to the *top* of the `rewrites` array in `vercel.json`:
+
+```json
+{ "source": "/api/:path*", "destination": "https://<your-backend-host>/api/:path*" },
+{ "source": "/media/:path*", "destination": "https://<your-backend-host>/media/:path*" }
+```
 
 ## Smoke test after deploy
 

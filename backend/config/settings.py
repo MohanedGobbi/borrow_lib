@@ -92,6 +92,10 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = os.environ.get(
     "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:7100"
 ).split(",")
+# Optional comma-separated regexes, e.g. ^https://libborrow-.*\.vercel\.app$ for Vercel previews.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r for r in os.environ.get("CORS_ALLOWED_ORIGIN_REGEXES", "").split(",") if r
+]
 
 # Frontend base URL used inside QR codes on ID cards.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")

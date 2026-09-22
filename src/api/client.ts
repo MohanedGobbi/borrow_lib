@@ -1,4 +1,10 @@
-const BASE = "/api";
+/**
+ * API root. Leave VITE_API_URL empty to call same-origin `/api` (Vite dev proxy
+ * or a Vercel rewrite); set it to the backend origin (e.g. https://api.example.com)
+ * to call a separately hosted Django server directly.
+ */
+export const API_ROOT = `${(import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "")}/api`;
+const BASE = API_ROOT;
 
 export class ApiError extends Error {
   status: number;

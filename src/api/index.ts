@@ -1,4 +1,4 @@
-import { api } from "@/api/client";
+import { api, API_ROOT } from "@/api/client";
 import type {
   ActivityEntry,
   Analytics,
@@ -28,7 +28,7 @@ export const apiBooks = {
   /** multipart PATCH — for cover image upload */
   updateWithCover: async (id: number, form: FormData): Promise<Book> => {
     const access = localStorage.getItem("lb_access");
-    const res = await fetch(`/api/books/${id}`, {
+    const res = await fetch(`${API_ROOT}/books/${id}`, {
       method: "PATCH",
       headers: access ? { Authorization: `Bearer ${access}` } : {},
       body: form,
@@ -57,7 +57,7 @@ export const apiAuth = {
     phoneNumber?: string; address?: string; staffInviteCode?: string;
   }) => api<Profile>("/auth/register", { method: "POST", body: payload, auth: false }),
   me: () => api<Profile>("/users/me"),
-  idCardUrl: "/api/users/me/id-card",
+  idCardUrl: `${API_ROOT}/users/me/id-card`,
   scan: (uuid: string) => api<ScanResult>(`/users/${uuid}/scan`),
 };
 
@@ -76,7 +76,7 @@ export const apiRecords = {
   reject: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/reject`, { method: "POST" }),
   confirmPickup: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/confirm-pickup`, { method: "POST" }),
   confirmReturn: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/confirm-return`, { method: "POST" }),
-  documentUrl: (id: number) => `/api/borrow-records/${id}/document`,
+  documentUrl: (id: number) => `${API_ROOT}/borrow-records/${id}/document`,
 };
 
 export const apiUsers = {

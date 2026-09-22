@@ -4,9 +4,11 @@ import { defineConfig } from "vite"
 import { inspectAttr } from 'kimi-plugin-inspect-react'
 
 // https://vite.dev/config/
-export default defineConfig({
-  base: './',
-  plugins: [inspectAttr(), react()],
+export default defineConfig(({ command }) => ({
+  // Absolute base so deep links like /books/12 still load /assets/* (Vercel SPA fallback).
+  base: "/",
+  // The inspector plugin is a dev aid only; keep it out of production bundles.
+  plugins: [command === "serve" && inspectAttr(), react()],
   server: {
     port: 3000,
     proxy: {
@@ -25,4 +27,4 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-});
+}));
