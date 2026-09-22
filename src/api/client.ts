@@ -6,6 +6,36 @@
 export const API_ROOT = `${(import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "")}/api`;
 const BASE = API_ROOT;
 
+/** Static demo build (`npm run build:demo`): the API runs in the browser, no server needed. */
+export const DEMO = import.meta.env.VITE_DEMO === "true";
+
+export const DEMO_STORAGE_KEY = "lb_demo_state_v1";
+
+/** Seeded demo accounts offered as one-click sign-ins in demo builds. */
+export const DEMO_ACCOUNTS = [
+  { label: "Member", name: "Priya Sharma", email: "priya@example.com" },
+  { label: "Member · overdue", name: "Daniel Okafor", email: "daniel@example.com" },
+  { label: "Staff", name: "Marcus Holloway", email: "staff@libborrow.dev" },
+  { label: "Admin", name: "Eleanor Vance", email: "admin@libborrow.dev" },
+];
+export const DEMO_PASSWORD = "password123";
+
+/** Wipe the browser-stored demo data and session, then reload onto a fresh seed. */
+export function resetDemo() {
+  try {
+    localStorage.removeItem(DEMO_STORAGE_KEY);
+    localStorage.removeItem("lb_access");
+    localStorage.removeItem("lb_refresh");
+  } catch { /* storage blocked — the reload still resets in-memory state */ }
+  window.location.assign("/");
+}
+
+/** `fetch` for API calls — routed to the in-browser mock backend in demo builds. */
+export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  if (DEMO) return (await import("@/api/demo")).demoFetch(url, init);
+  return fetch(url, init);
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -30,7 +60,7 @@ const tokens = {
 async function refreshAccess(): Promise<string | null> {
   if (!tokens.refresh) return null;
   try {
-    const res = await fetch(`${BASE}/auth/refresh`, {
+    const res = await apiFetch(`${BASE}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh: tokens.refresh }),
@@ -54,7 +84,7 @@ export async function api<T = unknown>(
     const headers: Record<string, string> = {};
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (auth && access) headers.Authorization = `Bearer ${access}`;
-    return fetch(`${BASE}${path}`, {
+    return apiFetch(`${BASE}${path}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,

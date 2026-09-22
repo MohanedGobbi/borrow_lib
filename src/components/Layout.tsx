@@ -6,6 +6,7 @@ import { useCart } from "@/cart/CartContext";
 import { useI18n, type Lang } from "@/i18n";
 import { useApi } from "@/hooks/useApi";
 import { apiMisc } from "@/api";
+import { DEMO, resetDemo } from "@/api/client";
 import { timeAgo } from "@/components/Countdown";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -186,6 +187,20 @@ export function Layout() {
           </div>
         </div>
       </header>
+
+      {DEMO && (
+        <div className="border-b border-ink/15 bg-brand/10">
+          <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-6 py-1.5 font-mono text-[11px] text-ink/80">
+            <span>
+              <span className="font-bold uppercase tracking-[0.2em] text-burnt">Demo mode</span>
+              {" · "}No server: data is stored in this browser only.
+            </span>
+            <button type="button" onClick={resetDemo} className="font-semibold text-burnt underline-offset-2 hover:underline">
+              Reset demo data
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Landing renders full-bleed (its own sections handle gutters);
           all other pages sit in the centered 1440px container. */}

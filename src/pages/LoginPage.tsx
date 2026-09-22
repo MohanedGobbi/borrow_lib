@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { KeyRound, LibraryBig } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
-import { ApiError } from "@/api/client";
+import { ApiError, DEMO, DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/api/client";
 import { useKonami } from "@/hooks/useKonami";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -26,12 +26,16 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staffUnlocked]);
 
-  const submit = async (e: FormEvent) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
+    signIn(email.trim(), password);
+  };
+
+  const signIn = async (address: string, secret: string) => {
     setBusy(true);
     setError(null);
     try {
-      await login(email.trim(), password);
+      await login(address, secret);
       navigate(location.state?.from ?? "/catalog", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError && err.status === 401 ? t("auth.wrongCreds") : t("auth.failed"));
@@ -75,9 +79,30 @@ export default function LoginPage() {
           {t("auth.noAccount")}{" "}
           <Link to="/signup" className="font-semibold text-burnt hover:underline">{t("auth.createOne")}</Link>
         </p>
-        <div className="rounded-sm bg-cream px-3 py-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
-          Demo member: priya@example.com · password123
-        </div>
+        {DEMO ? (
+          <div className="space-y-2 rounded-sm bg-cream px-3 py-3">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-burnt">Try a demo account</p>
+            <div className="grid grid-cols-2 gap-2">
+              {DEMO_ACCOUNTS.map((a) => (
+                <button
+                  key={a.email}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => signIn(a.email, DEMO_PASSWORD)}
+                  className="rounded-sm border border-border bg-white px-2.5 py-2 text-left transition-colors hover:border-burnt disabled:opacity-50"
+                >
+                  <span className="block text-sm font-semibold leading-tight">{a.name}</span>
+                  <span className="block font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{a.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="font-mono text-[10px] text-muted-foreground">Any seeded email works with password {DEMO_PASSWORD}.</p>
+          </div>
+        ) : (
+          <div className="rounded-sm bg-cream px-3 py-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
+            Demo member: priya@example.com · password123
+          </div>
+        )}
 
         {/* hidden staff access — revealed only via the Konami code */}
         {staffUnlocked && (

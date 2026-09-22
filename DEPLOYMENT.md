@@ -53,10 +53,21 @@
 
 The repo is Vercel-ready: `vercel.json` sets the Vite build, the SPA fallback
 and long-lived caching for `/assets/*`; `.vercelignore` keeps `backend/` out of
-the upload. Vercel hosts **only the frontend** — deploy Django elsewhere
-(Render, Railway, Fly.io, a VPS) with PostgreSQL and persistent media storage.
+the upload.
 
-1. Import the repo in Vercel (framework preset: **Vite**, root: repo root).
+**Default: standalone demo.** `vercel.json` runs `npm run build:demo`, which
+loads `.env.demo` (`VITE_DEMO=true`). In that build `src/api/demo.ts` answers
+every `/api/...` call inside the browser — same routes, JSON shapes, seed data
+and business rules as the Django app — so the site works with no server. Data
+is kept in the visitor's localStorage; the "Reset demo data" link in the header
+reseeds it. The login page offers one-click demo accounts. Receipts and ID
+cards are simple browser-generated PDFs. Try it locally with `npm run dev:demo`.
+
+**Real backend.** Vercel hosts only the frontend, so deploy Django elsewhere
+(Render, Railway, Fly.io, a VPS) with PostgreSQL and persistent media storage:
+
+1. In `vercel.json`, change `buildCommand` back to `npm run build`, then import
+   the repo in Vercel (framework preset: **Vite**, root: repo root).
 2. Environment variable (Production + Preview):
    `VITE_API_URL=https://<your-backend-host>` — no trailing slash, no `/api`.
 3. On the backend set:
