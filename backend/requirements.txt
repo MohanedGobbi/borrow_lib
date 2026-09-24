@@ -1,6 +1,10 @@
-django>=5.0
-djangorestframework>=3.15
-djangorestframework-simplejwt>=5.3
-django-cors-headers>=4.3
-reportlab>=4.0
-qrcode[pil]>=7.4
+# Exact versions (tested together). Upgrade deliberately: bump, run the tests, commit.
+Django==6.1.1
+djangorestframework==3.18.1
+djangorestframework-simplejwt==5.5.1
+django-cors-headers==4.9.0
+reportlab==5.0.1
+qrcode[pil]==8.2
+pillow==12.3.0
+# Production WSGI server (Linux hosts; not needed for local development on Windows)
+gunicorn==26.2.0; sys_platform != "win32"

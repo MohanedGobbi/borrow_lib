@@ -4,22 +4,35 @@
 
 1. **Environment variables**
 
-   | Var | Purpose | Default (dev) |
+   Production is the default: with `DJANGO_DEBUG` unset, the server refuses to
+   start unless the three required variables are set. `manage.py` defaults to
+   debug mode for local development, so export `DJANGO_DEBUG=0` (plus the real
+   settings) when running management commands or cron jobs on the server.
+
+   | Var | Purpose | Default |
    |---|---|---|
-   | `DJANGO_SECRET_KEY` | crypto key — **must set in prod** | insecure dev key |
-   | `DJANGO_DEBUG` | `0` in production | `1` |
-   | `DJANGO_ALLOWED_HOSTS` | comma-separated hosts | `*` |
+   | `DJANGO_SECRET_KEY` | random value, 50+ characters | **required in production** |
+   | `DJANGO_ALLOWED_HOSTS` | comma-separated API host names (no `*`) | **required in production** |
+   | `STAFF_INVITE_CODE` | staff self-registration gate | **required in production** (`LIB-STAFF-2024` in debug) |
+   | `DJANGO_DEBUG` | `1` for local development only | `0` (`1` via `manage.py`) |
    | `DB_ENGINE` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` | point at PostgreSQL | SQLite file |
-   | `CORS_ALLOWED_ORIGINS` | your frontend origin(s) | localhost |
+   | `CORS_ALLOWED_ORIGINS` | frontend origin(s) | `http://localhost:3000` in debug, none in production |
+   | `CSRF_TRUSTED_ORIGINS` | origins allowed to post to the Django admin | none |
    | `FRONTEND_URL` | base URL embedded in ID-card QR codes | `http://localhost:3000` |
-   | `STAFF_INVITE_CODE` | staff self-registration gate | `LIB-STAFF-2024` |
-   | `LIBRARY_NAME` | printed on ID cards | City Central Library |
+   | `LIBRARY_NAME` | printed on ID cards | University Library |
+   | `DJANGO_SSL_REDIRECT` | redirect HTTP → HTTPS | `1` |
+   | `DJANGO_HSTS_SECONDS` | HSTS max-age; raise to `31536000` once HTTPS is confirmed | `3600` |
+
+   Generate a secret key with
+   `python -c "import secrets; print(secrets.token_urlsafe(64))"`.
 
 2. **Install & migrate**
 
    ```bash
-   pip install -r backend/requirements.txt gunicorn
+   pip install -r backend/requirements.txt   # pinned versions, includes gunicorn on Linux
+   export DJANGO_DEBUG=0   # plus the variables above
    python backend/manage.py migrate
+   python backend/manage.py collectstatic --noinput   # admin site assets
    python backend/manage.py createsuperuser   # then set role=ADMIN in /admin if desired
    ```
 
@@ -29,6 +42,7 @@
 4. **Schedule the background jobs** (idempotent, so overlap is safe):
 
    ```cron
+   # the crontab needs the same environment variables (DJANGO_DEBUG=0 etc.)
    7 * * * *  /path/to/.venv/bin/python /path/to/backend/manage.py cancel_expired_pickups
    11 0 * * * /path/to/.venv/bin/python /path/to/backend/manage.py mark_overdue
    ```
@@ -83,6 +97,13 @@ add these rewrites to the *top* of the `rewrites` array in `vercel.json`:
 { "source": "/api/:path*", "destination": "https://<your-backend-host>/api/:path*" },
 { "source": "/media/:path*", "destination": "https://<your-backend-host>/media/:path*" }
 ```
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on pull requests:
+frontend lint and both builds (real backend and Vercel demo), Django system check,
+a missing-migrations check, the test suite, and `check --deploy` with production
+settings.
 
 ## Smoke test after deploy
 

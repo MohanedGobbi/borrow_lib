@@ -18,7 +18,7 @@ def make_user(email, role=Role.MEMBER, limit=5):
 
 def make_book(copies=2):
     isbn = f"978-{Book.objects.count():010d}"[:20]
-    category, _ = Category.objects.get_or_create(name="Fiction", defaults={"color": "#C55221"})
+    category, _ = Category.objects.get_or_create(name="Fiction", defaults={"color": "#1F6E43"})
     return Book.objects.create(title=f"Book {Book.objects.count()}", author="A", isbn=isbn,
                                category=category, total_copies=copies, available_copies=copies)
 
@@ -215,3 +215,70 @@ class PermissionTests(TestCase):
         self.assertEqual(r.status, Status.RETURNED)
         self.book.refresh_from_db()
         self.assertEqual(self.book.available_copies, 2)
+
+
+class BookCopiesTests(TestCase):
+    """GET /api/books/<id>/copies: one row per physical copy, names only for staff."""
+
+    def setUp(self):
+        self.member = make_user("m@x.com")
+        self.other = make_user("o@x.com")
+        self.staff = make_user("s@x.com", Role.STAFF)
+        self.book = make_book(copies=3)
+        self.client = APIClient()
+        # copy 1 on loan to member, copy 2 held for other, copy 3 on the shelf
+        loan = services.create_request(self.member, self.book)
+        services.approve(self.staff, loan)
+        services.confirm_pickup(self.staff, loan)
+        held = services.create_request(self.other, self.book)
+        services.approve(self.staff, held)
+
+    def get(self, user=None):
+        self.client.force_authenticate(user)
+        return self.client.get(f"/api/books/{self.book.id}/copies")
+
+    def test_every_copy_is_accounted_for(self):
+        res = self.get()
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual([c["state"] for c in res.data], ["BORROWED", "HELD", "ON_SHELF"])
+        self.assertEqual([c["copy"] for c in res.data], [1, 2, 3])
+        self.assertIsNotNone(res.data[0]["dueDate"])
+
+    def test_borrower_names_hidden_from_public_and_members(self):
+        for user in (None, self.member):
+            for copy in self.get(user).data:
+                self.assertNotIn("userName", copy)
+
+    def test_staff_see_who_has_each_copy(self):
+        data = self.get(self.staff).data
+        self.assertEqual(data[0]["userName"], "m@x.com")
+        self.assertEqual(data[1]["userName"], "o@x.com")
+        self.assertNotIn("userName", data[2])
+
+    def test_overdue_copy_is_reported(self):
+        BorrowRecord.objects.filter(book=self.book, status=Status.BORROWED).update(
+            due_date=timezone.now() - timedelta(days=1))
+        services.run_nightly_overdue()
+        self.assertEqual(self.get().data[0]["state"], "OVERDUE")
+
+
+class PdfTests(TestCase):
+    def test_id_card_and_receipt_render(self):
+        from .documents import request_document_response
+        from .idcard import build_id_card_pdf
+        member, staff, book = make_user("m@x.com"), make_user("s@x.com", Role.STAFF), make_book()
+        record = services.create_request(member, book)
+        services.approve(staff, record)
+        self.assertTrue(build_id_card_pdf(member).startswith(b"%PDF"))
+        self.assertTrue(request_document_response(record).content.startswith(b"%PDF"))
+
+
+class RegistrationTests(TestCase):
+    def test_weak_passwords_rejected(self):
+        client = APIClient()
+        base = {"name": "Nadia Salem", "email": "nadia@x.com", "studentId": "STU-1"}
+        for weak in ("password", "12345678", "nadia@x.com"):
+            res = client.post("/api/auth/register", {**base, "password": weak}, format="json")
+            self.assertEqual(res.status_code, 400, weak)
+        res = client.post("/api/auth/register", {**base, "password": "shelf-mark-FIC-7"}, format="json")
+        self.assertEqual(res.status_code, 201)

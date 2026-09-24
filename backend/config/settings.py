@@ -2,11 +2,43 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-key-change-me")
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
+
+def env_list(name: str, default: str = "") -> list[str]:
+    return [v.strip() for v in os.environ.get(name, default).split(",") if v.strip()]
+
+
+# Production is the default. Debug mode must be switched on explicitly
+# (manage.py does this for local development; gunicorn/WSGI does not).
+DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
+STAFF_INVITE_CODE = os.environ.get("STAFF_INVITE_CODE", "")
+
+if DEBUG:
+    SECRET_KEY = SECRET_KEY or "dev-only-insecure-key-change-me"
+    ALLOWED_HOSTS = ALLOWED_HOSTS or ["*"]
+    STAFF_INVITE_CODE = STAFF_INVITE_CODE or "LIB-STAFF-2024"
+else:
+    # Refuse to start with settings that would be unsafe on a public server.
+    missing = [name for name, value in [
+        ("DJANGO_SECRET_KEY", SECRET_KEY),
+        ("DJANGO_ALLOWED_HOSTS", ALLOWED_HOSTS),
+        ("STAFF_INVITE_CODE", STAFF_INVITE_CODE),
+    ] if not value]
+    if missing:
+        raise ImproperlyConfigured(
+            f"Missing production settings: {', '.join(missing)}. "
+            "Set them in the environment, or set DJANGO_DEBUG=1 for local development."
+        )
+    if len(SECRET_KEY) < 50 or SECRET_KEY.startswith("dev-only"):
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY must be a random value of at least 50 characters.")
+    if "*" in ALLOWED_HOSTS:
+        raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must list real host names, not '*'.")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -64,7 +96,10 @@ DATABASES = {
 }
 
 AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 LANGUAGE_CODE = "en-us"
@@ -73,6 +108,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"  # collectstatic target for the admin site
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -89,18 +125,34 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
-CORS_ALLOWED_ORIGINS = os.environ.get(
-    "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:7100"
-).split(",")
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:3000" if DEBUG else "")
 # Optional comma-separated regexes, e.g. ^https://libborrow-.*\.vercel\.app$ for Vercel previews.
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r for r in os.environ.get("CORS_ALLOWED_ORIGIN_REGEXES", "").split(",") if r
-]
+CORS_ALLOWED_ORIGIN_REGEXES = env_list("CORS_ALLOWED_ORIGIN_REGEXES")
 
 # Frontend base URL used inside QR codes on ID cards.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
-# Invite code required to register a staff account (self-service staff signup).
-STAFF_INVITE_CODE = os.environ.get("STAFF_INVITE_CODE", "LIB-STAFF-2024")
+# STAFF_INVITE_CODE (required in production) is read at the top of this file.
 
-LIBRARY_NAME = os.environ.get("LIBRARY_NAME", "City Central Library")
+LIBRARY_NAME = os.environ.get("LIBRARY_NAME", "University Library")
+
+# ---------------------------------------------------------------- production hardening
+if not DEBUG:
+    # Behind a TLS-terminating proxy (nginx, Render, Railway…) that sets X-Forwarded-Proto.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = os.environ.get("DJANGO_SSL_REDIRECT", "1") == "1"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "3600"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    X_FRAME_OPTIONS = "DENY"
+    CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": os.environ.get("DJANGO_LOG_LEVEL", "INFO")},
+}

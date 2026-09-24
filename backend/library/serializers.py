@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from .models import ActivityLog, Book, BorrowRecord, Category, Notification, Reservation, UserProfile
@@ -132,6 +133,13 @@ class RegisterSerializer(serializers.Serializer):
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("An account with this email already exists.")
+        return value
+
+    def validate_password(self, value):
+        # Django's validators: minimum length, common passwords, all-numeric, similarity.
+        validate_password(value, User(username=self.initial_data.get("email", ""),
+                                      email=self.initial_data.get("email", ""),
+                                      first_name=self.initial_data.get("name", "")))
         return value
 
     def validate_studentId(self, value):

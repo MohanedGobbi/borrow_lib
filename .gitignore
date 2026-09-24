@@ -14,3 +14,14 @@ backend/db.sqlite3
 
 # vercel
 .vercel
+
+# django collectstatic output
+backend/staticfiles/
+
+# design-tool working files (keep the design sidecar and surface briefs)
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/build/
+.impeccable/*.json
+!.impeccable/design.json
+.impeccable/brief-body.md
