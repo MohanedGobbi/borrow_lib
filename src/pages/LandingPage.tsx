@@ -1,118 +1,124 @@
-import { Link } from "react-router";
-import { ArrowRight, BookOpenCheck, Clock3, QrCode, ShieldCheck } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router";
+import { ArrowRight, Search } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { useApi } from "@/hooks/useApi";
 import { apiBooks } from "@/api";
 import { BookCover } from "@/components/BookCover";
+import { Button } from "@/components/ui/button";
 
 export default function LandingPage() {
   const { me } = useAuth();
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const [query, setQuery] = useState("");
   const { data: books } = useApi(() => apiBooks.list(), []);
-  const marquee = (books ?? []).slice(0, 10);
+  const onShelf = (books ?? []).filter((b) => b.availableCopies > 0).slice(0, 6);
 
-  const STEPS = [
-    { icon: BookOpenCheck, k: "01 · REQUEST", title: "Find it. Request it.", body: "Search the catalog and file a borrow request in one click — or fill your cart and request several books at once." },
-    { icon: Clock3, k: "02 · 48-HOUR WINDOW", title: "Approved? Come pick it up.", body: "Approval starts a strict 48-hour pickup window. Miss it and the book automatically goes to the next reader in the queue." },
-    { icon: ShieldCheck, k: "03 · 14-DAY LOAN", title: "Your loan starts at the desk.", body: "The clock never runs while a book waits on the hold shelf — your 14 days start the moment staff confirm pickup." },
-    { icon: QrCode, k: "04 · DIGITAL ID", title: "One card, always with you.", body: "Your member card lives on your phone: PDF download, QR scan-in at the desk, live loan status for staff." },
-  ];
+  const search = (e: FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    navigate(q ? `/catalog?q=${encodeURIComponent(q)}` : "/catalog");
+  };
+
+  const steps = [1, 2, 3, 4].map((n) => ({ n, title: t(`step${n}.title`), body: t(`step${n}.body`) }));
 
   return (
-    <div className="space-y-0">
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-ink text-white">
-        <div className="pointer-events-none absolute -right-24 -top-24 size-[26rem] rounded-full bg-burnt/70 blur-2xl animate-[heroFloat_9s_ease-in-out_infinite]" />
-        <div className="pointer-events-none absolute -bottom-32 -left-20 size-[22rem] rounded-full bg-brand/50 blur-2xl animate-[heroFloat_11s_ease-in-out_infinite_reverse]" />
-        <div className="relative mx-auto max-w-[1440px] px-6 py-20 md:py-32 lg:px-10">
-          <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-brand animate-[fadeUp_0.7s_ease-out_both]">
-            {t("landing.kicker")}
-          </p>
-          <h1 className="mt-4 max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight md:text-7xl animate-[fadeUp_0.7s_ease-out_0.15s_both]">
-            {t("landing.title1")}<br />
-            <span className="text-brand">{t("landing.title2")}</span>
-          </h1>
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-white/80 animate-[fadeUp_0.7s_ease-out_0.3s_both]">
-            {t("landing.sub")}
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3 animate-[fadeUp_0.7s_ease-out_0.45s_both]">
-            {me ? (
-              <Link to="/catalog" className="inline-flex items-center gap-2.5 rounded-sm bg-brand px-7 py-3.5 text-base font-bold text-ink transition-transform hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-white">
-                {t("landing.cta.catalog")} <ArrowRight className="size-5 rtl:rotate-180" />
+    <>
+      <section className="border-b bg-surface">
+        <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-16 lg:py-20">
+          <div className="max-w-2xl self-center">
+            <h1 className="text-[2rem] font-bold leading-[1.15] tracking-tight text-ink sm:text-[2.6rem]">
+              {t("landing.title")}
+            </h1>
+            <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-muted-foreground">{t("landing.sub")}</p>
+
+            <form onSubmit={search} role="search" className="mt-8">
+              <label htmlFor="hero-search" className="text-sm font-medium text-ink">{t("landing.searchLabel")}</label>
+              <div className="mt-2 flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute start-3.5 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                  <input
+                    id="hero-search"
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={t("landing.searchPlaceholder")}
+                    className="h-12 w-full rounded-md border border-input bg-white ps-11 pe-3 text-base shadow-[0_1px_2px_rgb(16_24_20/0.05)] placeholder:text-muted-foreground/80 focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/20"
+                  />
+                </div>
+                <Button type="submit" size="lg" className="h-12">{t("landing.search")}</Button>
+              </div>
+            </form>
+
+            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[15px]">
+              <Link to="/catalog" className="inline-flex items-center gap-1.5 font-medium text-brand-dark hover:underline">
+                {t("landing.browseAll")} <ArrowRight className="size-4 rtl:rotate-180" aria-hidden />
               </Link>
-            ) : (
-              <>
-                <Link to="/signup" className="inline-flex items-center gap-2.5 rounded-sm bg-brand px-7 py-3.5 text-base font-bold text-ink transition-transform hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-white">
-                  {t("landing.cta.member")} <ArrowRight className="size-5 rtl:rotate-180" />
+              {!me && (
+                <Link to="/signup" className="font-medium text-ink/80 hover:text-ink hover:underline">
+                  {t("landing.createAccount")}
                 </Link>
-                <Link to="/login" className="inline-flex items-center rounded-sm border border-white/40 px-7 py-3.5 text-base font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white">
-                  {t("landing.cta.signin")}
-                </Link>
-              </>
-            )}
-          </div>
-
-          <div className="mt-14 grid max-w-2xl grid-cols-3 gap-px overflow-hidden rounded-sm bg-white/15 animate-[fadeUp_0.7s_ease-out_0.6s_both]">
-            {[["18+", "titles in the catalog"], ["48h", "pickup window, enforced"], ["14d", "loan period from pickup"]].map(([v, l]) => (
-              <div key={l} className="bg-ink/80 px-4 py-4">
-                <p className="text-2xl font-bold text-brand tabular-nums">{v}</p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-white/60">{l}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* BOOK MARQUEE */}
-      <section className="overflow-hidden border-y-2 border-ink bg-burnt py-6">
-        <div className="flex w-max gap-4 animate-[marquee_38s_linear_infinite]">
-          {[...marquee, ...marquee].map((b, i) => (
-            <div key={`${b.id}-${i}`} className="w-28 shrink-0 transition-transform hover:-translate-y-1">
-              <BookCover book={b} />
+              )}
             </div>
-          ))}
+          </div>
+
+          <aside className="rounded-md border bg-white p-6 shadow-[0_1px_3px_rgb(16_24_20/0.06)]" aria-labelledby="how-title">
+            <h2 id="how-title" className="text-base font-semibold text-ink">{t("landing.how")}</h2>
+            <ol className="mt-5 space-y-5">
+              {steps.map((s) => (
+                <li key={s.n} className="grid grid-cols-[2rem_1fr] gap-3">
+                  <span className="tabular flex size-8 items-center justify-center rounded-full border border-brand/30 bg-brand-soft text-sm font-semibold text-brand-dark">
+                    {s.n}
+                  </span>
+                  <span>
+                    <span className="block text-[15px] font-semibold text-ink">{s.title}</span>
+                    <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">{s.body}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </aside>
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <section className="bg-cream px-6 py-20 lg:px-10">
-        <div className="mx-auto max-w-[1440px]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-burnt">{t("landing.how")}</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">{t("landing.howTitle")}</h2>
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {STEPS.map((s, i) => (
-              <div
-                key={s.k}
-                className="group rounded-md border border-border bg-white p-5 transition-all hover:-translate-y-1 hover:border-burnt hover:shadow-[6px_6px_0_#C55221]"
-                style={{ animation: `fadeUp 0.6s ease-out ${0.1 * i}s both` }}
-              >
-                <s.icon className="size-7 text-burnt transition-transform group-hover:scale-110" />
-                <p className="mt-4 font-mono text-[10px] font-semibold uppercase tracking-[0.25em] text-brand-dark">{s.k}</p>
-                <h3 className="mt-1 text-lg font-bold leading-snug">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
-              </div>
+      {onShelf.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 className="text-xl font-semibold tracking-tight">{t("landing.available")}</h2>
+            <Link to="/catalog?available=1" className="inline-flex items-center gap-1.5 text-[15px] font-medium text-brand-dark hover:underline">
+              {t("landing.viewCatalog")} <ArrowRight className="size-4 rtl:rotate-180" aria-hidden />
+            </Link>
+          </div>
+          <ul className="mt-6 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
+            {onShelf.map((b) => (
+              <li key={b.id}>
+                <Link to={`/books/${b.id}`} className="group block rounded-md">
+                  <BookCover book={b} size="lg" className="transition-shadow group-hover:shadow-[0_6px_16px_rgb(16_24_20/0.18)]" />
+                  <span className="mt-3 block text-[15px] font-semibold leading-snug text-ink group-hover:text-brand-dark group-hover:underline line-clamp-2">
+                    {b.title}
+                  </span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground line-clamp-1">{b.author}</span>
+                </Link>
+              </li>
             ))}
-          </div>
-        </div>
-      </section>
+          </ul>
+        </section>
+      )}
 
-      {/* STAFF BAND */}
-      <section className="bg-cream-deep px-6 py-16 lg:px-10">
-        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-6">
-          <div className="max-w-xl">
-            <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-burnt">{t("landing.staffKicker")}</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight">{t("landing.staffTitle")}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{t("landing.staffSub")}</p>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              psst — staff entrance is hidden. try the Konami code on the sign-in page: ↑ ↑ ↓ ↓ ← → ← → B A
-            </p>
+      <section className="border-t">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-4 py-12 sm:px-6">
+          <div className="max-w-2xl">
+            <h2 className="text-lg font-semibold">{t("landing.staffTitle")}</h2>
+            <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">{t("landing.staffBody")}</p>
           </div>
-          <Link to="/login" className="inline-flex items-center gap-2.5 rounded-sm bg-burnt px-7 py-3.5 text-base font-bold text-white transition-transform hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-brand">
-            {t("landing.cta.signin")} <ArrowRight className="size-5 rtl:rotate-180" />
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline"><Link to="/login">{t("landing.staffSignin")}</Link></Button>
+            <Button asChild variant="ghost"><Link to="/signup?role=staff">{t("landing.staffRegister")}</Link></Button>
+          </div>
         </div>
       </section>
-    </div>
+    </>
   );
 }

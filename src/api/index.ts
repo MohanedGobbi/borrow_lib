@@ -4,6 +4,7 @@ import type {
   Analytics,
   AppNotification,
   Book,
+  BookCopy,
   BorrowRecord,
   Category,
   DashboardStats,
@@ -21,6 +22,8 @@ export const apiBooks = {
     return api<Book[]>(`/books${q.size ? `?${q}` : ""}`, { auth: false });
   },
   get: (id: number | string) => api<Book>(`/books/${id}`, { auth: false }),
+  /** Where each copy is. Borrower names are included only for staff. */
+  copies: (id: number | string) => api<BookCopy[]>(`/books/${id}/copies`),
   create: (payload: Partial<Book> & { categoryId?: number }) =>
     api<Book>("/books", { method: "POST", body: payload }),
   update: (id: number, payload: Partial<Book> & { categoryId?: number }) =>

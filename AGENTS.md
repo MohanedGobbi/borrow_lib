@@ -1,194 +1,84 @@
 # LibBorrow — Agent Guide
 
-This file is written for AI coding agents that need to work on the LibBorrow project. It assumes you know nothing about the codebase.
+This file is for AI coding agents working on LibBorrow. It assumes you know nothing about the codebase.
 
 ## Project overview
 
-LibBorrow is a **frontend demo** of a physical-library borrowing platform. Members browse the catalog and request books; staff review pending requests, confirm pickups and returns, manage inventory, and monitor loans from a staff dashboard. All data lives in an in-memory mock backend that resets on every page reload.
+LibBorrow is the borrowing system of a university library. Students browse the catalog and request books; library staff approve requests, confirm pickups and returns, manage inventory, and monitor loans from the staff desk. The UI is trilingual (French, Arabic with RTL, English).
 
-The project is a single-page React application built with Vite, TypeScript, Tailwind CSS, and shadcn/ui components. The full-stack specification calls for a Django/DRF backend, but this deliverable intentionally implements that backend as an in-browser store so the UX can be demonstrated without a running server.
+It is a full-stack app:
 
-Key business rules:
+- **Backend:** Django + Django REST Framework + SimpleJWT in `backend/` (SQLite in dev, PostgreSQL-ready). ReportLab generates receipt and library-card PDFs.
+- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS 3 + shadcn/ui in `src/`.
+- **Demo mode:** `npm run dev:demo` / `npm run build:demo` (Vite mode `demo`, `.env.demo` sets `VITE_DEMO=true`) swaps every API call for an in-browser port of the Django API in `src/api/demo.ts`, so the site runs with no server. The Vercel deployment uses this build.
 
-- A loan starts at **pickup**, not approval. `availableCopies` only changes at pickup (−1) and return (+1).
-- Approved requests enter a `READY` state with a **48-hour pickup window**. If the member does not pick up the book in time, the request is auto-cancelled and the slot is handed to the next reservation in the FIFO queue with a fresh 48-hour window.
-- Active loans run **14 days from pickup**. Past-due loans are flagged `OVERDUE` and block the member from creating new requests until the loan is returned.
+Key business rules (enforced in `backend/library/services.py` and mirrored in `src/api/demo.ts`):
 
-State machine:
+- A loan starts at **pickup**, not approval. `availableCopies` changes only at pickup (−1) and return (+1).
+- Approved requests are `READY` for **48 hours**. A missed pickup auto-cancels and the copy goes to the next student in the FIFO reservation queue with a fresh 48-hour window.
+- Loans run **14 days from pickup**. An `OVERDUE` loan blocks the student from new requests until it is returned.
 
 ```
 PENDING --(staff approves)--> READY --(staff confirms pickup)--> BORROWED --(staff confirms return)--> RETURNED
 PENDING --(staff rejects)--> REJECTED
-READY --(48h deadline passes)--> CANCELLED --(queue non-empty)--> new READY for next member
+READY --(48h deadline passes)--> CANCELLED --(queue non-empty)--> new READY for next student
 BORROWED --(past due date)--> OVERDUE
 ```
 
-## Technology stack
+## Commands
 
-- **Framework:** React 19 (function components, hooks, `StrictMode`)
-- **Language:** TypeScript 5.9 (strict mode enabled)
-- **Build tool:** Vite 7 with the React plugin
-- **Router:** `react-router` v7 (BrowserRouter)
-- **Styling:** Tailwind CSS 3.4 + PostCSS + Autoprefixer
-- **Component library:** shadcn/ui ("new-york" style, CSS variables, non-RSC, Lucide icons)
-- **Forms:** `react-hook-form` + `@hookform/resolvers` + Zod
-- **Notifications:** `sonner` toast library
-- **QR codes:** `qrcode.react`
-- **Charts:** `recharts`
-- **Fonts:** Chakra Petch (display / body), JetBrains Mono (labels / mono) loaded from Google Fonts
-- **Linting:** ESLint 9 flat config with `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, and `eslint-plugin-react-refresh`
-- **Dev plugin:** `kimi-plugin-inspect-react` is registered in `vite.config.ts` for inspection
+```bash
+npm install
+npm run dev          # frontend on :3000, proxies /api and /media to Django on :8000
+npm run dev:demo     # frontend only, in-browser demo API
+npm run build        # tsc -b && vite build (real backend)
+npm run build:demo   # static demo build (used by vercel.json)
+npm run lint
+```
+
+Backend: see `README.md` (venv, `migrate`, `seed_demo`, `runserver 8000`, `python manage.py test library`).
 
 ## Project structure
 
 ```
-.
-├── design/
-│   └── DESIGN.md                 # Archived source spec for the "Impeccable" design system
-├── dist/                         # Vite production build output
-├── index.html                    # HTML entry point; loads Google Fonts
-├── package.json
-├── vite.config.ts
-├── tailwind.config.js            # Theme tokens, custom colors, fonts, radii, keyframes
-├── postcss.config.js
-├── eslint.config.js
-├── tsconfig.json                 # Project references to tsconfig.app.json and tsconfig.node.json
-├── tsconfig.app.json             # Strict browser TS config
-├── tsconfig.node.json            # Strict Node TS config for Vite config
-├── components.json               # shadcn/ui configuration
-└── src/
-    ├── main.tsx                  # React root render + BrowserRouter
-    ├── App.tsx                   # Route definitions and Toaster
-    ├── index.css                 # Tailwind directives + CSS variables
-    ├── lib/utils.ts              # `cn()` Tailwind/clsx helper
-    ├── types/
-    │   └── index.ts              # Domain models: Book, User, BorrowRecord, Reservation, etc.
-    ├── mock/
-    │   ├── seed.ts               # Seed books, users, records, reservations, activity, notifications
-    │   └── store.ts              # In-memory backend: state machine, selectors, jobs, auth
-    ├── hooks/
-    │   ├── useLibrary.ts         # `useSyncExternalStore` subscription to the mock store
-    │   └── use-mobile.ts         # shadcn/ui mobile breakpoint hook
-    ├── components/
-    │   ├── Layout.tsx            # Masthead, nav, notifications, demo account switcher
-    │   ├── Section.tsx           # Editorial section wrapper used on marketing-style pages
-    │   ├── StatusBadge.tsx       # Borrow status badge component
-    │   ├── Countdown.tsx         # Live countdown / time-ago helpers
-    │   ├── BookCover.tsx         # Generated color-block book cover
-    │   └── ui/                   # shadcn/ui components (40+ components)
-    └── pages/
-        ├── CatalogPage.tsx       # Browse/search catalog, request/reserve books
-        ├── BookDetailPage.tsx    # Individual book page
-        ├── MyRequestsPage.tsx    # Member request history and live countdowns
-        ├── ProfilePage.tsx       # Member profile + digital ID card with QR code
-        ├── DashboardPage.tsx     # Staff dashboard with all operations
-        └── ScanLookupPage.tsx    # Staff scan-in lookup for a member
+backend/library/        models, services (state machine), views, serializers, PDFs, tests, management commands
+src/api/client.ts       fetch wrapper, JWT tokens, API_ROOT (VITE_API_URL), DEMO flag, demo accounts
+src/api/index.ts        typed endpoint functions
+src/api/demo.ts         in-browser API used by demo builds (seed data persisted in localStorage)
+src/i18n/index.tsx      EN / FR / AR dictionaries, t(key, vars), RTL switching
+src/components/Layout.tsx   header, user menu, demo notice, footer, Container
+src/components/Page.tsx     PageHeader, Panel, EmptyState, ErrorState
+src/components/             BookCover, BookActions (+ Availability), StatusBadge, MemberStanding, Countdown, dialogs
+src/lib/time.ts         localized dates, relative times, countdown formatting
+src/lib/table.ts        shared table classes for staff lists
+src/pages/              landing, auth, catalog, book, request list, my loans, profile, scan lookup
+src/pages/staff/        staff desk: StaffLayout (sidebar + counts) and one page per function
+src/components/ui/      shadcn/ui (generated; excluded from lint)
 ```
 
-## Build and development commands
+## Code style
 
-Commands are defined in `package.json`:
-
-```bash
-# Install dependencies
-npm install
-
-# Start the dev server on port 3000
-npm run dev
-
-# Type-check and build for production (output in dist/)
-npm run build
-
-# Preview the production build locally
-npm run preview
-
-# Run ESLint
-npm run lint
-```
-
-Vite config notes:
-
-- `base: './'` is set so the build can be opened from the filesystem or a sub-path.
-- The `@` alias resolves to `./src`.
-- Dev server port defaults to `3000`.
-
-## Code style guidelines
-
-- **Formatting:** Use double quotes for strings, semicolons, and 2-space indentation as already used throughout the project.
-- **Imports:** Use the `@/` path alias for `src` imports (e.g. `import { useLibrary } from "@/hooks/useLibrary"`).
-- **Components:** React function components, default exports for pages, named exports for reusable components and hooks.
-- **Class merging:** Use `cn(...)` from `@/lib/utils` when combining Tailwind classes, especially for conditional classes.
-- **shadcn/ui components:** Live in `src/components/ui/` and should be treated as generated code. Import them with `@/components/ui/<name>`.
-- **Tailwind tokens:** Prefer the project-specific tokens (`bg-cream`, `text-ink`, `bg-burnt`, `text-brand`, `font-mono`) over raw values. CSS variables for shadcn/ui components are defined in `src/index.css` and referenced in `tailwind.config.js`.
-- **TypeScript:** Strict mode is enabled. Avoid unused locals/parameters. Prefer `type` imports where appropriate.
-- **Dates:** Business logic stores timestamps as millisecond numbers (`number`). UI code formats them with `toLocaleDateString()` and the `timeAgo` helper in `Countdown.tsx`.
-
-## Testing instructions
-
-The project currently has **no automated test suite**. Verify changes by:
-
-1. Running `npm run lint` and `npm run build` to catch TypeScript and ESLint errors.
-2. Running `npm run dev` and exercising the relevant user flows in the browser.
-3. Using the account switcher in the header to toggle between roles:
-   - **Admin:** `Eleanor Vance` — full access.
-   - **Staff:** `Marcus Holloway`, `Greta Weiss` — can use the dashboard and scan pages.
-   - **Member:** `Priya Sharma`, `Daniel Okafor` (overdue), `Sofia Lindqvist`, `Tomás Rivera`, `Hana Yoshida` — member catalog/request/profile views.
-
-Important demo flows to sanity-check:
-
-- Members can request a book with available copies or join the reservation queue for a zero-stock book.
-- Staff can approve/reject `PENDING` requests, confirm pickup, confirm return, and edit/delete books from the dashboard.
-- Confirming a pickup decrements `availableCopies`; confirming a return increments it.
-- An overdue member cannot request new books until the overdue loan is returned.
-- The reservation queue promotes the next member when a `READY` record expires or a copy is returned.
-
-## Mock backend architecture
-
-`src/mock/store.ts` is the single source of truth. It exports:
-
-- `ApiError` — thrown for 400/403/404/409-style failures.
-- `subscribe(listener)` / `getVersionTick()` — React `useSyncExternalStore` integration.
-- `currentUser()` / `loginAs(userId)` — demo auth.
-- Borrow lifecycle: `createBorrowRequest`, `approveRequest`, `rejectRequest`, `confirmPickup`, `confirmReturn`.
-- Reservations: `createReservation`, `queueForBook`.
-- Background jobs: `runHourlyJob()`, `runNightlyJob()` (run on load and every 60 seconds in the browser).
-- Book admin: `addBook`, `updateBook`, `deleteBook`.
-- Selectors: `dashboardStats`, `myRecords`, `markNotificationsRead`.
-
-Every mutating action writes to the activity log and emits a store update so components re-render.
-
-## Security considerations
-
-- This is a demo application. There is **no real authentication, authorization server, or data persistence**.
-- The account switcher is purely for UX demonstration. Role checks in `store.ts` mirror what a real backend should enforce, but they are client-side only and trivially bypassable.
-- Do not commit real credentials, API keys, or backend connection strings.
-- No tests for XSS/CSRF because there is no server. If you add a real backend, implement proper JWT/session auth, input validation, and server-side authorization.
-
-## Deployment process
-
-No automated deployment is configured. To deploy manually:
-
-1. Run `npm run build` to produce static assets in `dist/`.
-2. Serve `dist/` with any static-file host (the build is configured with `base: './'` for flexible hosting).
+- Double quotes, semicolons, 2-space indentation. `@/` alias for `src` imports.
+- Pages are default exports; shared components and hooks are named exports. A `.tsx` file exports only components (react-refresh lint rule); put helpers in `src/lib/` or a `.ts` module.
+- All user-visible text goes through `t()` with keys in all three languages. Use logical properties (`ms-`, `pe-`, `start-`, `text-start`) so layouts mirror in Arabic; wrap Latin data (IDs, ISBNs, shelf marks, emails) in `dir="ltr"`.
+- Timestamps are ISO strings from the API; format them with `src/lib/time.ts`, never with raw `toLocale*` calls.
 
 ## Design system
 
-The project uses the **Impeccable** design system. Tokens are in `tailwind.config.js` and `src/index.css`.
+See `DESIGN.md` (the source of truth) and `PRODUCT.md` (product context). In short: white pages, one deep university green (`brand`, `#0E6B3C`) for primary actions and selection, red (`danger`, `#B42318`) only for overdue, rejection and destructive actions, neutral surfaces (`surface`), Public Sans + Noto Sans Arabic, 1px hairline borders, 6px radius, Lucide icons. Status is never shown by color alone (badges carry icons). `design/DESIGN.md` is the archived spec of the retired orange/cream design; do not follow it.
 
-Key tokens:
+## Verifying changes
 
-- Cream: `#FAF3E3` (`bg-cream`, `bg-cream-deep`)
-- Burnt orange: `#C55221` (`bg-burnt`, `text-burnt`)
-- Brand amber: `#CC8800` (`bg-brand`, `text-brand`)
-- Ink: `#111827` (`text-ink`)
-- Success / warning / danger map to green / amber / red
-- Border radius scale uses `var(--radius)` (base 0.5rem)
-- Typography: Chakra Petch sans, JetBrains Mono mono
+1. `npm run lint` and `npm run build` must pass.
+2. Exercise flows with `npm run dev:demo` and the one-click demo accounts on the sign-in page: Priya Sharma (student), Daniel Okafor (student with an overdue loan), Marcus Holloway (staff), Eleanor Vance (admin). Password for every demo account: `password123`.
+3. Check at 390px and 1440px, and in Arabic.
 
-The archived source is `design/DESIGN.md`.
+Flows to sanity-check: request a book / join a waiting list; approve → confirm pickup (stock −1) → confirm return (stock +1); overdue student cannot request; staff edit and delete books.
 
-## Useful references
+## Security
 
-- `README.md` — user-facing overview and quick-start.
-- `DECISIONS.md` — intentional deviations from the full-stack spec and gap-fills.
-- `design/DESIGN.md` — archived design-system specification.
+Role checks live in the Django views and `permissions.py`; the frontend guards are UX only. The demo build has no real authentication. Never commit real secrets. Staff self-registration is gated by `STAFF_INVITE_CODE`.
+
+## Deployment
+
+See `DEPLOYMENT.md` (Django env vars, cron jobs, Vercel demo vs. real-backend setup).

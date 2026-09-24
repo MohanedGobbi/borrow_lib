@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // shadcn/ui components are generated code; the backend is Python.
+  globalIgnores(['dist', 'src/components/ui', 'backend']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -19,5 +20,10 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+  },
+  {
+    // Context modules export a provider component together with its hook.
+    files: ['src/auth/AuthContext.tsx', 'src/cart/CartContext.tsx', 'src/i18n/index.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
 ])

@@ -1,27 +1,32 @@
+import { AlertTriangle, Ban, BookOpen, CheckCircle2, Clock, PackageCheck, XCircle, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 import type { BorrowStatus } from "@/types";
-import { STATUS_LABEL } from "@/types";
 
-const STYLES: Record<BorrowStatus, string> = {
-  PENDING: "bg-brand-soft text-brand-dark border-brand/40",
-  READY: "bg-warning/15 text-warning border-warning/40",
-  BORROWED: "bg-success/10 text-success border-success/40",
-  RETURNED: "bg-muted text-muted-foreground border-border",
-  REJECTED: "bg-ink/5 text-ink/60 border-ink/20",
-  CANCELLED: "bg-ink/5 text-ink/60 border-ink/20",
-  OVERDUE: "bg-danger/10 text-danger border-danger/40",
+// Every status carries an icon as well as a color, so it never depends on red/green alone.
+const STYLES: Record<BorrowStatus, { icon: LucideIcon; className: string }> = {
+  PENDING: { icon: Clock, className: "border-border bg-surface text-ink/80" },
+  READY: { icon: PackageCheck, className: "border-brand/40 bg-white text-brand-dark" },
+  BORROWED: { icon: BookOpen, className: "border-transparent bg-brand-soft text-brand-dark" },
+  RETURNED: { icon: CheckCircle2, className: "border-border bg-white text-muted-foreground" },
+  REJECTED: { icon: XCircle, className: "border-border bg-white text-muted-foreground" },
+  CANCELLED: { icon: Ban, className: "border-border bg-white text-muted-foreground" },
+  OVERDUE: { icon: AlertTriangle, className: "border-danger/30 bg-danger-soft text-danger" },
 };
 
 export function StatusBadge({ status, className }: { status: BorrowStatus; className?: string }) {
+  const { t } = useI18n();
+  const { icon: Icon, className: tone } = STYLES[status];
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-sm border px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider",
-        STYLES[status],
-        className
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        tone,
+        className,
       )}
     >
-      {STATUS_LABEL[status]}
+      <Icon className="size-3.5 shrink-0" aria-hidden />
+      {t(`status.${status}`)}
     </span>
   );
 }

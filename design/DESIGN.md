@@ -1,3 +1,5 @@
+> **RETIRED.** This is the archived spec of the former orange/cream "Impeccable editorial poster" world (Chakra Petch, burnt orange, amber). It no longer describes the product and must not be used for new work. It is superseded by the root [`DESIGN.md`](../DESIGN.md) (University Green / white / red, Public Sans), with its sidecar at `.impeccable/design.json`. The frontmatter below is kept for history only.
+
 ---
 name: Impeccable
 colors:

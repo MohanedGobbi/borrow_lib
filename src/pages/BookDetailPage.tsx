@@ -1,194 +1,182 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, Pencil, ShoppingCart, Check } from "lucide-react";
-import { toast } from "sonner";
+import { BookX, ChevronRight } from "lucide-react";
 import { apiBooks, apiRecords, apiReservations } from "@/api";
-import { ApiError } from "@/api/client";
 import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/auth/AuthContext";
-import { useCart } from "@/cart/CartContext";
 import { useI18n } from "@/i18n";
 import { BookCover } from "@/components/BookCover";
+import { Availability, BookActions } from "@/components/BookActions";
 import { BookEditDialog } from "@/components/BookEditDialog";
+import { BookCopies } from "@/components/BookCopies";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Container } from "@/components/Layout";
+import { EmptyState, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { FullPageLoader } from "@/auth/guards";
-import { fmtDate } from "@/components/Countdown";
+import { fmtDate } from "@/lib/time";
+import { tableCls } from "@/lib/table";
 
 export default function BookDetailPage() {
   const { me } = useAuth();
   const { t } = useI18n();
-  const cart = useCart();
   const { id } = useParams();
   const [editOpen, setEditOpen] = useState(false);
   const { data: book, loading, error, refetch } = useApi(() => apiBooks.get(id!), [id]);
   const isStaff = !!me && me.role !== "MEMBER";
-  const isMember = !!me && me.role === "MEMBER";
 
+  const { data: copies, refetch: refetchCopies } = useApi(() => apiBooks.copies(id!), [id, me?.id]);
   const { data: queue, refetch: refetchQueue } = useApi(
     () => (isStaff ? apiReservations.forBook(Number(id)) : Promise.resolve([])),
-    [id, me?.id]
+    [id, me?.id],
   );
   const { data: loans } = useApi(
     () => (isStaff ? apiRecords.list({ book: Number(id) }) : Promise.resolve([])),
-    [id, me?.id]
+    [id, me?.id],
   );
 
   if (loading) return <FullPageLoader />;
   if (error || !book) {
     return (
-      <div className="rounded-md border border-border bg-white p-8 text-center">
-        <p className="text-sm text-muted-foreground">{t("book.notFound")}</p>
-        <Button asChild variant="link" className="mt-2 text-burnt"><Link to="/catalog">{t("book.back")}</Link></Button>
-      </div>
+      <Container>
+        <EmptyState icon={BookX} title={t("book.notFound")}>
+          <Button asChild variant="outline" size="sm"><Link to="/catalog">{t("book.back")}</Link></Button>
+        </EmptyState>
+      </Container>
     );
   }
 
+  const active = (loans ?? []).filter((r) => ["BORROWED", "OVERDUE", "READY", "PENDING"].includes(r.status));
   const out = book.availableCopies <= 0;
-  const activeLoans = (loans ?? []).filter((r) =>
-    ["BORROWED", "OVERDUE", "READY", "PENDING"].includes(r.status)
-  );
+  const nextBack = (copies ?? [])
+    .filter((c) => c.state === "BORROWED" && c.dueDate)
+    .map((c) => c.dueDate!)
+    .sort()[0];
 
-  const act = async (fn: () => Promise<unknown>, ok: string) => {
-    try {
-      await fn();
-      toast.success(ok);
-      refetch();
-      refetchQueue();
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Action failed.");
-    }
-  };
-
-  const meta: [string, string][] = [
-    ["ISBN", book.isbn],
-    ["Category", book.category.name],
-    ["Publisher", book.publisher || "—"],
-    ["Year", book.year ? String(book.year) : "—"],
-    ["Shelf", book.shelfLocation || "—"],
-    ["Copies", `${book.availableCopies} / ${book.totalCopies}`],
+  const meta: [string, React.ReactNode][] = [
+    [t("field.isbn"), <span dir="ltr" className="font-mono text-[13px]">{book.isbn}</span>],
+    [t("field.shelf"), <span dir="ltr" className="font-mono text-[13px]">{book.shelfLocation || "—"}</span>],
+    [t("field.category"), book.category.name],
+    [t("field.publisher"), book.publisher || "—"],
+    [t("field.year"), book.year ?? "—"],
+    [t("field.copies"), <span className="tabular">{book.totalCopies}</span>],
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button asChild variant="ghost" size="sm" className="text-burnt">
-          <Link to="/catalog"><ArrowLeft className="mr-1 size-4 rtl:rotate-180" /> {t("book.back")}</Link>
-        </Button>
-        {isStaff && (
-          <Button size="sm" variant="outline" className="border-burnt text-burnt" onClick={() => setEditOpen(true)}>
-            <Pencil className="mr-1.5 size-3.5" /> {t("book.editBook")}
-          </Button>
-        )}
-      </div>
+    <Container>
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Link to="/catalog" className="hover:text-ink hover:underline">{t("book.back")}</Link>
+        <ChevronRight className="size-3.5 rtl:rotate-180" aria-hidden />
+        <Link to={`/catalog?category=${encodeURIComponent(book.category.name)}`} className="hover:text-ink hover:underline">
+          {book.category.name}
+        </Link>
+      </nav>
 
-      <div className="grid gap-6 md:grid-cols-[240px_1fr]">
-        <BookCover book={book} />
-        <div className="rounded-md border border-border bg-white p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: book.category.color }}>
-            {book.category.name}
-          </p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">{book.title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("book.by")} {book.author}</p>
-          {/* staff-written description */}
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed">{book.description}</p>
+      <div className="mt-6 grid gap-8 md:grid-cols-[12rem_minmax(0,1fr)] lg:grid-cols-[14rem_minmax(0,1fr)_20rem] lg:gap-10">
+        <div className="max-w-[14rem]">
+          <BookCover book={book} size="lg" />
+        </div>
 
-          <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+        <div className="min-w-0">
+          <h1 className="text-[1.75rem] font-bold leading-tight tracking-tight sm:text-3xl">{book.title}</h1>
+          <p className="mt-1.5 text-[17px] text-muted-foreground">{t("book.by")} <span className="text-ink">{book.author}</span></p>
+
+          {book.description && (
+            <p className="mt-6 max-w-[65ch] text-[15px] leading-relaxed text-ink/90">{book.description}</p>
+          )}
+
+          <h2 className="mt-8 text-sm font-semibold text-ink">{t("book.details")}</h2>
+          <dl className="mt-3 grid max-w-xl grid-cols-[auto_1fr] gap-x-8 border-t text-[15px]">
             {meta.map(([k, v]) => (
-              <div key={k}>
-                <dt className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{k}</dt>
-                <dd className="mt-0.5 text-sm font-medium">{v}</dd>
+              <div key={k} className="col-span-2 grid grid-cols-subgrid border-b py-2.5">
+                <dt className="text-muted-foreground">{k}</dt>
+                <dd className="text-ink">{v}</dd>
               </div>
             ))}
           </dl>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            {!me && (
-              <Button asChild variant="outline" className="border-burnt text-burnt hover:bg-burnt hover:text-white">
-                <Link to="/login">{t("catalog.signinBorrow")}</Link>
-              </Button>
-            )}
-            {isMember && out && (
-              <Button
-                variant="outline" className="border-burnt text-burnt hover:bg-burnt hover:text-white"
-                onClick={() => act(() => apiReservations.create(book.id), "Joined the reservation queue.")}
-              >
-                {t("book.reserve")}
-              </Button>
-            )}
-            {isMember && !out && (
-              <>
-                <Button
-                  className="bg-brand text-white hover:bg-brand-dark"
-                  onClick={() => act(() => apiRecords.create(book.id), "Request submitted — waiting for staff approval.")}
-                >
-                  {t("book.borrow")}
-                </Button>
-                <Button
-                  variant="outline" className="border-brand text-brand-dark"
-                  disabled={cart.has(book.id)}
-                  onClick={() => { cart.add(book.id); toast.success(`“${book.title}” — ${t("cart.title")}`); }}
-                >
-                  {cart.has(book.id) ? <Check className="mr-1 size-4" /> : <ShoppingCart className="mr-1 size-4" />}
-                  {t("book.addCart")}
-                </Button>
-              </>
-            )}
-            {isMember && (
-              <span className="font-mono text-xs text-muted-foreground">{t("book.rules")}</span>
-            )}
-          </div>
         </div>
+
+        <aside className="h-fit rounded-md border bg-white p-5 md:col-span-2 lg:col-span-1">
+          <h2 className="text-sm font-semibold text-ink">{t("book.availability")}</h2>
+          <p className={out ? "mt-2 text-lg font-semibold text-ink" : "mt-2 text-lg font-semibold text-brand-dark"}>
+            {out ? t("book.allOut") : t("book.onShelf")}
+          </p>
+          {!out && <Availability book={book} className="mt-1" />}
+          {out && nextBack && (
+            <p className="mt-1 text-sm text-ink">{t("copies.nextBack", { date: fmtDate(nextBack) })}</p>
+          )}
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("field.shelf")} <span dir="ltr" className="font-mono text-[13px] text-ink">{book.shelfLocation || "—"}</span>
+          </p>
+          <BookActions
+            book={book}
+            size="default"
+            className="mt-5 w-full"
+            onChanged={() => { refetch(); refetchQueue(); refetchCopies(); }}
+            onEdit={isStaff ? () => setEditOpen(true) : undefined}
+          />
+          <p className="mt-4 border-t pt-4 text-sm leading-relaxed text-muted-foreground">{t("book.rules")}</p>
+        </aside>
       </div>
 
-      {/* staff-only: current borrowers */}
-      {isStaff && (
-        <div className="rounded-md border border-border bg-cream-deep p-4">
-          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-burnt">
-            {t("book.currentBorrowers")} <span className="text-muted-foreground">{t("book.staffView")}</span>
-          </h2>
-          {activeLoans.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">{t("book.noLoans")}</p>
-          ) : (
-            <div className="mt-2 space-y-1.5">
-              {activeLoans.map((r) => (
-                <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-white px-3 py-2">
-                  <Link to={`/staff/users/${r.userProfileId}`} className="text-sm font-semibold text-burnt hover:underline">
-                    {r.userName}
-                  </Link>
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {r.borrowedAt ? `${t("book.pickedUp")} ${fmtDate(r.borrowedAt)}` : `${t("req.requested")} ${fmtDate(r.requestedAt)}`}
-                    {r.dueDate ? ` · ${t("book.due")} ${fmtDate(r.dueDate)}` : ""}
-                  </span>
-                  <span className="ms-auto"><StatusBadge status={r.status} /></span>
-                </div>
-              ))}
-            </div>
-          )}
+      {(copies ?? []).length > 0 && (
+        <div className="mt-10">
+          <BookCopies copies={copies!} />
         </div>
       )}
 
-      {/* staff-only: reservation queue */}
-      {isStaff && (queue ?? []).length > 0 && (
-        <div className="rounded-md border border-border bg-cream-deep p-4">
-          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-burnt">
-            {t("book.queue")} <span className="text-muted-foreground">{t("book.staffView")}</span>
-          </h2>
-          <ol className="mt-2 space-y-1">
-            {(queue ?? []).map((q) => (
-              <li key={q.id} className="flex items-center gap-3 text-sm">
-                <span className="flex size-5 items-center justify-center rounded-sm bg-ink font-mono text-[10px] font-bold text-white">
-                  {q.position}
-                </span>
-                <Link to={`/staff/users/${q.userProfileId}`} className="font-medium text-burnt hover:underline">{q.userName}</Link>
-                <span className="font-mono text-[11px] text-muted-foreground">{t("book.joined")} {fmtDate(q.reservedAt)}</span>
-              </li>
-            ))}
-          </ol>
+      {isStaff && (
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <Panel title={t("book.currentBorrowers")} count={active.length} flush>
+            {active.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">{t("book.noLoans")}</p>
+            ) : (
+              <div className={tableCls.wrap}>
+                <table className={tableCls.table}>
+                  <thead>
+                    <tr>
+                      <th className={tableCls.th}>{t("col.member")}</th>
+                      <th className={tableCls.th}>{t("col.requested")}</th>
+                      <th className={tableCls.th}>{t("col.due")}</th>
+                      <th className={tableCls.th}>{t("col.status")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {active.map((r) => (
+                      <tr key={r.id} className={tableCls.row}>
+                        <td className={tableCls.td}>
+                          <Link to={`/staff/users/${r.userProfileId}`} className="font-medium text-ink hover:text-brand-dark hover:underline">{r.userName}</Link>
+                        </td>
+                        <td className={tableCls.td}>{fmtDate(r.requestedAt)}</td>
+                        <td className={tableCls.td}>{fmtDate(r.dueDate)}</td>
+                        <td className={tableCls.td}><StatusBadge status={r.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+
+          <Panel title={t("book.queue")} count={(queue ?? []).length} flush>
+            {(queue ?? []).length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">{t("dash.noReservations")}</p>
+            ) : (
+              <ol className="divide-y">
+                {(queue ?? []).map((q) => (
+                  <li key={q.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                    <span className="tabular flex size-6 items-center justify-center rounded-full bg-surface text-xs font-semibold">{q.position}</span>
+                    <Link to={`/staff/users/${q.userProfileId}`} className="flex-1 font-medium hover:text-brand-dark hover:underline">{q.userName}</Link>
+                    <span className="text-muted-foreground">{fmtDate(q.reservedAt)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Panel>
         </div>
       )}
 
       <BookEditDialog book={book} open={editOpen} onOpenChange={setEditOpen} onSaved={refetch} />
-    </div>
+    </Container>
   );
 }

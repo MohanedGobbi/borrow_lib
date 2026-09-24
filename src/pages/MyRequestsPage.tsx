@@ -1,112 +1,171 @@
 import { Link } from "react-router";
+import { AlertTriangle, BookOpen } from "lucide-react";
 import { apiRecords, apiReservations } from "@/api";
 import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Countdown, fmtDate, timeAgo } from "@/components/Countdown";
+import { Countdown } from "@/components/Countdown";
+import { daysFrom, fmtDate, fmtDateTime } from "@/lib/time";
 import { RequestDocButton } from "@/components/RequestDocButton";
+import { Container } from "@/components/Layout";
+import { EmptyState, PageHeader, Panel } from "@/components/Page";
 import { FullPageLoader } from "@/auth/guards";
 import { Button } from "@/components/ui/button";
+import { tableCls } from "@/lib/table";
+import { cn } from "@/lib/utils";
+import type { BorrowRecord } from "@/types";
 
-const ACTIVE = ["PENDING", "READY", "BORROWED", "OVERDUE"];
+const ACTIVE = ["OVERDUE", "READY", "BORROWED", "PENDING"];
 
 export default function MyRequestsPage() {
   const { me } = useAuth();
   const { t } = useI18n();
-  const { data: records, loading, refetch } = useApi(() => apiRecords.mine(), [], 30_000);
+  const { data: records, loading } = useApi(() => apiRecords.mine(), [], 30_000);
   const { data: reservations } = useApi(() => apiReservations.mine(), []);
 
   if (loading || !me) return <FullPageLoader />;
 
-  const active = (records ?? []).filter((r) => ACTIVE.includes(r.status));
+  // most urgent first: overdue, ready for pickup, on loan, pending
+  const active = (records ?? [])
+    .filter((r) => ACTIVE.includes(r.status))
+    .sort((a, b) => ACTIVE.indexOf(a.status) - ACTIVE.indexOf(b.status));
   const history = (records ?? []).filter((r) => !ACTIVE.includes(r.status));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-burnt">{t("nav.myRequests")}</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">{t("req.title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {me.name} · {me.activeLoans}/{me.maxBorrowLimit} {t("req.slots")}
-          {me.hasOverdue && <span className="ms-2 font-semibold text-danger">· {t("req.blocked")}</span>}
-        </p>
-      </div>
+    <Container>
+      <PageHeader
+        title={t("req.title")}
+        description={
+          <span>
+            <span className="tabular font-medium text-ink">{me.activeLoans} / {me.maxBorrowLimit}</span> {t("req.slots")}
+          </span>
+        }
+      />
 
-      {active.length === 0 && (
-        <div className="rounded-md border border-dashed border-border bg-white px-6 py-10 text-center">
-          <p className="text-sm text-muted-foreground">{t("req.none")}</p>
-          <Button asChild className="mt-3 bg-brand text-white hover:bg-brand-dark">
-            <Link to="/catalog">{t("cart.browse")}</Link>
-          </Button>
+      {me.hasOverdue && (
+        <div role="alert" className="mt-6 flex gap-3 rounded-md border border-danger/30 bg-danger-soft p-4">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden />
+          <div>
+            <p className="font-semibold text-danger">{t("req.blockedTitle")}</p>
+            <p className="mt-0.5 text-sm text-ink/80">{t("req.blockedBody")}</p>
+          </div>
         </div>
       )}
 
-      <div className="space-y-3">
-        {active.map((r) => (
-          <div key={r.id} className="flex flex-wrap items-center gap-4 rounded-md border border-border bg-white px-4 py-3">
-            <div className="min-w-[200px] flex-1">
-              <Link to={`/books/${r.bookId}`} className="text-sm font-semibold hover:text-burnt">
-                {r.bookTitle}
-              </Link>
-              <p className="font-mono text-[11px] text-muted-foreground">
-                {t("req.requested")} {timeAgo(r.requestedAt)} · {r.bookShelf}
-              </p>
-            </div>
-            {r.status === "READY" && r.pickupDeadline && (
-              <div className="text-end">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-warning">{t("req.pickupCloses")}</p>
-                <Countdown deadline={r.pickupDeadline} />
-              </div>
-            )}
-            {(r.status === "BORROWED" || r.status === "OVERDUE") && r.dueDate && (
-              <div className="text-end">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{t("req.due")}</p>
-                <p className={r.status === "OVERDUE" ? "font-semibold text-danger" : "text-sm"}>{fmtDate(r.dueDate)}</p>
-              </div>
-            )}
-            <StatusBadge status={r.status} />
-            <RequestDocButton record={r} />
+      <section className="mt-8" aria-labelledby="active-h">
+        <h2 id="active-h" className="text-base font-semibold">{t("req.active")}</h2>
+        {active.length === 0 ? (
+          <div className="mt-3 rounded-md border">
+            <EmptyState icon={BookOpen} title={t("req.none")}>
+              <Button asChild size="sm"><Link to="/catalog">{t("cart.browse")}</Link></Button>
+            </EmptyState>
           </div>
-        ))}
-      </div>
+        ) : (
+          <ul className="mt-3 divide-y rounded-md border bg-white">
+            {active.map((r) => <ActiveRow key={r.id} r={r} />)}
+          </ul>
+        )}
+      </section>
 
       {(reservations ?? []).length > 0 && (
-        <div>
-          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-burnt">{t("req.reservations")}</h2>
-          <div className="mt-2 divide-y divide-border rounded-md border border-border bg-white">
+        <Panel className="mt-8" title={t("req.reservations")} count={(reservations ?? []).length} flush>
+          <ul className="divide-y">
             {(reservations ?? []).map((q) => (
-              <div key={q.id} className="flex items-center gap-4 px-4 py-2.5">
-                <Link to={`/books/${q.bookId}`} className="flex-1 text-sm font-medium hover:text-burnt">{q.bookTitle}</Link>
-                <span className="font-mono text-[11px] text-muted-foreground">{t("req.position")} {q.position} · {fmtDate(q.reservedAt)}</span>
-              </div>
+              <li key={q.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+                <Link to={`/books/${q.bookId}`} className="flex-1 font-medium hover:text-brand-dark hover:underline">{q.bookTitle}</Link>
+                <span className="text-sm text-muted-foreground">
+                  {t("req.position")} <span className="tabular font-semibold text-ink">{q.position}</span> · {fmtDate(q.reservedAt)}
+                </span>
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </Panel>
       )}
 
       {history.length > 0 && (
-        <div>
-          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-burnt">{t("req.history")}</h2>
-          <div className="mt-2 divide-y divide-border rounded-md border border-border bg-white">
+        <Panel className="mt-8" title={t("req.history")} count={history.length} flush>
+          {/* phones: stacked rows; wider screens: table */}
+          <ul className="divide-y sm:hidden">
             {history.map((r) => (
-              <div key={r.id} className="flex items-center gap-4 px-4 py-2.5">
-                <span className="flex-1 text-sm">{r.bookTitle}</span>
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {fmtDate(r.requestedAt)}{r.returnedAt ? ` → ${fmtDate(r.returnedAt)}` : ""}
-                </span>
-                <StatusBadge status={r.status} />
-                <RequestDocButton record={r} />
-              </div>
+              <li key={r.id} className="px-4 py-3">
+                <Link to={`/books/${r.bookId}`} className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
+                  <StatusBadge status={r.status} />
+                  <span>{fmtDate(r.requestedAt)}{r.returnedAt ? ` → ${fmtDate(r.returnedAt)}` : ""}</span>
+                </div>
+                <div className="mt-1 -ms-3"><RequestDocButton record={r} /></div>
+              </li>
             ))}
+          </ul>
+          <div className={cn(tableCls.wrap, "hidden sm:block")}>
+            <table className={tableCls.table}>
+              <thead>
+                <tr>
+                  <th className={tableCls.th}>{t("col.book")}</th>
+                  <th className={tableCls.th}>{t("col.requested")}</th>
+                  <th className={tableCls.th}>{t("req.returned")}</th>
+                  <th className={tableCls.th}>{t("col.status")}</th>
+                  <th className={tableCls.th}><span className="sr-only">{t("col.actions")}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((r) => (
+                  <tr key={r.id} className={tableCls.row}>
+                    <td className={tableCls.td}>
+                      <Link to={`/books/${r.bookId}`} className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
+                    </td>
+                    <td className={tableCls.td}>{fmtDate(r.requestedAt)}</td>
+                    <td className={tableCls.td}>{fmtDate(r.returnedAt)}</td>
+                    <td className={tableCls.td}><StatusBadge status={r.status} /></td>
+                    <td className={cn(tableCls.td, "text-end")}><RequestDocButton record={r} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </Panel>
       )}
-
-      <button onClick={() => refetch()} className="font-mono text-[11px] text-muted-foreground underline underline-offset-2 hover:text-burnt">
-        {t("req.refresh")}
-      </button>
-    </div>
+    </Container>
   );
 }
 
+/** One current request/loan, with the date that matters most for its state. */
+function ActiveRow({ r }: { r: BorrowRecord }) {
+  const { t } = useI18n();
+  const overdue = r.status === "OVERDUE";
+  const days = daysFrom(r.dueDate);
+
+  let keyLabel: string;
+  let keyValue: React.ReactNode;
+  if (r.status === "READY" && r.pickupDeadline) {
+    keyLabel = `${t("req.pickupBy")} ${fmtDateTime(r.pickupDeadline)}`;
+    keyValue = <Countdown deadline={r.pickupDeadline} className="tabular text-lg font-semibold text-brand-dark" />;
+  } else if (overdue) {
+    keyLabel = `${t("req.overdue")} ${fmtDate(r.dueDate)}`;
+    keyValue = <span className="text-lg font-semibold text-danger">{t("time.daysOverdue", { n: Math.abs(days) })}</span>;
+  } else if (r.status === "BORROWED") {
+    keyLabel = `${t("req.due")} ${fmtDate(r.dueDate)}`;
+    keyValue = <span className="text-lg font-semibold text-ink">{days <= 1 ? t("time.dayLeft") : t("time.daysLeft", { n: days })}</span>;
+  } else {
+    keyLabel = `${t("req.requested")} ${fmtDate(r.requestedAt)}`;
+    keyValue = <span className="text-[15px] text-muted-foreground">{t("req.waiting")}</span>;
+  }
+
+  return (
+    <li className={cn("grid gap-x-6 gap-y-3 p-4 sm:grid-cols-[minmax(0,1fr)_14rem_auto] sm:items-center", overdue && "bg-danger-soft/50")}>
+      <div className="min-w-0">
+        <Link to={`/books/${r.bookId}`} className="font-semibold text-ink hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <StatusBadge status={r.status} />
+          <span>{t("field.shelf")} <span dir="ltr" className="font-mono text-[13px] text-ink/80">{r.bookShelf || "—"}</span></span>
+        </div>
+      </div>
+      <div>
+        <div>{keyValue}</div>
+        <div className="text-sm text-muted-foreground">{keyLabel}</div>
+      </div>
+      <div className="sm:text-end"><RequestDocButton record={r} /></div>
+    </li>
+  );
+}

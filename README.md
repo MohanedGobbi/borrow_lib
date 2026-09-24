@@ -2,8 +2,8 @@
 
 A full-stack library management system: members browse the catalog and request books;
 staff approve requests, confirm pickups and returns on a live operations dashboard.
-Built end-to-end to the spec in `library_platform_agent_prompt.md`, styled with the
-**Impeccable** design system (`design/DESIGN.md`).
+Built for a university library: a serious, trilingual (French / Arabic / English)
+interface in green, white and red. Design system: `DESIGN.md`.
 
 - **Backend:** Django 6 + Django REST Framework + JWT (SimpleJWT), SQLite dev database
   (PostgreSQL-ready), ReportLab + QR digital ID cards, cron-ready management commands.
@@ -66,7 +66,7 @@ python manage.py cancel_expired_pickups   # hourly
 python manage.py mark_overdue             # nightly
 ```
 
-Staff can also trigger both on demand from the dashboard ("Run jobs now" →
+Staff can also trigger both on demand from the staff desk ("Run scheduled checks" →
 `POST /api/jobs/run`).
 
 **Tests:** `cd backend && python manage.py test library` — 21 tests covering every
@@ -74,8 +74,11 @@ state transition, invalid transitions, stock rules, queue handoff, job idempoten
 permission boundaries (incl. staff-cannot-borrow), receipt access rules, user
 management, categories CRUD, analytics and an end-to-end flow.
 
-**Staff entrance is hidden by design:** on the sign-in / sign-up pages, type the
-Konami code (↑ ↑ ↓ ↓ ← → ← → B A) to reveal the staff section.
+**Staff registration:** on the sign-up page, tick "I am a member of library staff"
+and enter the invite code.
+
+**No-server demo:** `npm run dev:demo` (or the Vercel deployment) runs the whole API
+in the browser from `src/api/demo.ts`, with one-click demo accounts on the sign-in page.
 
 ## Hosting
 
@@ -100,16 +103,16 @@ gunicorn/uvicorn behind a reverse proxy, set `DJANGO_SECRET_KEY`, `FRONTEND_URL`
 | Analytics | `GET /api/analytics` → charts page (recharts) |
 | API surface | `backend/library/urls.py` |
 | Tests | `backend/library/tests.py` — 21 tests |
-| Landing page | `src/pages/LandingPage.tsx` (animated hero, book marquee) |
-| Login / signup (Konami-hidden staff) | `src/pages/LoginPage.tsx`, `src/pages/SignupPage.tsx` — staff tab/section appears only after ↑↑↓↓←→←→ B A |
+| Landing page | `src/pages/LandingPage.tsx` (catalog search, borrowing rules, books on the shelf) |
+| Login / signup | `src/pages/LoginPage.tsx`, `src/pages/SignupPage.tsx` — staff sign-up requires the invite code |
 | i18n (EN / FR / AR with RTL) | `src/i18n/index.tsx` + header switcher |
-| Borrowing cart | `src/cart/CartContext.tsx` + `/cart` page (members) |
-| Category color theming | `src/hooks/useCategoryAccent.ts` — catalog follows the active category color |
-| Staff area (one page per function) | `src/pages/staff/` — Overview · Approvals · Pickups · Loans · Inventory · Reservations · Users · Analytics · Activity |
+| Request list | `src/cart/CartContext.tsx` + `/cart` page (students send several requests at once) |
+| Staff desk (sidebar, live queue counts) | `src/pages/staff/` — Overview · Approvals · Pickups · Loans · Inventory · Waiting lists · Members · Analytics · Activity log |
 | Mobile layout | responsive grids + hamburger sheet menu (works RTL too) |
 
 ## Design system
 
-Impeccable — editorial-poster aesthetic: cream (`#FAF3E3`) / burnt-orange (`#C55221`)
-bands, amber brand (`#CC8800`), Chakra Petch + JetBrains Mono, 4/8px radii, 4–32px
-spacing. Tokens: `tailwind.config.js`, `src/index.css`, source spec at `design/DESIGN.md`.
+A standard university-portal look: white pages, one deep university green (`#0E6B3C`)
+for primary actions, red (`#B42318`) only for overdue, rejection and destructive
+actions. Public Sans with Noto Sans Arabic, hairline borders, 6px radius. Tokens:
+`tailwind.config.js` and `src/index.css`; full spec in `DESIGN.md`.

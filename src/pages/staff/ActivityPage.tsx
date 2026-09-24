@@ -1,8 +1,17 @@
 import { apiMisc } from "@/api";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
-import { timeAgo } from "@/components/Countdown";
+import { fmtDateTime, timeAgo } from "@/lib/time";
+import { PageHeader, Panel } from "@/components/Page";
 import { FullPageLoader } from "@/auth/guards";
+import { tableCls } from "@/lib/table";
+import { cn } from "@/lib/utils";
+
+/** Turns an ACTION_CODE into readable words ("PICKUP_CONFIRMED" → "Pickup confirmed"). */
+function humanize(action: string) {
+  const s = action.replaceAll("_", " ").toLowerCase();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export default function ActivityPage() {
   const { t } = useI18n();
@@ -11,23 +20,37 @@ export default function ActivityPage() {
   if (loading) return <FullPageLoader />;
 
   return (
-    <div className="rounded-md border border-border bg-cream p-4">
-      <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-burnt">
-        {t("dash.recent")} · {(activity ?? []).length}
-      </h2>
-      <ol className="mt-3 max-h-[65vh] space-y-1.5 overflow-y-auto pe-1">
-        {(activity ?? []).map((a) => (
-          <li key={a.id} className="flex items-baseline gap-3 rounded-sm bg-white px-3 py-2 text-sm">
-            <span className="w-16 shrink-0 font-mono text-[10px] text-muted-foreground">{timeAgo(a.at)}</span>
-            <span className="shrink-0 rounded-sm bg-ink/80 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-white">
-              {a.action.replaceAll("_", " ")}
-            </span>
-            <span className="text-xs leading-relaxed">
-              <span className="font-semibold">{a.actorName}</span> — {a.detail}
-            </span>
-          </li>
-        ))}
-      </ol>
+    <div className="space-y-6">
+      <PageHeader title={t("staff.activity")} />
+      <Panel title={t("dash.recent")} count={(activity ?? []).length} flush>
+        <div className={tableCls.wrap}>
+          <table className={tableCls.table}>
+            <thead>
+              <tr>
+                <th className={tableCls.th}>{t("col.when")}</th>
+                <th className={tableCls.th}>{t("col.actor")}</th>
+                <th className={tableCls.th}>{t("col.event")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(activity ?? []).map((a) => (
+                <tr key={a.id} className={tableCls.row}>
+                  <td className={cn(tableCls.td, "whitespace-nowrap align-top")}>
+                    <span title={fmtDateTime(a.at)}>{timeAgo(a.at)}</span>
+                  </td>
+                  <td className={cn(tableCls.td, "whitespace-nowrap align-top font-medium")}>{a.actorName}</td>
+                  <td className={cn(tableCls.td, "align-top")}>
+                    <span className="me-2 inline-block rounded bg-surface px-1.5 py-0.5 text-xs font-medium text-muted-foreground" dir="ltr">
+                      {humanize(a.action)}
+                    </span>
+                    <span className="text-ink/90">{a.detail}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   );
 }

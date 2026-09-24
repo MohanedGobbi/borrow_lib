@@ -26,6 +26,20 @@ export interface Book {
   description: string;
 }
 
+/** One physical copy of a book and where it is right now. */
+export interface BookCopy {
+  copy: number;
+  state: "ON_SHELF" | "HELD" | "BORROWED" | "OVERDUE";
+  shelf?: string;
+  dueDate?: string | null;
+  since?: string | null;
+  heldUntil?: string | null;
+  /** staff only */
+  recordId?: number;
+  userName?: string;
+  userProfileId?: number;
+}
+
 export interface Profile {
   id: number;
   uuid: string;
@@ -113,16 +127,6 @@ export interface ScanResult {
   member: Profile;
   activeRecords: BorrowRecord[];
 }
-
-export const STATUS_LABEL: Record<BorrowStatus, string> = {
-  PENDING: "Pending",
-  READY: "Ready for pickup",
-  BORROWED: "Borrowed",
-  RETURNED: "Returned",
-  REJECTED: "Rejected",
-  CANCELLED: "Cancelled",
-  OVERDUE: "Overdue",
-};
 
 export const URGENT_PICKUP_MS = 6 * 60 * 60 * 1000;
 export const DUE_SOON_MS = 3 * 24 * 60 * 60 * 1000;

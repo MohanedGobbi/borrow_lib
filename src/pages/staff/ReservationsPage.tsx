@@ -1,8 +1,10 @@
 import { Link } from "react-router";
+import { ListOrdered } from "lucide-react";
 import { apiReservations } from "@/api";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
-import { fmtDate } from "@/components/Countdown";
+import { fmtDate } from "@/lib/time";
+import { EmptyState, PageHeader, Panel } from "@/components/Page";
 import { FullPageLoader } from "@/auth/guards";
 import type { Reservation } from "@/types";
 
@@ -12,36 +14,33 @@ export default function ReservationsPage() {
 
   if (loading) return <FullPageLoader />;
 
-  const byBook = new Map<string, Reservation[]>();
-  (reservations ?? []).forEach((q) => {
-    const list = byBook.get(q.bookTitle) ?? [];
-    list.push(q);
-    byBook.set(q.bookTitle, list);
-  });
+  const byBook = new Map<number, Reservation[]>();
+  (reservations ?? []).forEach((q) => byBook.set(q.bookId, [...(byBook.get(q.bookId) ?? []), q]));
 
   return (
-    <div className="rounded-md border border-border bg-cream p-4">
-      <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-burnt">
-        {t("dash.queues")} · {(reservations ?? []).length}
-      </h2>
+    <div className="space-y-6">
+      <PageHeader title={t("staff.reservations")} />
       {byBook.size === 0 ? (
-        <p className="py-4 text-sm text-muted-foreground">{t("dash.noReservations")}</p>
+        <div className="rounded-md border bg-white"><EmptyState icon={ListOrdered} title={t("dash.noReservations")} /></div>
       ) : (
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {[...byBook.entries()].map(([title, queue]) => (
-            <div key={title} className="rounded-sm border border-border bg-white p-3">
-              <p className="text-sm font-semibold">{title}</p>
-              <p className="font-mono text-[11px] text-muted-foreground">{queue.length} {t("dash.waiting")}</p>
-              <ol className="mt-2 space-y-1">
+        <div className="grid gap-6 lg:grid-cols-2">
+          {[...byBook.entries()].map(([bookId, queue]) => (
+            <Panel
+              key={bookId}
+              title={<Link to={`/books/${bookId}`} className="hover:text-brand-dark hover:underline">{queue[0].bookTitle}</Link>}
+              count={queue.length}
+              flush
+            >
+              <ol className="divide-y">
                 {queue.map((q) => (
-                  <li key={q.id} className="flex items-center gap-2 text-xs">
-                    <span className="flex size-4 items-center justify-center rounded-sm bg-burnt font-mono text-[9px] font-bold text-white">{q.position}</span>
-                    <Link to={`/staff/users/${q.userProfileId}`} className="font-medium text-burnt hover:underline">{q.userName}</Link>
-                    <span className="ms-auto font-mono text-[10px] text-muted-foreground">{fmtDate(q.reservedAt)}</span>
+                  <li key={q.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                    <span className="tabular flex size-6 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-semibold">{q.position}</span>
+                    <Link to={`/staff/users/${q.userProfileId}`} className="flex-1 font-medium hover:text-brand-dark hover:underline">{q.userName}</Link>
+                    <span className="text-muted-foreground">{fmtDate(q.reservedAt)}</span>
                   </li>
                 ))}
               </ol>
-            </div>
+            </Panel>
           ))}
         </div>
       )}

@@ -9,7 +9,7 @@ const BASE = API_ROOT;
 /** Static demo build (`npm run build:demo`): the API runs in the browser, no server needed. */
 export const DEMO = import.meta.env.VITE_DEMO === "true";
 
-export const DEMO_STORAGE_KEY = "lb_demo_state_v1";
+export const DEMO_STORAGE_KEY = "lb_demo_state_v5";
 
 /** Seeded demo accounts offered as one-click sign-ins in demo builds. */
 export const DEMO_ACCOUNTS = [

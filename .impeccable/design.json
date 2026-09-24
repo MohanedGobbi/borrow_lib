@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-22T00:00:00Z",
+  "title": "Design System: LibBorrow",
+  "extensions": {
+    "colorMeta": {
+      "university-green": { "role": "primary", "displayName": "University Green", "canonical": "hsl(150 77% 24%)", "tonalRamp": ["#05281a", "#0a3d24", "#0A5230", "#0E6B3C", "#3f8c63", "#7FB896", "#bfdccb", "#E7F2EB"] },
+      "university-green-deep": { "role": "primary", "displayName": "Deep University Green", "canonical": "hsl(150 78% 18%)", "tonalRamp": ["#041f12", "#07331e", "#0A5230", "#0e6b3c", "#3f8c63", "#7fb896", "#bfdccb", "#e7f2eb"] },
+      "green-wash": { "role": "primary", "displayName": "Green Wash", "canonical": "hsl(142 33% 93%)", "tonalRamp": ["#1f3a2a", "#355843", "#4f7a60", "#77a086", "#a3c3ae", "#c9dfd0", "#E7F2EB", "#f4f9f6"] },
+      "overdue-red": { "role": "tertiary", "displayName": "Overdue Red", "canonical": "hsl(4 76% 40%)", "tonalRamp": ["#3d0c08", "#5e130d", "#8a1b12", "#B42318", "#d4544a", "#e8958e", "#f5c9c4", "#FDEDEB"] },
+      "overdue-wash": { "role": "tertiary", "displayName": "Overdue Wash", "canonical": "#FDEDEB", "tonalRamp": ["#5e130d", "#8a1b12", "#B42318", "#d4544a", "#e8958e", "#f5c9c4", "#FDEDEB", "#fff8f7"] },
+      "deadline-amber": { "role": "tertiary", "displayName": "Deadline Amber", "canonical": "#A34A06", "tonalRamp": ["#3a1a02", "#5c2a04", "#7f3a05", "#A34A06", "#c8712e", "#e0a473", "#f1d2b5", "#fbf0e6"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "hsl(150 18% 9%)", "tonalRamp": ["#121A16", "#27302b", "#3d4741", "#545F59", "#7a8580", "#a3aca7", "#DBE1DE", "#F5F7F6"] },
+      "paper": { "role": "neutral", "displayName": "Paper", "canonical": "#FFFFFF", "tonalRamp": ["#121A16", "#3d4741", "#545F59", "#a3aca7", "#C8D0CC", "#DBE1DE", "#F5F7F6", "#FFFFFF"] },
+      "desk-grey": { "role": "neutral", "displayName": "Desk Grey", "canonical": "hsl(150 10% 96%)", "tonalRamp": ["#121A16", "#3d4741", "#545F59", "#a3aca7", "#C8D0CC", "#DBE1DE", "#F5F7F6", "#FFFFFF"] },
+      "muted-ink": { "role": "neutral", "displayName": "Muted Ink", "canonical": "hsl(150 6% 35%)", "tonalRamp": ["#121A16", "#27302b", "#3d4741", "#545F59", "#7a8580", "#a3aca7", "#DBE1DE", "#F5F7F6"] },
+      "hairline": { "role": "neutral", "displayName": "Hairline", "canonical": "hsl(150 9% 87%)", "tonalRamp": ["#121A16", "#3d4741", "#545F59", "#7a8580", "#a3aca7", "#C8D0CC", "#DBE1DE", "#F5F7F6"] },
+      "field-stroke": { "role": "neutral", "displayName": "Field Stroke", "canonical": "hsl(150 8% 80%)", "tonalRamp": ["#121A16", "#3d4741", "#545F59", "#7a8580", "#a3aca7", "#C8D0CC", "#DBE1DE", "#F5F7F6"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Landing headline only; one per product." },
+      "headline": { "displayName": "Headline", "purpose": "PageHeader title on every page (1.5rem, 1.75rem from sm)." },
+      "title": { "displayName": "Title", "purpose": "Panel headers, book titles in lists, step titles." },
+      "body": { "displayName": "Body", "purpose": "Member-page prose, nav links, buttons." },
+      "body-dense": { "displayName": "Body Dense", "purpose": "Table cells, metadata lines, staff lists." },
+      "label": { "displayName": "Label", "purpose": "Table headers, badges, counts, timestamps; uppercase only for nav/filter group headings." },
+      "stat": { "displayName": "Stat", "purpose": "Tabular numerals in the staff vitals strip." },
+      "identifier": { "displayName": "Identifier", "purpose": "ISBNs, shelf marks, member IDs, receipt references; always dir=ltr." }
+    },
+    "shadows": [
+      { "name": "hairline-lift", "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)", "purpose": "Outline buttons and inputs." },
+      { "name": "selected-tab", "value": "0 1px 2px rgb(16 24 20 / 0.08), 0 0 0 1px hsl(150 9% 87%)", "purpose": "Active staff sidebar item lifted out of the grey rail." },
+      { "name": "resting-card", "value": "0 1px 3px rgb(16 24 20 / 0.06)", "purpose": "Stand-alone cards on grey: landing steps panel, auth card." },
+      { "name": "object", "value": "0 1px 2px rgb(0 0 0 / 0.12)", "purpose": "Book covers only." }
+    ],
+    "motion": [
+      { "name": "state-transition", "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Tailwind transition-colors on hover for rows, nav, buttons." },
+      { "name": "overlay", "value": "200ms ease-out fade + zoom-95", "purpose": "Dialogs, dropdowns, sheets (shadcn/tailwindcss-animate)." },
+      { "name": "reduced-motion", "value": "0.01ms", "purpose": "prefers-reduced-motion collapses all animation and transition durations." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single filled green action per group.",
+      "html": "<button class=\"ds-btn-primary\">Request</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 8px 20px; border: none; border-radius: 4px; background: #0E6B3C; color: #fff; font-family: 'Public Sans', system-ui, sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4,0,0.2,1), box-shadow 150ms; } .ds-btn-primary:hover { background: #0A5230; } .ds-btn-primary:focus-visible { outline: 2px solid #0E6B3C; outline-offset: 2px; box-shadow: 0 0 0 3px rgb(14 107 60 / 0.5); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action: Join waiting list, Run scheduled checks.",
+      "html": "<button class=\"ds-btn-outline\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 2v6h6\"/><path d=\"M21 12A9 9 0 0 0 6 5.3L3 8\"/><path d=\"M21 22v-6h-6\"/><path d=\"M3 12a9 9 0 0 0 15 6.7l3-2.7\"/></svg>Run scheduled checks</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid #DBE1DE; border-radius: 4px; background: #fff; color: #121A16; font-family: 'Public Sans', system-ui, sans-serif; font-size: 14px; font-weight: 500; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); cursor: pointer; transition: background-color 150ms, color 150ms; } .ds-btn-outline:hover { background: #E7F2EB; color: #0A5230; } .ds-btn-outline:focus-visible { outline: 2px solid #0E6B3C; outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Hairline field with leading search icon; green border and ring on focus.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Search the catalog</span><span class=\"ds-field-wrap\"><svg class=\"ds-field-icon\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input class=\"ds-input\" placeholder=\"Title, author or ISBN\"></span></label>",
+      "css": ".ds-field { display: block; font-family: 'Public Sans', system-ui, sans-serif; } .ds-field-label { display: block; font-size: 14px; font-weight: 500; color: #121A16; margin-bottom: 8px; } .ds-field-wrap { position: relative; display: block; } .ds-field-icon { position: absolute; inset-inline-start: 14px; top: 50%; transform: translateY(-50%); color: #545F59; pointer-events: none; } .ds-input { width: 100%; height: 48px; padding-inline: 44px 12px; border: 1px solid #C8D0CC; border-radius: 4px; background: #fff; color: #121A16; font: inherit; font-size: 16px; box-shadow: 0 1px 2px rgb(16 24 20 / 0.05); } .ds-input::placeholder { color: #545F59; opacity: 0.8; } .ds-input:focus { outline: none; border-color: #0E6B3C; box-shadow: 0 0 0 3px rgb(14 107 60 / 0.2); }"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "64px white header with green brand mark and underline-bar active link.",
+      "html": "<header class=\"ds-header\"><span class=\"ds-mark\"><span class=\"ds-mark-sq\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m16 6 4 14\"/><path d=\"M12 6v14\"/><path d=\"M8 8v12\"/><path d=\"M4 4v16\"/></svg></span><span><b>LibBorrow</b><small>University Library</small></span></span><nav class=\"ds-nav\"><a href=\"#\">Catalog</a><a href=\"#\" class=\"is-active\">Staff desk</a></nav></header>",
+      "css": ".ds-header { display: flex; align-items: stretch; gap: 32px; height: 64px; padding: 0 24px; background: rgb(255 255 255 / 0.95); border-bottom: 1px solid #DBE1DE; font-family: 'Public Sans', system-ui, sans-serif; } .ds-mark { display: flex; align-items: center; gap: 10px; } .ds-mark-sq { display: flex; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 4px; background: #0E6B3C; color: #fff; } .ds-mark b { display: block; font-size: 17px; font-weight: 700; letter-spacing: -0.025em; color: #121A16; line-height: 1.2; } .ds-mark small { display: block; font-size: 12px; color: #545F59; } .ds-nav { display: flex; align-items: stretch; gap: 4px; } .ds-nav a { position: relative; display: flex; align-items: center; padding: 0 12px; font-size: 15px; font-weight: 500; color: rgb(18 26 22 / 0.7); text-decoration: none; transition: color 150ms; } .ds-nav a:hover { color: #121A16; } .ds-nav a:focus-visible { outline: 2px solid #0E6B3C; outline-offset: -2px; } .ds-nav a.is-active { color: #0A5230; } .ds-nav a.is-active::after { content: ''; position: absolute; inset-inline: 12px; bottom: 0; height: 2px; border-radius: 9999px; background: #0E6B3C; }"
+    },
+    {
+      "name": "Staff Sidebar Item",
+      "kind": "nav",
+      "refersTo": "nav-count",
+      "description": "Grey rail item; active item is a white raised tab; queue counts at the end.",
+      "html": "<ul class=\"ds-side\"><li><a href=\"#\" class=\"is-active\">Overview</a></li><li><a href=\"#\">Approvals <span class=\"ds-count\">4</span></a></li><li><a href=\"#\">Loans <span class=\"ds-count ds-count-late\">2</span></a></li></ul>",
+      "css": ".ds-side { list-style: none; margin: 0; padding: 12px; width: 216px; background: #F5F7F6; font-family: 'Public Sans', system-ui, sans-serif; } .ds-side li + li { margin-top: 2px; } .ds-side a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 4px; font-size: 15px; font-weight: 500; color: rgb(18 26 22 / 0.75); text-decoration: none; transition: background-color 150ms, color 150ms; } .ds-side a:hover { background: rgb(255 255 255 / 0.7); color: #121A16; } .ds-side a:focus-visible { outline: 2px solid #0E6B3C; outline-offset: 2px; } .ds-side a.is-active { background: #fff; color: #0A5230; box-shadow: 0 1px 2px rgb(16 24 20 / 0.08), 0 0 0 1px #DBE1DE; } .ds-count { margin-inline-start: auto; padding: 1px 8px; border-radius: 9999px; background: #E7F2EB; color: #0A5230; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; } .ds-count-late { background: #B42318; color: #fff; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "status-badge",
+      "description": "Pill with icon + word; color never carries status alone.",
+      "html": "<span class=\"ds-badge ds-badge-ready\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m16 16 2 2 4-4\"/><path d=\"M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14\"/></svg>Ready for pickup</span> <span class=\"ds-badge ds-badge-overdue\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"/><path d=\"M12 9v4\"/><path d=\"M12 17h.01\"/></svg>Overdue</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border: 1px solid #DBE1DE; border-radius: 9999px; font-family: 'Public Sans', system-ui, sans-serif; font-size: 12px; font-weight: 500; white-space: nowrap; } .ds-badge-ready { background: #fff; border-color: rgb(14 107 60 / 0.4); color: #0A5230; } .ds-badge-overdue { background: #FDEDEB; border-color: rgb(180 35 24 / 0.3); color: #B42318; }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Bordered white container with header row and count pill; flush body for lists.",
+      "html": "<section class=\"ds-panel\"><header class=\"ds-panel-head\"><h2>Needs attention <span class=\"ds-pill\">4</span></h2><a href=\"#\">View all</a></header><ul class=\"ds-panel-list\"><li><b>The Name of the Wind</b><span>Daniel Okafor · Due 17 Sept 2026</span><em>5 days overdue</em></li><li><b>Thinking, Fast and Slow</b><span>Pickup window closes soon</span><em class=\"ds-soon\">01:59:57</em></li></ul></section>",
+      "css": ".ds-panel { overflow: hidden; border: 1px solid #DBE1DE; border-radius: 4px; background: #fff; font-family: 'Public Sans', system-ui, sans-serif; color: #121A16; max-width: 560px; } .ds-panel-head { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 10px 16px; border-bottom: 1px solid #DBE1DE; } .ds-panel-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 600; } .ds-panel-head a { font-size: 15px; font-weight: 500; color: #0A5230; text-decoration: none; } .ds-panel-head a:hover { text-decoration: underline; text-underline-offset: 3px; } .ds-pill { padding: 1px 8px; border-radius: 9999px; background: #F5F7F6; color: #545F59; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; } .ds-panel-list { list-style: none; margin: 0; padding: 0; } .ds-panel-list li { display: grid; grid-template-columns: 1fr auto; column-gap: 16px; padding: 12px 16px; border-top: 1px solid #DBE1DE; font-size: 14px; } .ds-panel-list li:first-child { border-top: 0; } .ds-panel-list b { font-weight: 500; } .ds-panel-list span { grid-column: 1; color: #545F59; } .ds-panel-list em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; font-weight: 600; color: #B42318; font-variant-numeric: tabular-nums; } .ds-panel-list em.ds-soon { color: #A34A06; }"
+    },
+    {
+      "name": "Book Cover",
+      "kind": "custom",
+      "refersTo": "book-cover",
+      "description": "Generated library binding in the book's cloth color with spine hinge and title on the front board.",
+      "html": "<div class=\"ds-cover\" style=\"background:#2A3C50\"><span class=\"ds-cover-hinge\"></span><div class=\"ds-cover-board\"><span class=\"ds-cover-rule\"></span><span class=\"ds-cover-title\">Atomic Habits</span><span class=\"ds-cover-author\">James Clear</span></div></div>",
+      "css": ".ds-cover { position: relative; display: flex; width: 160px; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 3px; color: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); font-family: 'Public Sans', system-ui, sans-serif; } .ds-cover-hinge { position: absolute; inset-block: 0; inset-inline-start: 0; width: 7%; background: rgb(0 0 0 / 0.15); border-inline-end: 1px solid rgb(255 255 255 / 0.15); } .ds-cover-board { position: relative; display: flex; flex: 1; flex-direction: column; padding: 18% 9% 14% 16%; } .ds-cover-rule { width: 24px; height: 1px; background: rgb(255 255 255 / 0.5); } .ds-cover-title { margin-top: 8px; font-size: 16px; font-weight: 600; line-height: 1.25; } .ds-cover-author { margin-top: auto; font-size: 13px; color: rgb(255 255 255 / 0.85); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Circulation Desk",
+    "overview": "LibBorrow is the category standard for a university library portal, executed carefully: white pages, one deep university green, and red kept for what is late, rejected or destructive. It aims to sit beside Primo and WorldCat for discovery and beside Linear and GitHub for staff work. Nothing is decorative. Every surface is a form, a list, a table or a count, and polish lives in hairline alignment, tabular figures and exact deadlines rather than in ornament.\n\nDensity follows the audience. Student pages (landing, catalog, book, my loans, profile) sit in a 1280px column with generous 15px body text and plenty of air. The staff desk is wider (1440px), has a 240px grey sidebar of grouped queues with live counts, and uses Linear/GitHub table density: 40px header rows, 12px cell padding and 14px text. The same components serve both. Only spacing and container width change.\n\nThe system is trilingual. Arabic (RTL) is a first-class layout, not a mirror applied afterwards. Every inline offset uses logical properties (start/end, ms/me, ps/pe), directional arrows flip in RTL, and identifiers and countdowns are pinned dir=\"ltr\" inside RTL text.",
+    "keyCharacteristics": [
+      "White paper (#FFFFFF) for content, desk grey (#F5F7F6) for chrome: header strip, sidebar, table heads and footer.",
+      "One accent hue. Green marks primary actions, the brand mark, active navigation and good standing.",
+      "Red appears only for overdue, rejection, blocked standing and destructive actions, and always with an icon.",
+      "1px hairlines carry the structure. Shadows are barely there.",
+      "Public Sans for all text, with Noto Sans Arabic as fallback. JetBrains Mono only for identifiers.",
+      "Tabular figures for every count, date column and countdown."
+    ],
+    "rules": [
+      { "name": "The One Green Rule", "body": "Green is the only accent. There are no secondary brand hues, gradients or tinted illustration colors. Book cloth colors and category swatches are content data, not brand color, and never style UI chrome.", "section": "colors" },
+      { "name": "The Red Means Late Rule", "body": "Red is reserved for overdue, rejected, blocked and destructive. Something that is merely important stays ink or green.", "section": "colors" },
+      { "name": "The Never Color Alone Rule", "body": "Every status shows an icon and a word as well as its color: an AlertTriangle for overdue, PackageCheck for ready, Clock for pending, CheckCircle2 for good standing. A red/green colorblind member must be able to read every state.", "section": "colors" },
+      { "name": "The Tabular Rule", "body": "Tables, counts, stat numerals, dates in columns and countdowns use tabular figures (tables globally, the .tabular utility elsewhere) so digits never jitter while a countdown ticks.", "section": "typography" },
+      { "name": "The Mono Is For Codes Rule", "body": "JetBrains Mono appears only on machine identifiers that a person matches character by character. Never use it for labels, headings or decoration.", "section": "typography" },
+      { "name": "The Three Weights Rule", "body": "Use 400 for reading, 500 for interactive and label text, and 600 for titles. Keep 700 for the display headline and the wordmark.", "section": "typography" },
+      { "name": "The Hairline First Rule", "body": "Separate things with a 1px Hairline border or divider before you consider a shadow. Panels and tables carry no shadow at all.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep University Green (#0E6B3C) as the single accent: one filled green button per action group, green text links, green active states.",
+      "Do pair every status color with a Lucide icon and a word (StatusBadge, MemberStanding).",
+      "Do build staff screens from PageHeader, the vitals strip, Panel and the shared table styles, at 14px dense text with 40px header rows.",
+      "Do use tabular figures for every number that sits in a column or ticks.",
+      "Do set shelf marks, ISBNs and member IDs in JetBrains Mono 13px with dir=\"ltr\".",
+      "Do use logical properties (start/end, ms/me, ps/pe) and flip directional arrows in RTL. Check every new screen in Arabic.",
+      "Do separate content with 1px Hairline (#DBE1DE) borders and keep panels shadowless."
+    ],
+    "donts": [
+      "Don't introduce a second accent hue, gradients, or brand color drawn from book cloth or category swatches.",
+      "Don't use red for emphasis, promotion or \"important\". It means late, rejected, blocked or destructive.",
+      "Don't use radii beyond 6px on containers or add pill shapes to anything but badges, counts, avatars and step discs.",
+      "Don't add heavy or hard-offset shadows, colored glows, or shadows on panels and tables.",
+      "Don't use uppercase tracked labels anywhere except navigation and filter group headings, and never as a kicker above a page or section heading.",
+      "Don't use JetBrains Mono for UI labels, headings or decoration.",
+      "Don't convey status by color alone. Red and green are the core palette, and a colorblind reader must still read every state."
+    ]
+  }
+}

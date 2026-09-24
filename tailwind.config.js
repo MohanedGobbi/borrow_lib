@@ -5,24 +5,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        cream: {
-          DEFAULT: "#FAF3E3",
-          deep: "#F3E7CD",
-        },
+        // University palette: white pages, one deep green, red reserved for overdue / destructive.
+        ink: "#121A16",
+        surface: "#F5F7F6",
         brand: {
-          DEFAULT: "#CC8800",
-          dark: "#A66D00",
-          soft: "#F5E3BC",
+          DEFAULT: "#0E6B3C",
+          dark: "#0A5230",
+          soft: "#E7F2EB",
         },
-        burnt: {
-          DEFAULT: "#C55221",
-          dark: "#9E3F18",
-          soft: "#F7DDD0",
+        success: "#0E6B3C",
+        warning: "#A34A06",
+        danger: {
+          DEFAULT: "#B42318",
+          soft: "#FDEDEB",
         },
-        ink: "#111827",
-        success: "#16A34A",
-        warning: "#D97706",
-        danger: "#DC2626",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -68,7 +64,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['"Chakra Petch"', "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ['"Public Sans"', '"Noto Sans Arabic"', "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
       },
       borderRadius: {

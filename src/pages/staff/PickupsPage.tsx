@@ -1,74 +1,83 @@
 import { Link } from "react-router";
-import { toast } from "sonner";
+import { AlertTriangle, PackageCheck } from "lucide-react";
 import { apiRecords } from "@/api";
-import { ApiError } from "@/api/client";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
-import { Countdown, msLeft } from "@/components/Countdown";
+import { Countdown } from "@/components/Countdown";
+import { fmtDateTime, msLeft } from "@/lib/time";
 import { RequestDocButton } from "@/components/RequestDocButton";
+import { EmptyState, PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { FullPageLoader } from "@/auth/guards";
+import { useStaffAction } from "@/pages/staff/staffContext";
+import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
 import { URGENT_PICKUP_MS } from "@/types";
 
 export default function PickupsPage() {
   const { t } = useI18n();
   const { data: records, loading, refetch } = useApi(() => apiRecords.list({ status: "READY" }), [], 45_000);
+  const { run, busyId } = useStaffAction(refetch);
 
   if (loading) return <FullPageLoader />;
-  const ready = (records ?? []).sort((a, b) => msLeft(a.pickupDeadline) - msLeft(b.pickupDeadline));
-
-  const confirm = async (id: number) => {
-    try {
-      await apiRecords.confirmPickup(id);
-      toast.success("Pickup confirmed — 14-day loan started.");
-      refetch();
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Action failed.");
-    }
-  };
+  const ready = [...(records ?? [])].sort((a, b) => msLeft(a.pickupDeadline) - msLeft(b.pickupDeadline));
 
   return (
-    <div className="rounded-md border border-border bg-cream p-4">
-      <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-burnt">
-        {t("dash.awaiting")} · {ready.length}
-      </h2>
-      {ready.length === 0 ? (
-        <p className="py-4 text-sm text-muted-foreground">{t("dash.noPickups")}</p>
-      ) : (
-        <div className="mt-3 space-y-2">
-          {ready.map((r) => {
-            const urgent = msLeft(r.pickupDeadline) < URGENT_PICKUP_MS;
-            return (
-              <div key={r.id} className={cn(
-                "flex flex-wrap items-center gap-3 rounded-sm border px-3 py-2.5",
-                urgent ? "border-warning bg-warning/10" : "border-border bg-white"
-              )}>
-                <div className="min-w-[220px] flex-1">
-                  <p className="text-sm font-semibold">{r.bookTitle}</p>
-                  <p className="font-mono text-[11px] text-muted-foreground">
-                    <Link to={`/staff/users/${r.userProfileId}`} className="text-burnt hover:underline">{r.userName}</Link>
-                    {" · "}{r.bookShelf}
-                  </p>
-                </div>
-                {urgent && (
-                  <span className="rounded-sm bg-danger px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-white">
-                    {t("dash.urgent")}
-                  </span>
-                )}
-                <div className="text-end">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{t("dash.timeLeft")}</p>
-                  <Countdown deadline={r.pickupDeadline!} />
-                </div>
-                <RequestDocButton record={r} />
-                <Button size="sm" className="bg-brand text-white hover:bg-brand-dark" onClick={() => confirm(r.id)}>
-                  {t("dash.confirmPickup")}
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      )}
+    <div className="space-y-6">
+      <PageHeader title={t("staff.pickups")} />
+      <Panel title={t("dash.awaiting")} count={ready.length} flush>
+        {ready.length === 0 ? (
+          <EmptyState icon={PackageCheck} title={t("dash.noPickups")} />
+        ) : (
+          <div className={tableCls.wrap}>
+            <table className={tableCls.table}>
+              <thead>
+                <tr>
+                  <th className={tableCls.th}>{t("col.book")}</th>
+                  <th className={tableCls.th}>{t("col.member")}</th>
+                  <th className={tableCls.th}>{t("col.timeLeft")}</th>
+                  <th className={tableCls.th}><span className="sr-only">{t("col.actions")}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {ready.map((r) => {
+                  const urgent = msLeft(r.pickupDeadline) < URGENT_PICKUP_MS;
+                  return (
+                    <tr key={r.id} className={tableCls.row}>
+                      <td className={tableCls.td}>
+                        <span className="font-medium">{r.bookTitle}</span>
+                        <div dir="ltr" className="whitespace-nowrap font-mono text-xs text-muted-foreground rtl:text-end">{r.bookShelf}</div>
+                      </td>
+                      <td className={tableCls.td}>
+                        <Link to={`/staff/users/${r.userProfileId}`} className="hover:text-brand-dark hover:underline">{r.userName}</Link>
+                        <div dir="ltr" className="whitespace-nowrap font-mono text-xs text-muted-foreground rtl:text-end">{r.userIdNumber}</div>
+                      </td>
+                      <td className={tableCls.td}>
+                        <span className={cn("inline-flex items-center gap-1.5", urgent ? "text-warning" : "text-ink")}>
+                          {urgent && <AlertTriangle className="size-4" aria-label={t("dash.urgent")} />}
+                          <Countdown deadline={r.pickupDeadline!} className="tabular font-semibold" />
+                        </span>
+                        <div className="text-xs text-muted-foreground">{fmtDateTime(r.pickupDeadline)}</div>
+                      </td>
+                      <td className={tableCls.td}>
+                        <div className="flex justify-end gap-2">
+                          <RequestDocButton record={r} />
+                          <Button
+                            size="sm" disabled={busyId === r.id}
+                            onClick={() => run(r.id, () => apiRecords.confirmPickup(r.id), t("toast.pickedUp"))}
+                          >
+                            {t("dash.confirmPickup")}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

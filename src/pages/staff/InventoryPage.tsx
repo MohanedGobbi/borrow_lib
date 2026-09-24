@@ -1,32 +1,29 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { apiBooks, apiCategories } from "@/api";
 import { ApiError } from "@/api/client";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
 import { BookEditDialog } from "@/components/BookEditDialog";
+import { Availability } from "@/components/BookActions";
+import { PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FullPageLoader } from "@/auth/guards";
+import { useStaffAction } from "@/pages/staff/staffContext";
+import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
 import type { Book } from "@/types";
-
-async function act(fn: () => Promise<unknown>, ok: string, after: () => void) {
-  try {
-    await fn();
-    toast.success(ok);
-    after();
-  } catch (e) {
-    toast.error(e instanceof ApiError ? e.message : "Action failed.");
-  }
-}
 
 export default function InventoryPage() {
   const { t } = useI18n();
   const { data: books, loading, refetch } = useApi(() => apiBooks.list(), []);
+  const { run, busyId } = useStaffAction(refetch);
   const [editBook, setEditBook] = useState<Book | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [filter, setFilter] = useState("");
 
   if (loading) return <FullPageLoader />;
 
@@ -35,54 +32,89 @@ export default function InventoryPage() {
     setDialogOpen(true);
   };
 
+  const q = filter.trim().toLowerCase();
+  const rows = (books ?? []).filter(
+    (b) => !q || [b.title, b.author, b.isbn, b.shelfLocation].some((f) => f.toLowerCase().includes(q)),
+  );
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      <PageHeader
+        title={t("staff.inventory")}
+        actions={<Button size="sm" onClick={() => openEdit(null)}><Plus className="size-4" aria-hidden /> {t("dash.addBook")}</Button>}
+      />
+
       <CategoryManager onChanged={refetch} />
 
-      <div className="rounded-md border border-border bg-cream p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-burnt">
-            {t("dash.inventory")} · {(books ?? []).length}
-          </h2>
-          <Button size="sm" className="bg-burnt text-white hover:bg-burnt-dark" onClick={() => openEdit(null)}>
-            <Plus className="mr-1 size-3.5" /> {t("dash.addBook")}
-          </Button>
+      <Panel
+        title={t("dash.books")}
+        count={rows.length}
+        flush
+        actions={
+          <div className="relative w-72 max-w-full">
+            <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              type="search" value={filter} onChange={(e) => setFilter(e.target.value)}
+              placeholder={t("dash.searchInventory")} aria-label={t("dash.searchInventory")}
+              className="h-9 ps-8"
+            />
+          </div>
+        }
+      >
+        <div className={tableCls.wrap}>
+          <table className={tableCls.table}>
+            <thead>
+              <tr>
+                <th className={tableCls.th}>{t("field.title")}</th>
+                <th className={tableCls.th}>{t("col.shelf")}</th>
+                <th className={tableCls.th}>{t("field.isbn")}</th>
+                <th className={tableCls.th}>{t("col.category")}</th>
+                <th className={tableCls.th}>{t("col.availability")}</th>
+                <th className={tableCls.th}><span className="sr-only">{t("col.actions")}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((b) => {
+                const deletable = b.availableCopies === b.totalCopies;
+                return (
+                  <tr key={b.id} className={tableCls.row}>
+                    <td className={tableCls.td}>
+                      <Link to={`/books/${b.id}`} className="font-medium hover:text-brand-dark hover:underline">{b.title}</Link>
+                      <div className="text-xs text-muted-foreground">{b.author}</div>
+                    </td>
+                    <td className={tableCls.td}><span dir="ltr" className="font-mono text-[13px]">{b.shelfLocation || "—"}</span></td>
+                    <td className={tableCls.td}><span dir="ltr" className="whitespace-nowrap font-mono text-[13px] text-muted-foreground">{b.isbn}</span></td>
+                    <td className={tableCls.td}>
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                        <span className="size-2.5 rounded-[2px]" style={{ backgroundColor: b.category.color }} aria-hidden />
+                        {b.category.name}
+                      </span>
+                    </td>
+                    <td className={tableCls.td}><Availability book={b} className="whitespace-nowrap" /></td>
+                    <td className={tableCls.td}>
+                      <div className="flex justify-end gap-1">
+                        <Button size="icon-sm" variant="ghost" aria-label={`${t("catalog.edit")}: ${b.title}`} title={t("catalog.edit")} onClick={() => openEdit(b)}>
+                          <Pencil className="size-4" aria-hidden />
+                        </Button>
+                        <Button
+                          size="icon-sm" variant="ghost"
+                          className="text-danger hover:bg-danger-soft hover:text-danger"
+                          aria-label={`${t("dash.deleteBook")}: ${b.title}`}
+                          title={deletable ? t("dash.deleteBook") : t("dash.cannotDelete")}
+                          disabled={!deletable || busyId === b.id}
+                          onClick={() => run(b.id, () => apiBooks.remove(b.id), t("toast.bookDeleted"))}
+                        >
+                          <Trash2 className="size-4" aria-hidden />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-
-        <div className="mt-3 max-h-[60vh] space-y-1.5 overflow-y-auto pe-1">
-          {(books ?? []).map((b) => {
-            const deletable = b.availableCopies === b.totalCopies;
-            return (
-              <div key={b.id} className="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-white px-3 py-2">
-                <div className="min-w-[200px] flex-1">
-                  <p className="text-sm font-semibold">{b.title}</p>
-                  <p className="font-mono text-[11px] text-muted-foreground">
-                    {b.author} · {b.isbn} · {b.shelfLocation}
-                  </p>
-                </div>
-                <span className="flex items-center gap-1.5 font-mono text-[11px]">
-                  <span className="size-2.5 rounded-full" style={{ backgroundColor: b.category.color }} />
-                  {b.category.name}
-                </span>
-                <span className={cn("font-mono text-[11px] tabular-nums", b.availableCopies === 0 ? "text-danger" : "text-success")}>
-                  {b.availableCopies}/{b.totalCopies} {t("dash.avail")}
-                </span>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" className="h-7" title={t("catalog.edit")} onClick={() => openEdit(b)}>
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-danger disabled:opacity-30"
-                    title={deletable ? "Delete book" : "Cannot delete — copies on loan"}
-                    disabled={!deletable}
-                    onClick={() => act(() => apiBooks.remove(b.id), "Book deleted.", refetch)}>
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      </Panel>
 
       <BookEditDialog book={editBook} open={dialogOpen} onOpenChange={setDialogOpen} onSaved={refetch} />
     </div>
@@ -91,63 +123,70 @@ export default function InventoryPage() {
 
 /** Category manager: add categories, edit colors, delete empty ones. */
 function CategoryManager({ onChanged }: { onChanged: () => void }) {
+  const { t } = useI18n();
   const { data: categories, refetch } = useApi(() => apiCategories.list(), []);
   const [name, setName] = useState("");
-  const [color, setColor] = useState("#CC8800");
+  const [color, setColor] = useState("#1F6E43");
 
-  const changed = () => { refetch(); onChanged(); };
+  const act = async (fn: () => Promise<unknown>, ok: string) => {
+    try {
+      await fn();
+      toast.success(ok);
+      refetch();
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : t("toast.failed"));
+    }
+  };
 
   return (
-    <div className="rounded-md border border-border bg-white p-4">
-      <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-burnt">Categories</h2>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+    <Panel title={t("dash.categories")} count={(categories ?? []).length}>
+      <ul className="flex flex-wrap gap-2">
         {(categories ?? []).map((c) => (
-          <span key={c.id} className="group flex items-center gap-2 rounded-sm border border-border bg-cream px-2 py-1">
+          <li key={c.id} className="flex items-center gap-2 rounded-md border bg-white py-1 ps-1.5 pe-2">
             <input
               type="color"
               value={c.color}
-              aria-label={`${c.name} color`}
-              className="size-5 cursor-pointer rounded-sm border-0 bg-transparent p-0"
-              onChange={(e) => act(() => apiCategories.update(c.id, { color: e.target.value }), "Category color updated.", changed)}
+              aria-label={`${c.name}: ${t("dash.categoryHelp")}`}
+              className="size-6 cursor-pointer rounded border-0 bg-transparent p-0"
+              onChange={(e) => act(() => apiCategories.update(c.id, { color: e.target.value }), t("toast.categoryUpdated"))}
             />
-            <span className="text-xs font-semibold">{c.name}</span>
-            <span className="font-mono text-[10px] text-muted-foreground">{c.bookCount ?? 0}</span>
+            <span className="text-sm font-medium">{c.name}</span>
+            <span className="tabular text-xs text-muted-foreground">{c.bookCount ?? 0}</span>
             {(c.bookCount ?? 0) === 0 && (
               <button
-                className="text-danger opacity-0 transition-opacity group-hover:opacity-100"
-                title="Delete empty category"
-                onClick={() => act(() => apiCategories.remove(c.id), "Category deleted.", changed)}
+                type="button"
+                className="rounded p-0.5 text-muted-foreground hover:bg-danger-soft hover:text-danger"
+                aria-label={`${t("dash.deleteCategory")}: ${c.name}`}
+                title={t("dash.deleteCategory")}
+                onClick={() => act(() => apiCategories.remove(c.id), t("toast.categoryDeleted"))}
               >
-                <Trash2 className="size-3" />
+                <Trash2 className="size-3.5" aria-hidden />
               </button>
             )}
-          </span>
+          </li>
         ))}
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Input
-          className="h-8 w-48" placeholder="New category name"
-          value={name} onChange={(e) => setName(e.target.value)}
-        />
+      </ul>
+      <form
+        className="mt-4 flex flex-wrap items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!name.trim()) return;
+          act(() => apiCategories.create({ name: name.trim(), color }), t("toast.categoryCreated"));
+          setName("");
+        }}
+      >
         <input
-          type="color" value={color} aria-label="New category color"
-          className="size-8 cursor-pointer rounded-sm border border-border bg-transparent p-0.5"
+          type="color" value={color} aria-label={t("dash.categoryHelp")}
+          className="size-9 cursor-pointer rounded-md border bg-white p-1"
           onChange={(e) => setColor(e.target.value)}
         />
-        <Button
-          size="sm" className="h-8 bg-ink text-white"
-          disabled={!name.trim()}
-          onClick={() => {
-            act(() => apiCategories.create({ name: name.trim(), color }), "Category created.", changed);
-            setName("");
-          }}
-        >
-          <Plus className="mr-1 size-3.5" /> Add
+        <Input className="h-9 w-56" placeholder={t("dash.newCategory")} aria-label={t("dash.newCategory")} value={name} onChange={(e) => setName(e.target.value)} />
+        <Button type="submit" size="sm" variant="outline" disabled={!name.trim()}>
+          <Plus className="size-4" aria-hidden /> {t("dash.add")}
         </Button>
-      </div>
-      <p className="mt-2 font-mono text-[10px] text-muted-foreground">
-        Category colors theme the catalog when members filter by category.
-      </p>
-    </div>
+        <p className={cn("basis-full text-xs text-muted-foreground")}>{t("dash.categoryHelp")}</p>
+      </form>
+    </Panel>
   );
 }

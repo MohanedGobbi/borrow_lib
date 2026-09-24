@@ -1,199 +1,179 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router";
-import { Pencil, Search, ShoppingCart, Check } from "lucide-react";
-import { toast } from "sonner";
-import { apiBooks, apiCategories, apiRecords, apiReservations } from "@/api";
-import { ApiError } from "@/api/client";
+import { useMemo } from "react";
+import { Link, useSearchParams } from "react-router";
+import { SearchX, Search } from "lucide-react";
+import { apiBooks, apiCategories } from "@/api";
 import { useApi } from "@/hooks/useApi";
-import { useAuth } from "@/auth/AuthContext";
-import { useCart } from "@/cart/CartContext";
 import { useI18n } from "@/i18n";
-import { useCategoryAccent } from "@/hooks/useCategoryAccent";
 import { BookCover } from "@/components/BookCover";
+import { Availability, BookActions } from "@/components/BookActions";
+import { Container } from "@/components/Layout";
+import { EmptyState, ErrorState, PageHeader } from "@/components/Page";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FullPageLoader } from "@/auth/guards";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 export default function CatalogPage() {
-  const { me } = useAuth();
   const { t } = useI18n();
-  const cart = useCart();
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
+  const [params, setParams] = useSearchParams();
+  const search = params.get("q") ?? "";
+  const category = params.get("category") ?? "";
+  const availableOnly = params.get("available") === "1";
+
   const { data: categories } = useApi(() => apiCategories.list(), []);
-  const { data: books, loading, error, refetch } = useApi(
-    () => apiBooks.list(category === "All" ? {} : { category }),
-    [category]
-  );
+  const { data: books, loading, error, refetch } = useApi(() => apiBooks.list(), []);
 
-  const activeColor = category === "All"
-    ? null
-    : (categories ?? []).find((c) => c.name === category)?.color;
-  useCategoryAccent(activeColor);
-
-  const isStaff = !!me && me.role !== "MEMBER";
-  const isMember = !!me && me.role === "MEMBER";
+  const setParam = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (books ?? []).filter(
-      (b) => !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q) || b.isbn.toLowerCase().includes(q)
+    return (books ?? []).filter((b) =>
+      (!q || [b.title, b.author, b.isbn].some((f) => f.toLowerCase().includes(q)))
+      && (!category || b.category.name === category)
+      && (!availableOnly || b.availableCopies > 0),
     );
-  }, [books, search]);
+  }, [books, search, category, availableOnly]);
 
-  const act = async (fn: () => Promise<unknown>, ok: string) => {
-    try {
-      await fn();
-      toast.success(ok);
-      refetch();
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "Action failed.");
-    }
-  };
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    (books ?? []).forEach((b) => m.set(b.category.name, (m.get(b.category.name) ?? 0) + 1));
+    return m;
+  }, [books]);
+
+  const hasFilters = !!(search || category || availableOnly);
 
   return (
-    <div className="space-y-6">
-      {/* hero follows the active category color */}
-      <div
-        className="rounded-md px-6 py-8 text-white transition-colors duration-500"
-        style={{ backgroundColor: activeColor ?? "#C55221" }}
-      >
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] opacity-80">{t("catalog.heroKicker")}</p>
-        <h1 className="mt-2 max-w-2xl text-3xl font-bold leading-tight tracking-tight md:text-4xl">
-          {t("catalog.heroTitle")}
-        </h1>
-        <p className="mt-2 max-w-xl text-sm opacity-90">{t("catalog.heroSub")}</p>
-        {isStaff && (
-          <p className="mt-3 inline-block rounded-sm bg-white/15 px-2 py-1 font-mono text-[11px] uppercase tracking-widest">
-            {t("catalog.staffNote")}
-          </p>
-        )}
-      </div>
+    <Container>
+      <PageHeader
+        title={t("catalog.title")}
+        description={books ? <span className="tabular">{filtered.length} {t("catalog.titles")}</span> : null}
+      />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[240px] flex-1">
-          <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("catalog.search")}
-            className="bg-white ps-8"
-            aria-label={t("catalog.search")}
-          />
-        </div>
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-[180px] bg-white" aria-label="Category">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">{t("catalog.all")}</SelectItem>
-            {(categories ?? []).map((c) => (
-              <SelectItem key={c.id} value={c.name}>
-                <span className="flex items-center gap-2">
-                  <span className="size-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                  {c.name}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="font-mono text-xs text-muted-foreground">
-          {filtered.length} {t("catalog.titles")}
-        </span>
-      </div>
+      <div className="mt-6 grid gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
+        {/* filters */}
+        <aside className="space-y-6">
+          <div className="relative">
+            <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setParam("q", e.target.value)}
+              placeholder={t("catalog.search")}
+              aria-label={t("catalog.search")}
+              className="h-10 bg-white ps-9"
+            />
+          </div>
 
-      {loading && <FullPageLoader />}
-      {error && (
-        <div className="rounded-md border border-danger/40 bg-danger/5 px-6 py-10 text-center text-sm text-danger">
-          {t("common.apiDown")}
-        </div>
-      )}
+          <div className="lg:hidden">
+            <Select value={category || "all"} onValueChange={(v) => setParam("category", v === "all" ? "" : v)}>
+              <SelectTrigger className="h-10 w-full bg-white" aria-label={t("catalog.categories")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("catalog.all")}</SelectItem>
+                {(categories ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {filtered.map((b) => {
-          const out = b.availableCopies <= 0;
-          return (
-            <article key={b.id} className="flex flex-col rounded-md border border-border bg-white p-3">
-              <Link to={`/books/${b.id}`} className="focus-visible:outline-2 focus-visible:outline-brand">
-                <BookCover book={b} />
-              </Link>
-              <div className="mt-3 flex-1">
-                <Link to={`/books/${b.id}`} className="text-sm font-semibold leading-snug hover:text-burnt focus-visible:outline-2 focus-visible:outline-brand">
-                  {b.title}
-                </Link>
-                <p className="mt-0.5 text-xs text-muted-foreground">{b.author}</p>
-                <p className="mt-1.5 font-mono text-[11px] uppercase tracking-wider">
-                  {out ? (
-                    <span className="text-danger">0 {t("catalog.available")}</span>
-                  ) : (
-                    <span className="text-success">{b.availableCopies}/{b.totalCopies} {t("catalog.available")}</span>
-                  )}
-                </p>
-              </div>
+          <nav className="hidden lg:block" aria-label={t("catalog.categories")}>
+            <h2 className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("catalog.categories")}</h2>
+            <ul className="mt-2 space-y-0.5">
+              {[{ name: "", label: t("catalog.all"), count: books?.length ?? 0, color: null as string | null },
+                ...(categories ?? []).map((c) => ({ name: c.name, label: c.name, count: counts.get(c.name) ?? 0, color: c.color }))]
+                .map((c) => (
+                  <li key={c.name || "all"}>
+                    <button
+                      type="button"
+                      onClick={() => setParam("category", c.name)}
+                      aria-current={category === c.name ? "true" : undefined}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-start text-[15px] transition-colors",
+                        category === c.name ? "bg-brand-soft font-medium text-brand-dark" : "text-ink/80 hover:bg-surface",
+                      )}
+                    >
+                      {c.color
+                        ? <span className="size-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: c.color }} aria-hidden />
+                        : <span className="size-2.5 shrink-0" aria-hidden />}
+                      <span className="flex-1 truncate">{c.label}</span>
+                      <span className="tabular text-xs text-muted-foreground">{c.count}</span>
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </nav>
 
-              <div className="mt-3 space-y-1.5">
-                {/* staff variant: stock + edit instead of borrow */}
-                {isStaff && (
-                  <>
-                    <p className="rounded-sm bg-cream px-2 py-1 text-center font-mono text-[11px]">
-                      {b.availableCopies} / {b.totalCopies} {t("catalog.inLibrary")}
+          <label className="flex cursor-pointer items-center gap-2.5 text-[15px]">
+            <Checkbox
+              checked={availableOnly}
+              onCheckedChange={(v) => setParam("available", v === true ? "1" : "")}
+            />
+            {t("catalog.availableOnly")}
+          </label>
+        </aside>
+
+        {/* results */}
+        <div className="min-w-0">
+          {loading && <FullPageLoader />}
+          {error && !loading && <ErrorState message={t("catalog.loadError")} onRetry={refetch} />}
+
+          {!loading && !error && filtered.length === 0 && (
+            <div className="rounded-md border">
+              <EmptyState icon={SearchX} title={t("catalog.noMatch")}>
+                {hasFilters && (
+                  <Button variant="outline" size="sm" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
+                    {t("catalog.clear")}
+                  </Button>
+                )}
+              </EmptyState>
+            </div>
+          )}
+
+          {!loading && filtered.length > 0 && (
+            <ul className="divide-y rounded-md border bg-white">
+              {filtered.map((b) => (
+                <li key={b.id} className="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-4 gap-y-3 p-4 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:gap-x-5">
+                  <Link to={`/books/${b.id}`} tabIndex={-1} aria-hidden className="row-span-2 sm:row-span-1">
+                    <BookCover book={b} size="sm" />
+                  </Link>
+                  <div className="min-w-0">
+                    <Link to={`/books/${b.id}`} className="text-base font-semibold leading-snug text-ink hover:text-brand-dark hover:underline">
+                      {b.title}
+                    </Link>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {b.author}{b.year ? ` · ${b.year}` : ""}{b.publisher ? ` · ${b.publisher}` : ""}
                     </p>
-                    <Button asChild size="sm" variant="outline" className="w-full border-burnt text-burnt hover:bg-burnt hover:text-white">
-                      <Link to={`/books/${b.id}`}><Pencil className="mr-1 size-3.5" /> {t("catalog.edit")}</Link>
-                    </Button>
-                  </>
-                )}
-
-                {!me && (
-                  <Button asChild size="sm" variant="outline" className="w-full border-burnt text-burnt hover:bg-burnt hover:text-white">
-                    <Link to="/login">{t("catalog.signinBorrow")}</Link>
-                  </Button>
-                )}
-
-                {isMember && out && (
-                  <Button
-                    variant="outline" size="sm"
-                    className="w-full border-burnt text-burnt hover:bg-burnt hover:text-white"
-                    onClick={() => act(() => apiReservations.create(b.id), "Joined the reservation queue.")}
-                  >
-                    {t("catalog.reserve")}
-                  </Button>
-                )}
-
-                {isMember && !out && (
-                  <div className="flex gap-1.5">
-                    <Button
-                      size="sm" className="flex-1 bg-brand text-white hover:bg-brand-dark"
-                      style={{ backgroundColor: activeColor ?? undefined }}
-                      onClick={() => act(() => apiRecords.create(b.id), "Request submitted — waiting for staff approval.")}
-                    >
-                      {t("catalog.borrow")}
-                    </Button>
-                    <Button
-                      size="sm" variant="outline"
-                      className="border-brand text-brand-dark hover:bg-brand hover:text-white"
-                      aria-label={t("catalog.addCart")}
-                      disabled={cart.has(b.id)}
-                      onClick={() => { cart.add(b.id); toast.success(`“${b.title}” — ${t("cart.title")}`); }}
-                    >
-                      {cart.has(b.id) ? <Check className="size-4" /> : <ShoppingCart className="size-4" />}
-                    </Button>
+                    <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                      <Availability book={b} />
+                      <span className="text-muted-foreground">
+                        {t("field.shelf")} <span dir="ltr" className="font-mono text-[13px] text-ink/80">{b.shelfLocation || "—"}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <span className="size-2 rounded-[2px]" style={{ backgroundColor: b.category.color }} aria-hidden />
+                        {b.category.name}
+                      </span>
+                    </p>
                   </div>
-                )}
-              </div>
-            </article>
-          );
-        })}
-      </div>
-
-      {!loading && !error && filtered.length === 0 && (
-        <div className="rounded-md border border-dashed border-border bg-white px-6 py-12 text-center text-sm text-muted-foreground">
-          {t("catalog.noMatch")}
+                  <div className="col-start-2 sm:col-start-3 sm:self-center">
+                    <BookActions book={b} onChanged={refetch} className="w-full sm:w-44" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </Container>
   );
 }

@@ -1,44 +1,47 @@
 import { cn } from "@/lib/utils";
 import type { Book } from "@/types";
 
-/** Book cover: uploaded image when present, otherwise the editorial letter-cover. */
-export function BookCover({ book, className }: { book: Book; className?: string }) {
+/**
+ * Book cover: the uploaded image when present, otherwise a plain library
+ * binding in the book's cloth color with the title set on the front board.
+ */
+export function BookCover({ book, className, size = "md" }: { book: Book; className?: string; size?: "sm" | "md" | "lg" }) {
   if (book.coverImage) {
     return (
       <img
         src={book.coverImage}
-        alt={book.title}
-        className={cn("aspect-[3/4] w-full rounded-sm object-cover", className)}
+        alt=""
+        className={cn("aspect-[2/3] w-full rounded-[3px] object-cover shadow-[0_1px_2px_rgb(0_0_0/0.12)]", className)}
         loading="lazy"
       />
     );
   }
-  const initials = book.title
-    .split(" ")
-    .filter((w) => /^[A-Za-z\u0600-\u06FF]/.test(w))
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
   return (
     <div
+      aria-hidden
       className={cn(
-        "relative flex aspect-[3/4] w-full flex-col justify-between overflow-hidden rounded-sm p-3 text-white",
-        className
+        "relative flex aspect-[2/3] w-full flex-col overflow-hidden rounded-[3px] text-white shadow-[0_1px_2px_rgb(0_0_0/0.12)]",
+        className,
       )}
       style={{ backgroundColor: book.coverColor }}
     >
-      <div className="absolute inset-x-0 top-0 h-1.5 bg-white/25" />
-      <div className="font-mono text-[10px] uppercase tracking-widest opacity-80">
-        {book.category.name}
-      </div>
-      <div className="text-5xl font-bold tracking-tight opacity-95">{initials}</div>
-      <div>
-        <div className="text-[11px] font-semibold leading-tight line-clamp-2">{book.title}</div>
-        <div className="mt-0.5 font-mono text-[9px] uppercase tracking-wider opacity-75 line-clamp-1">
-          {book.author}
+      {/* spine hinge */}
+      <span className="absolute inset-y-0 start-0 w-[7%] bg-black/15" />
+      <span className="absolute inset-y-0 start-[7%] w-px bg-white/15" />
+      {size !== "sm" && (
+        <div className={cn("relative flex flex-1 flex-col ps-[16%] pe-[9%]", size === "lg" ? "pt-[18%]" : "pt-[16%]")}>
+          <span className="block h-px w-6 bg-white/50" />
+          <span className={cn(
+            "mt-2 font-semibold leading-tight line-clamp-4",
+            size === "lg" ? "text-base sm:text-lg" : "text-[11px]",
+          )}>
+            {book.title}
+          </span>
+          <span className={cn("mt-auto pb-[14%] leading-tight text-white/85 line-clamp-2", size === "lg" ? "text-[13px] sm:text-sm" : "text-[9px]")}>
+            {book.author}
+          </span>
         </div>
-      </div>
+      )}
     </div>
   );
 }
