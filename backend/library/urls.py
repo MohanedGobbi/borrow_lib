@@ -17,6 +17,7 @@ urlpatterns = [
     path("books", views.BookListCreateView.as_view()),
     path("books/<int:pk>", views.BookDetailView.as_view()),
     path("books/<int:pk>/reservations", views.BookReservationsView.as_view()),
+    path("books/<int:pk>/copies", views.BookCopiesView.as_view()),
     # categories
     path("categories", views.CategoryListCreateView.as_view()),
     path("categories/<int:pk>", views.CategoryDetailView.as_view()),

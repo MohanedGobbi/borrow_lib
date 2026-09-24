@@ -287,6 +287,40 @@ class ReservationListCreateView(APIView):
         return Response(ReservationSerializer(reservation).data, status=http.HTTP_201_CREATED)
 
 
+class BookCopiesView(APIView):
+    """Where every copy of a book is: on loan (with due date), held for pickup, or on the shelf.
+
+    Public, so students can see when a copy is expected back; borrower names are
+    only included for staff.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        from .permissions import role_of
+        book = get_object_or_404(Book, pk=pk)
+        is_staff = role_of(request.user) in (Role.STAFF, Role.ADMIN)
+        out = list(book.borrow_records.filter(status__in=[Status.BORROWED, Status.OVERDUE])
+                   .select_related("user__profile").order_by("due_date"))
+        held = list(book.borrow_records.filter(status=Status.READY)
+                    .select_related("user__profile").order_by("pickup_deadline"))
+
+        def who(r):
+            if not is_staff:
+                return {}
+            return {"recordId": r.id, "userName": display_name(r.user), "userProfileId": r.user.profile.id}
+
+        copies = [{"state": r.status, "dueDate": r.due_date, "since": r.borrowed_at, **who(r)} for r in out]
+        on_shelf = max(0, book.total_copies - len(out))
+        # READY holds sit on the hold shelf: they are physically in the library but set aside.
+        for r in held[:on_shelf]:
+            copies.append({"state": "HELD", "heldUntil": r.pickup_deadline, **who(r)})
+        copies += [{"state": "ON_SHELF", "shelf": book.shelf_location}
+                   for _ in range(on_shelf - min(len(held), on_shelf))]
+        for i, c in enumerate(copies, start=1):
+            c["copy"] = i
+        return Response(copies)
+
+
 class BookReservationsView(generics.ListAPIView):
     """Staff-only: ordered FIFO queue for one book."""
     permission_classes = [IsStaffOrAdmin]
@@ -461,7 +495,7 @@ class AnalyticsView(APIView):
         )
         category_loans = [
             {"name": r["book__category__name"] or "Uncategorized",
-             "color": r["book__category__color"] or "#CC8800", "loans": r["n"]}
+             "color": r["book__category__color"] or "#4A5560", "loans": r["n"]}
             for r in cat_loans
         ]
 

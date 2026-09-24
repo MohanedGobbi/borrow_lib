@@ -76,7 +76,7 @@ def create_request(user: User, book: Book) -> BorrowRecord:
     if user.borrow_records.filter(book=book, status__in=[Status.PENDING, Status.READY]).exists():
         raise BusinessRuleError("You already have an open request for this book.")
     record = BorrowRecord.objects.create(user=user, book=book)
-    log_activity("System", "REQUEST_CREATED", f"{display_name(user)} requested “{book.title}”.")
+    log_activity(display_name(user), "REQUEST_CREATED", f"{display_name(user)} requested “{book.title}”.")
     return record
 
 
@@ -152,7 +152,7 @@ def create_reservation(user: User, book: Book) -> Reservation:
         raise BusinessRuleError("You are already in the reservation queue for this book.")
     reservation = Reservation.objects.create(user=user, book=book)
     position = list(queue_for_book(book).values_list("id", flat=True)).index(reservation.id) + 1
-    log_activity("System", "RESERVED",
+    log_activity(display_name(user), "RESERVED",
                  f"{display_name(user)} joined the queue for “{book.title}” (position {position}).")
     notify(user, f"You joined the reservation queue for “{book.title}” at position {position}.")
     return reservation

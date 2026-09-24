@@ -8,7 +8,7 @@ from django.db import models
 class Category(models.Model):
     """Book categories are staff-managed: name + display color (used to theme the UI)."""
     name = models.CharField(max_length=60, unique=True)
-    color = models.CharField(max_length=9, default="#CC8800")
+    color = models.CharField(max_length=9, default="#4A5560")
 
     class Meta:
         ordering = ["name"]
@@ -44,7 +44,7 @@ class Book(models.Model):
     total_copies = models.PositiveIntegerField(default=1)
     available_copies = models.PositiveIntegerField(default=1)
     shelf_location = models.CharField(max_length=50, blank=True)
-    cover_color = models.CharField(max_length=9, default="#C55221")
+    cover_color = models.CharField(max_length=9, default="#1F4D3A")
     cover_image = models.ImageField(upload_to="covers/", null=True, blank=True)
     description = models.TextField(blank=True)
 

@@ -49,30 +49,30 @@ interface DemoState {
 // ------------------------------- seed -------------------------------
 
 const CATEGORY_COLORS: [string, string][] = [
-  ["Fiction", "#C55221"], ["Non-Fiction", "#D97706"], ["Science", "#2F6B4F"],
-  ["History", "#9E3F18"], ["Technology", "#3E5C76"],
+  ["Fiction", "#1F6E43"], ["Non-Fiction", "#8A5A2B"], ["Science", "#2D5F7A"],
+  ["History", "#645B7C"], ["Technology", "#4A5560"],
 ];
 
 type SeedBook = [string, string, string, string, string, number, number, number, string, string, string];
 const BOOKS: SeedBook[] = [
-  ["The Name of the Wind", "Patrick Rothfuss", "978-0756404741", "Fiction", "DAW Books", 2007, 4, 2, "FIC-A-03", "#C55221", "The riveting first-person narrative of Kvothe, a gifted young man who grows to be the most notorious magician his world has ever seen."],
-  ["Sapiens: A Brief History of Humankind", "Yuval Noah Harari", "978-0062316097", "History", "Harper", 2015, 5, 3, "HIS-B-11", "#CC8800", "A groundbreaking narrative of humanity's creation and evolution."],
-  ["Clean Code", "Robert C. Martin", "978-0132350884", "Technology", "Prentice Hall", 2008, 3, 0, "TEC-C-07", "#111827", "A handbook of agile software craftsmanship."],
-  ["A Brief History of Time", "Stephen Hawking", "978-0553380163", "Science", "Bantam", 1998, 3, 1, "SCI-D-02", "#3E5C76", "From the Big Bang to black holes — a landmark volume in science writing."],
-  ["The Design of Everyday Things", "Don Norman", "978-0465050659", "Non-Fiction", "Basic Books", 2013, 2, 2, "NON-E-05", "#D97706", "The classic guide to human-centered design."],
-  ["Dune", "Frank Herbert", "978-0441172719", "Fiction", "Ace", 1990, 6, 4, "FIC-A-09", "#B96A24", "Set on the desert planet Arrakis, the story of Paul Atreides."],
-  ["The Pragmatic Programmer", "David Thomas & Andrew Hunt", "978-0135957059", "Technology", "Addison-Wesley", 2019, 3, 1, "TEC-C-02", "#7A4E2D", "Your journey to mastery: classic software development wisdom."],
-  ["Guns, Germs, and Steel", "Jared Diamond", "978-0393354324", "History", "W. W. Norton", 2017, 2, 0, "HIS-B-04", "#8C2F1B", "A global account of the rise of civilization."],
-  ["The Selfish Gene", "Richard Dawkins", "978-0198788607", "Science", "Oxford UP", 2016, 3, 2, "SCI-D-08", "#2F6B4F", "The gene-centered view of evolution that changed biology."],
-  ["Thinking, Fast and Slow", "Daniel Kahneman", "978-0374533557", "Non-Fiction", "FSG", 2013, 4, 3, "NON-E-01", "#A66D00", "The two systems that drive the way we think."],
-  ["Structure and Interpretation of Computer Programs", "Harold Abelson & Gerald Jay Sussman", "978-0262510875", "Technology", "MIT Press", 1996, 2, 2, "TEC-C-11", "#4A4A68", "The wizard book: a deep introduction to programming using Scheme."],
-  ["The Silk Roads", "Peter Frankopan", "978-1101912379", "History", "Vintage", 2017, 2, 1, "HIS-B-15", "#9E3F18", "A new history of the world told through trade networks."],
-  ["Klara and the Sun", "Kazuo Ishiguro", "978-0593318171", "Fiction", "Vintage", 2021, 3, 1, "FIC-A-14", "#E0A52E", "The story of Klara, an Artificial Friend."],
-  ["The Gene: An Intimate History", "Siddhartha Mukherjee", "978-1476733524", "Science", "Scribner", 2017, 2, 0, "SCI-D-12", "#5B7553", "A magnificent history of the gene."],
-  ["Atomic Habits", "James Clear", "978-0735211292", "Non-Fiction", "Avery", 2018, 5, 4, "NON-E-09", "#C98A12", "Tiny changes, remarkable results."],
-  ["The Art of Computer Programming, Vol. 1", "Donald E. Knuth", "978-0201896831", "Technology", "Addison-Wesley", 1997, 1, 1, "TEC-C-15", "#3D3D3D", "Fundamental algorithms — the bible of computer science."],
-  ["Meditations", "Marcus Aurelius", "978-0812968255", "Non-Fiction", "Modern Library", 2002, 3, 3, "NON-E-13", "#6B5840", "Timeless Stoic wisdom on duty and mortality."],
-  ["Project Hail Mary", "Andy Weir", "978-0593135228", "Fiction", "Ballantine", 2021, 4, 0, "FIC-A-20", "#B34E1F", "A lone astronaut with the fate of humanity on his shoulders."],
+  ["The Name of the Wind", "Patrick Rothfuss", "978-0756404741", "Fiction", "DAW Books", 2007, 4, 2, "FIC-A-03", "#1F4D3A", "The riveting first-person narrative of Kvothe, a gifted young man who grows to be the most notorious magician his world has ever seen."],
+  ["Sapiens: A Brief History of Humankind", "Yuval Noah Harari", "978-0062316097", "History", "Harper", 2015, 5, 3, "HIS-B-11", "#5C4630", "A groundbreaking narrative of humanity's creation and evolution."],
+  ["Clean Code", "Robert C. Martin", "978-0132350884", "Technology", "Prentice Hall", 2008, 3, 0, "TEC-C-07", "#2E4A3C", "A handbook of agile software craftsmanship."],
+  ["A Brief History of Time", "Stephen Hawking", "978-0553380163", "Science", "Bantam", 1998, 3, 1, "SCI-D-02", "#4A4E45", "From the Big Bang to black holes — a landmark volume in science writing."],
+  ["The Design of Everyday Things", "Don Norman", "978-0465050659", "Non-Fiction", "Basic Books", 2013, 2, 2, "NON-E-05", "#7A3B2E", "The classic guide to human-centered design."],
+  ["Dune", "Frank Herbert", "978-0441172719", "Fiction", "Ace", 1990, 6, 4, "FIC-A-09", "#2B3F52", "Set on the desert planet Arrakis, the story of Paul Atreides."],
+  ["The Pragmatic Programmer", "David Thomas & Andrew Hunt", "978-0135957059", "Technology", "Addison-Wesley", 2019, 3, 1, "TEC-C-02", "#3D3A4F", "Your journey to mastery: classic software development wisdom."],
+  ["Guns, Germs, and Steel", "Jared Diamond", "978-0393354324", "History", "W. W. Norton", 2017, 2, 0, "HIS-B-04", "#6E2A2A", "A global account of the rise of civilization."],
+  ["The Selfish Gene", "Richard Dawkins", "978-0198788607", "Science", "Oxford UP", 2016, 3, 2, "SCI-D-08", "#29463F", "The gene-centered view of evolution that changed biology."],
+  ["Thinking, Fast and Slow", "Daniel Kahneman", "978-0374533557", "Non-Fiction", "FSG", 2013, 4, 3, "NON-E-01", "#1F4D3A", "The two systems that drive the way we think."],
+  ["Structure and Interpretation of Computer Programs", "Harold Abelson & Gerald Jay Sussman", "978-0262510875", "Technology", "MIT Press", 1996, 2, 2, "TEC-C-11", "#5C4630", "The wizard book: a deep introduction to programming using Scheme."],
+  ["The Silk Roads", "Peter Frankopan", "978-1101912379", "History", "Vintage", 2017, 2, 1, "HIS-B-15", "#2E4A3C", "A new history of the world told through trade networks."],
+  ["Klara and the Sun", "Kazuo Ishiguro", "978-0593318171", "Fiction", "Vintage", 2021, 3, 1, "FIC-A-14", "#4A4E45", "The story of Klara, an Artificial Friend."],
+  ["The Gene: An Intimate History", "Siddhartha Mukherjee", "978-1476733524", "Science", "Scribner", 2017, 2, 0, "SCI-D-12", "#7A3B2E", "A magnificent history of the gene."],
+  ["Atomic Habits", "James Clear", "978-0735211292", "Non-Fiction", "Avery", 2018, 5, 4, "NON-E-09", "#2B3F52", "Tiny changes, remarkable results."],
+  ["The Art of Computer Programming, Vol. 1", "Donald E. Knuth", "978-0201896831", "Technology", "Addison-Wesley", 1997, 1, 1, "TEC-C-15", "#3D3A4F", "Fundamental algorithms — the bible of computer science."],
+  ["Meditations", "Marcus Aurelius", "978-0812968255", "Non-Fiction", "Modern Library", 2002, 3, 3, "NON-E-13", "#6E2A2A", "Timeless Stoic wisdom on duty and mortality."],
+  ["Project Hail Mary", "Andy Weir", "978-0593135228", "Fiction", "Ballantine", 2021, 4, 0, "FIC-A-20", "#29463F", "A lone astronaut with the fate of humanity on his shoulders."],
 ];
 
 const USERS: [string, string, string, Role, number][] = [
@@ -80,10 +80,18 @@ const USERS: [string, string, string, Role, number][] = [
   ["Marcus Holloway", "staff@libborrow.dev", "STF-0042", "STAFF", 1600],
   ["Priya Sharma", "priya@example.com", "STU-10293", "MEMBER", 700],
   ["Daniel Okafor", "daniel@example.com", "STU-10417", "MEMBER", 560],
-  ["Sofia Lindqvist", "sofia@example.com", "STU-10558", "MEMBER", 1000],
-  ["Tomás Rivera", "tomas@example.com", "STU-10660", "MEMBER", 340],
-  ["Hana Yoshida", "hana@example.com", "STU-10774", "MEMBER", 840],
+  ["Sofia Lindqvist", "sofia@example.com", "STU-10558", "MEMBER", 150],
+  ["Tomás Rivera", "tomas@example.com", "STU-10660", "MEMBER", 95],
+  ["Hana Yoshida", "hana@example.com", "STU-10774", "MEMBER", 40],
   ["Greta Weiss", "gweiss@libborrow.dev", "STF-0057", "STAFF", 1250],
+  ["Youssef Ben Ali", "youssef@example.com", "STU-10801", "MEMBER", 210],
+  ["Amira Haddad", "amira@example.com", "STU-10802", "MEMBER", 180],
+  ["Lucas Martin", "lucas@example.com", "STU-10803", "MEMBER", 260],
+  ["Inès Moreau", "ines@example.com", "STU-10804", "MEMBER", 120],
+  ["Karim Mansour", "karim@example.com", "STU-10805", "MEMBER", 75],
+  ["Léa Dubois", "lea@example.com", "STU-10806", "MEMBER", 300],
+  ["Omar Trabelsi", "omar@example.com", "STU-10807", "MEMBER", 55],
+  ["Sara Khalil", "sara@example.com", "STU-10808", "MEMBER", 20],
 ];
 
 function uuid(): string {
@@ -147,13 +155,67 @@ function seed(): DemoState {
   rec(tomas, "The Art of Computer Programming, Vol. 1", "REJECTED", { requestedAt: -9 * D });
   rec(daniel, "Clean Code", "CANCELLED", { requestedAt: -6 * D, approvedAt: -5.8 * D, pickupDeadline: -3.8 * D });
 
+  // Students holding the remaining copies, so every copy that is off the shelf has a borrower.
+  const loan = (email: string, title: string, daysAgo: number) =>
+    rec(u(email), title, "BORROWED", {
+      requestedAt: -(daysAgo + 1) * D, approvedAt: -(daysAgo + 0.8) * D, pickupDeadline: -(daysAgo - 1.2) * D,
+      borrowedAt: -daysAgo * D, dueDate: (14 - daysAgo) * D,
+    });
+  loan("youssef@example.com", "Project Hail Mary", 3);
+  loan("amira@example.com", "Project Hail Mary", 6);
+  loan("lucas@example.com", "Project Hail Mary", 9);
+  loan("ines@example.com", "Project Hail Mary", 12);
+  loan("karim@example.com", "Clean Code", 2);
+  loan("lea@example.com", "Clean Code", 8);
+  loan("omar@example.com", "Clean Code", 11);
+  loan("sara@example.com", "Guns, Germs, and Steel", 4);
+  loan("youssef@example.com", "Guns, Germs, and Steel", 10);
+  loan("amira@example.com", "The Gene: An Intimate History", 5);
+  loan("karim@example.com", "The Gene: An Intimate History", 13);
+  loan("lucas@example.com", "The Name of the Wind", 7);
+  loan("ines@example.com", "Sapiens: A Brief History of Humankind", 2);
+  loan("omar@example.com", "Sapiens: A Brief History of Humankind", 6);
+  loan("lea@example.com", "A Brief History of Time", 4);
+  loan("sara@example.com", "A Brief History of Time", 9);
+  loan("karim@example.com", "Dune", 1);
+  loan("omar@example.com", "The Pragmatic Programmer", 3);
+  loan("youssef@example.com", "The Pragmatic Programmer", 12);
+  loan("amira@example.com", "Thinking, Fast and Slow", 8);
+  loan("lucas@example.com", "The Silk Roads", 5);
+  loan("sara@example.com", "Klara and the Sun", 10);
+  loan("ines@example.com", "Atomic Habits", 7);
+
+  // Shelf stock is derived from the loans, never typed in: available = total − copies on loan.
+  for (const book of s.books) {
+    const out = s.records.filter((r) => r.bookId === book.id && (r.status === "BORROWED" || r.status === "OVERDUE")).length;
+    book.availableCopies = Math.max(0, book.totalCopies - out);
+  }
+
   ([[sofia, "Clean Code"], [hana, "Clean Code"], [priya, "Guns, Germs, and Steel"],
     [daniel, "Project Hail Mary"], [tomas, "Project Hail Mary"]] as [number, string][])
     .forEach(([userId, title], i) =>
       s.reservations.push({ id: i + 1, userId, bookId: b(title), reservedAt: now - (5 - i) * H, isActive: true }));
 
-  s.activity.push({ id: 1, at: now, actorName: "System", action: "SEED",
-    detail: "Demo dataset loaded (18 books, 8 users, 16 records, 5 reservations)." });
+  // Replay the seeded records into the activity log so the staff desk shows a real trail.
+  const staffName = "Marcus Holloway";
+  const name = (id: number) => s.users.find((x) => x.id === id)!.name;
+  const title = (id: number) => s.books.find((x) => x.id === id)!.title;
+  let aid = 0;
+  const trail = (at: number | null, actorName: string, action: string, detail: string) => {
+    if (at != null) s.activity.push({ id: ++aid, at, actorName, action, detail });
+  };
+  for (const r of s.records) {
+    const who = name(r.userId);
+    const what = title(r.bookId);
+    trail(r.requestedAt, who, "REQUEST_CREATED", `${who} requested “${what}”.`);
+    if (r.status === "REJECTED") trail(r.requestedAt + 3 * H, staffName, "REJECTED", `Rejected ${who}'s request for “${what}”.`);
+    trail(r.approvedAt, staffName, "APPROVED", `Approved ${who}'s request for “${what}”. Pickup within 48h.`);
+    if (r.status === "CANCELLED") trail(r.pickupDeadline, "System", "AUTO_CANCELLED", `${who} missed the 48h pickup window for “${what}”. Request auto-cancelled.`);
+    trail(r.borrowedAt, staffName, "PICKUP_CONFIRMED", `${who} picked up “${what}”. Due in 14 days.`);
+    trail(r.returnedAt, staffName, "RETURN_CONFIRMED", `${who} returned “${what}”.`);
+    if (r.status === "OVERDUE") trail(r.dueDate! + 12 * H, "System", "MARKED_OVERDUE", `${who}'s loan of “${what}” is now overdue.`);
+  }
+  s.activity = s.activity.filter((a) => a.at <= now).sort((a, b) => b.at - a.at);
   s.notifications.push({ id: 1, userId: daniel, at: now, read: false,
     message: "Your pickup window for “Thinking, Fast and Slow” closes soon." });
   return s;
@@ -311,7 +373,7 @@ function textPdf(title: string, lines: string[]): Blob {
       .replace(/[^\x20-\xFF]/g, "?").replace(/([\\()])/g, "\\$1");
   const body = [
     "BT /F2 20 Tf 56 780 Td (" + esc(title) + ") Tj ET",
-    "0.77 0.32 0.13 RG 3 w 56 766 m 540 766 l S",
+    "0.055 0.42 0.235 RG 3 w 56 766 m 540 766 l S",
     ...lines.map((l, i) => `BT /F1 11 Tf 56 ${740 - i * 18} Td (${esc(l)}) Tj ET`),
   ].join("\n");
   const objs = [
@@ -468,7 +530,15 @@ const ROUTES: [string, RegExp, Handler][] = [
     const errors: string[] = [];
     if (!d.name?.trim()) errors.push("Name is required.");
     if (!/^\S+@\S+\.\S+$/.test(email)) errors.push("Enter a valid email address.");
-    if ((d.password ?? "").length < 8) errors.push("Ensure this field has at least 8 characters.");
+    // Mirrors Django's password validators (length, all-numeric, common, similar to the email).
+    const pw = d.password ?? "";
+    if (pw.length < 8) errors.push("This password is too short. It must contain at least 8 characters.");
+    else if (/^\d+$/.test(pw)) errors.push("This password is entirely numeric.");
+    else if (["password", "password1", "12345678", "qwertyuiop", "iloveyou", "azertyuiop"].includes(pw.toLowerCase())) {
+      errors.push("This password is too common.");
+    } else if (email && pw.toLowerCase().includes(email.split("@")[0])) {
+      errors.push("The password is too similar to the email address.");
+    }
     if (!d.studentId?.trim()) errors.push("Student ID is required.");
     if (state.users.some((u) => u.email === email)) errors.push("An account with this email already exists.");
     if (state.users.some((u) => u.idNumber.toLowerCase() === (d.studentId ?? "").toLowerCase())) {
@@ -498,7 +568,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   }],
   ["GET", /^\/users\/me\/id-card$/, (ctx) => {
     const u = requireUser(ctx);
-    return textPdf("City Central Library - Member ID", [
+    return textPdf("University Library - Library card", [
       `Name: ${u.name}`, `ID number: ${u.idNumber}`, `Role: ${u.role}`, `Email: ${u.email}`,
       `Member since: ${new Date(u.since).toLocaleDateString()}`, "",
       `Scan link: ${window.location.origin}/scan/${u.uuid}`, "",
@@ -536,7 +606,7 @@ const ROUTES: [string, RegExp, Handler][] = [
       id: nextId(), title: String(d.title), author: String(d.author), isbn: String(d.isbn),
       categoryId: Number(d.categoryId), publisher: String(d.publisher ?? ""),
       year: d.year ? Number(d.year) : null, totalCopies: total, availableCopies: total,
-      shelfLocation: String(d.shelfLocation ?? ""), coverColor: String(d.coverColor ?? "#C55221"),
+      shelfLocation: String(d.shelfLocation ?? ""), coverColor: String(d.coverColor ?? "#1F4D3A"),
       coverImage: null, description: String(d.description ?? ""),
     };
     state.books.push(book);
@@ -555,6 +625,29 @@ const ROUTES: [string, RegExp, Handler][] = [
     log(staff.name, "BOOK_DELETED", `Removed “${book.title}” from the catalog.`);
     return new Reply(204, null);
   }],
+  ["GET", /^\/books\/(\d+)\/copies$/, (ctx, [id]) => {
+    // Where every copy is; borrower names only for staff (mirrors BookCopiesView).
+    const book = findBook(id);
+    const isStaff = !!ctx.user && ctx.user.role !== "MEMBER";
+    const who = (r: DRecord) => {
+      if (!isStaff) return {};
+      const m = userById(r.userId)!;
+      return { recordId: r.id, userName: m.name, userProfileId: m.id };
+    };
+    const out = state.records
+      .filter((r) => r.bookId === book.id && (r.status === "BORROWED" || r.status === "OVERDUE"))
+      .sort((a, b) => (a.dueDate ?? 0) - (b.dueDate ?? 0));
+    const held = state.records
+      .filter((r) => r.bookId === book.id && r.status === "READY")
+      .sort((a, b) => (a.pickupDeadline ?? 0) - (b.pickupDeadline ?? 0));
+    const onShelf = Math.max(0, book.totalCopies - out.length);
+    const copies: Record<string, unknown>[] = [
+      ...out.map((r) => ({ state: r.status, dueDate: iso(r.dueDate), since: iso(r.borrowedAt), ...who(r) })),
+      ...held.slice(0, onShelf).map((r) => ({ state: "HELD", heldUntil: iso(r.pickupDeadline), ...who(r) })),
+      ...Array.from({ length: onShelf - Math.min(held.length, onShelf) }, () => ({ state: "ON_SHELF", shelf: book.shelfLocation })),
+    ];
+    return copies.map((c, i) => ({ ...c, copy: i + 1 }));
+  }],
   ["GET", /^\/books\/(\d+)\/reservations$/, (ctx, [id]) => {
     requireStaff(ctx);
     return queueFor(Number(id)).map(sReservation);
@@ -568,7 +661,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     if (state.categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
       throw bad("category with this name already exists.");
     }
-    const c = { id: nextId(), name, color: String(ctx.body.color ?? "#CC8800") };
+    const c = { id: nextId(), name, color: String(ctx.body.color ?? "#4A5560") };
     state.categories.push(c);
     return new Reply(201, sCategory(c));
   }],
@@ -611,7 +704,7 @@ const ROUTES: [string, RegExp, Handler][] = [
       pickupDeadline: null, borrowedAt: null, dueDate: null, returnedAt: null, status: "PENDING",
     };
     state.records.push(r);
-    log("System", "REQUEST_CREATED", `${u.name} requested “${book.title}”.`);
+    log(u.name, "REQUEST_CREATED", `${u.name} requested “${book.title}”.`);
     return new Reply(201, sRecord(r));
   }],
   ["GET", /^\/borrow-records\/mine$/, (ctx) => {
@@ -651,7 +744,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     const r: DReservation = { id: nextId(), userId: u.id, bookId: book.id, reservedAt: Date.now(), isActive: true };
     state.reservations.push(r);
     const position = queueFor(book.id).findIndex((x) => x.id === r.id) + 1;
-    log("System", "RESERVED", `${u.name} joined the queue for “${book.title}” (position ${position}).`);
+    log(u.name, "RESERVED", `${u.name} joined the queue for “${book.title}” (position ${position}).`);
     notify(u.id, `You joined the reservation queue for “${book.title}” at position ${position}.`);
     return new Reply(201, sReservation(r));
   }],
@@ -716,7 +809,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     }
     const categoryLoans = [...byCategory.entries()].sort((a, b) => b[1] - a[1]).map(([cid, loans]) => {
       const c = state.categories.find((x) => x.id === cid);
-      return { name: c?.name ?? "Uncategorized", color: c?.color ?? "#CC8800", loans };
+      return { name: c?.name ?? "Uncategorized", color: c?.color ?? "#4A5560", loans };
     });
     const monthly = [];
     const now = new Date();

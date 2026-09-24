@@ -13,13 +13,13 @@ from reportlab.pdfgen import canvas
 
 from .models import BorrowRecord, display_name
 
-INK = HexColor("#111827")
-GREEN = HexColor("#16A34A")
-BLUE = HexColor("#3E5C76")
-MUTED = HexColor("#6B7280")
-LIGHT = HexColor("#F7F5F0")
-BURNT = HexColor("#C55221")
-BRAND = HexColor("#CC8800")
+INK = HexColor("#121A16")
+GREEN = HexColor("#0E6B3C")
+BLUE = HexColor("#2B3F52")
+MUTED = HexColor("#5B6660")
+LIGHT = HexColor("#F5F7F6")
+BURNT = HexColor("#0E6B3C")  # header mark
+BRAND = HexColor("#0A5230")
 
 W, H = A4
 
@@ -128,7 +128,7 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
     c.drawString(xs[1], ty - 13.5 * mm, f"{book.author} · ISBN {book.isbn} · Shelf {book.shelf_location}")
     # status pill
     pill_color = GREEN if record.status in ("READY", "BORROWED", "RETURNED") else (
-        HexColor("#DC2626") if record.status in ("REJECTED", "OVERDUE", "CANCELLED") else BRAND)
+        HexColor("#B42318") if record.status in ("REJECTED", "OVERDUE", "CANCELLED") else BRAND)
     c.setFillColor(pill_color)
     c.roundRect(xs[2], ty - 12 * mm, 24 * mm, 6.5 * mm, 3 * mm, stroke=0, fill=1)
     c.setFillColor(white)
