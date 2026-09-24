@@ -1,38 +1,26 @@
 # Roadmap to delivery
 
-Status as of September 2026. Group 1 is done; the rest is ordered by priority.
+Status as of September 2026. Groups 1 and 2 are done; the rest is ordered by priority.
 
 ## 1. Must-do before delivery — done
 
 - All work committed and pushed; Vercel redeploys the demo from `main`.
-- Backend runs again (fresh venv), 27 tests pass, including the book-copies endpoint, PDFs and password rules.
+- Backend runs again (fresh venv), all backend tests pass (33 after the import work), including the book-copies endpoint, PDFs and password rules.
 - Production-safe settings: the server refuses to start without a real secret key, host list and staff invite code; HTTPS redirect, secure cookies and HSTS in production; stronger password rules at registration.
 - Exact dependency versions in `backend/requirements.txt` (gunicorn included for Linux hosts).
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, both frontend builds, Django checks, missing-migration check, tests, `check --deploy`.
 
-## 2. Bulk import of the library's books (new, ~2 days)
+## 2. Bulk import of the library's books — done
 
-Goal: a librarian loads the existing collection (hundreds or thousands of books) from an Excel sheet, a CSV export or a JSON file, instead of typing each book.
+A librarian loads the existing collection from an Excel sheet, a CSV export or a JSON file instead of typing each book.
 
-**File formats and columns**
-- `.xlsx`, `.csv` and `.json` (an array of objects), all with the same fields:
-  `isbn` (required, used to match existing books), `title` (required), `author` (required), `category`, `publisher`, `year`, `total_copies` (default 1), `shelf_location`, `description`.
-- Column headers are accepted in English or French (e.g. `titre`, `auteur`, `cote`, `exemplaires`); unknown columns are ignored.
-- A downloadable template (`.xlsx` and `.csv`) with the headers and two example rows, linked from the import screen.
-
-**Staff desk → Inventory → "Import books"**
-1. **Upload:** drop a file. It is read in the browser (Excel via SheetJS), so nothing is saved until the librarian confirms.
-2. **Preview:** a table of every row, marked *new*, *updates an existing book* (same ISBN) or *error*, with the reason in plain language (missing title, invalid ISBN, duplicate ISBN in the file, year not a number, copies below the number currently on loan). Unknown categories are listed and created on import.
-3. **Choose:** skip or update books that already exist.
-4. **Import:** one request; a summary shows created / updated / skipped / failed, with a downloadable report of failed rows to fix and re-upload.
-
-**Backend**
-- `POST /api/books/import` (staff only): takes the parsed rows, a mode (`skip` / `update`) and `dry_run`. It validates each row with the same rules as the book form, runs in one database transaction (all or nothing), caps a single upload at 5,000 rows, and writes one activity-log entry ("Imported 1,240 books from catalogue-2026.xlsx").
-- ISBNs are normalized (hyphens and spaces stripped, ISBN-10/13 checksums verified).
-- Updating copies never drops `total_copies` below the copies on loan; available copies are recalculated from loans.
-- A management command, `python manage.py import_books catalogue.xlsx [--update] [--dry-run]`, for the first big load done by IT, with the same validation.
-- Same endpoint in the in-browser demo API (`src/api/demo.ts`), so the feature can be shown on Vercel.
-- Tests: valid file, mixed errors, duplicate ISBNs, update mode, the copies-on-loan rule, the permission check, and dry run changing nothing.
+- **Where:** Staff desk → Inventory → **Import books**. Drop a file, review the preview, choose whether books already in the catalogue (same ISBN) are left alone or updated, then import. A CSV template and a JSON example can be downloaded from the same screen.
+- **Columns:** `isbn`, `title`, `author` are required; `category`, `publisher`, `year`, `total_copies`, `shelf_location`, `description` are optional. Headers are recognized in English, French or Arabic (`titre`, `auteur`, `cote`, `exemplaires`, `العنوان`…); other columns are ignored and listed.
+- **Checks, per row, in plain language (FR / AR / EN):** missing ISBN, title or author; ISBN with a wrong check digit; the same ISBN twice in the file; a year that isn't a year; copies outside 1–1,000 or below the copies currently on loan. Hyphenated and plain ISBNs, and ISBNs Excel stored as numbers, all match.
+- **Saving:** nothing is written during the preview. Valid rows are saved in one transaction; rows with errors are skipped and can be downloaded as a CSV to fix and re-import. New categories are created; available copies are recalculated from loans; one activity-log entry records who imported what from which file.
+- **Limits:** 5,000 rows per file.
+- **Command line** for the first big load: `python manage.py import_books catalogue.xlsx [--update] [--dry-run]`.
+- **Code:** rules in `backend/library/importing.py` (mirrored in `src/api/demo.ts` so it works on the Vercel demo), `POST /api/books/import`, screen in `src/pages/staff/ImportBooksPage.tsx`; 6 backend tests.
 
 Later, if useful: export the catalogue to Excel from the same screen, and bulk-import students from the registrar's list.
 

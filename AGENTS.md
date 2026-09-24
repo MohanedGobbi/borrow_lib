@@ -51,6 +51,8 @@ src/components/Page.tsx     PageHeader, Panel, EmptyState, ErrorState
 src/components/             BookCover, BookActions (+ Availability), StatusBadge, MemberStanding, Countdown, dialogs
 src/lib/time.ts         localized dates, relative times, countdown formatting
 src/lib/table.ts        shared table classes for staff lists
+src/lib/importFile.ts   reads .xlsx / .csv / .json for the bulk book import (validation is server-side)
+backend/library/importing.py  bulk import rules (header aliases, ISBN checks, dry run); mirrored in demo.ts
 src/pages/              landing, auth, catalog, book, request list, my loans, profile, scan lookup
 src/pages/staff/        staff desk: StaffLayout (sidebar + counts) and one page per function
 src/components/ui/      shadcn/ui (generated; excluded from lint)

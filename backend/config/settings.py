@@ -112,6 +112,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"  # collectstatic target for the admin sit
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+# Bulk book imports post up to 5,000 rows as JSON.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

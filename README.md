@@ -94,6 +94,7 @@ gunicorn/uvicorn behind a reverse proxy, set `DJANGO_SECRET_KEY`, `FRONTEND_URL`
 | Borrow state machine | `backend/library/services.py` (explicit transition table) |
 | Role permissions (403s) | `backend/library/permissions.py` + per-view guards; only MEMBER accounts can borrow/reserve |
 | Categories (staff-managed, colored) | `backend/library/models.py Category` + `/api/categories` CRUD |
+| Bulk book import (Excel / CSV / JSON) | Staff desk → Inventory → Import books (`src/pages/staff/ImportBooksPage.tsx`) → `POST /api/books/import` (dry-run preview, then import); `python manage.py import_books file.xlsx [--update] [--dry-run]`; rules in `backend/library/importing.py` |
 | Book cover uploads | `Book.cover_image` → `/media/covers/`; staff editor in the UI |
 | Request receipts (REQ-xxx PDF) | `backend/library/documents.py` → `GET /api/borrow-records/<id>/document` (owner or staff) |
 | Background jobs | `backend/library/management/commands/` + `services.run_hourly_cancellation / run_nightly_overdue` |

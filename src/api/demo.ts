@@ -509,6 +509,168 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
   };
 }
 
+// --------------------------- bulk import ---------------------------
+// Port of backend/library/importing.py: same aliases, ISBN rules, error codes and statuses.
+
+const IMPORT_FIELDS = ["isbn", "title", "author", "category", "publisher", "year", "totalCopies", "shelfLocation", "description"] as const;
+type ImportField = typeof IMPORT_FIELDS[number];
+const IMPORT_ALIASES: Record<ImportField, string[]> = {
+  isbn: ["isbn", "isbn13", "isbn 13", "isbn10", "code isbn", "ردمك"],
+  title: ["title", "book title", "titre", "titre du livre", "العنوان", "عنوان الكتاب"],
+  author: ["author", "authors", "auteur", "auteurs", "writer", "المؤلف", "المؤلفون"],
+  category: ["category", "categories", "categorie", "genre", "subject", "discipline", "التصنيف", "الفئة"],
+  publisher: ["publisher", "editeur", "edition", "maison d edition", "الناشر", "دار النشر"],
+  year: ["year", "publication year", "published", "annee", "annee de publication", "السنة", "سنة النشر"],
+  totalCopies: ["total copies", "totalcopies", "copies", "copy count", "quantity", "qty", "exemplaires",
+    "nombre d exemplaires", "nb exemplaires", "عدد النسخ", "النسخ"],
+  shelfLocation: ["shelf location", "shelflocation", "shelf", "shelf mark", "location", "call number",
+    "cote", "emplacement", "rayon", "الرف", "رمز الرف"],
+  description: ["description", "summary", "resume", "abstract", "notes", "الوصف", "الملخص"],
+};
+const BINDINGS = ["#1F4D3A", "#6E2A2A", "#2B3F52", "#4A4E45", "#5C4630", "#29463F"];
+
+function headerKey(header: string): string {
+  const ascii = header.normalize("NFKD").replace(/[^\x20-\x7E]/g, "");
+  const text = (ascii || header).toLowerCase().replace(/[_\-./’'()]/g, " ");
+  return text.split(/\s+/).filter(Boolean).join(" ");
+}
+const HEADER_LOOKUP = new Map<string, ImportField>(
+  (Object.entries(IMPORT_ALIASES) as [ImportField, string[]][]).flatMap(([f, as]) => as.map((a) => [headerKey(a), f] as const)),
+);
+
+function normalizeIsbn(raw: unknown): string | null {
+  const text = String(raw).toUpperCase().replace(/[^0-9X]/g, "");
+  if (/^\d{13}$/.test(text)) {
+    const sum = [...text.slice(0, 12)].reduce((s, d, i) => s + Number(d) * (i % 2 ? 3 : 1), 0);
+    return (10 - (sum % 10)) % 10 === Number(text[12]) ? text : null;
+  }
+  if (/^\d{9}[\dX]$/.test(text)) {
+    const sum = [...text.slice(0, 9)].reduce((s, d, i) => s + Number(d) * (10 - i), 0);
+    const check = (11 - (sum % 11)) % 11;
+    return text[9] === (check === 10 ? "X" : String(check)) ? text : null;
+  }
+  return null;
+}
+
+const cell = (v: unknown) => (v == null ? "" : String(v).trim());
+function wholeNumber(v: unknown): number | null {
+  const text = cell(v);
+  if (!text) return null;
+  const n = Number(text.replace(",", "."));
+  return Number.isInteger(n) ? n : null;
+}
+
+function runImport(rows: Record<string, unknown>[], mode: string, dryRun: boolean, actor: string, source: string) {
+  if (mode !== "skip" && mode !== "update") throw bad("mode must be 'skip' or 'update'.");
+  if (rows.length > 5000) throw bad("A single import is limited to 5000 rows; split the file.");
+  const headers = [...new Set(rows.flatMap((r) => Object.keys(r)).filter((h) => !h.startsWith("__")))];
+  const columns = Object.fromEntries(headers.map((h) => [h, HEADER_LOOKUP.get(headerKey(h)) ?? null]));
+  const mapped = new Set(Object.values(columns));
+  const missing = (["isbn", "title", "author"] as const).filter((f) => !mapped.has(f));
+  const empty = { total: 0, create: 0, update: 0, unchanged: 0, skip: 0, error: 0, newCategories: 0 };
+  if (rows.length && missing.length) return { dryRun, columns, missingColumns: missing, rows: [], summary: empty };
+
+  const existing = new Map(state.books.map((b) => [normalizeIsbn(b.isbn) ?? b.isbn, b]));
+  const categories = new Map(state.categories.map((c) => [c.name.toLowerCase(), c]));
+  const thisYear = new Date().getFullYear();
+  const seen = new Map<string, number>();
+  const newCategories: string[] = [];
+  type Plan = { values: Omit<DBook, "id" | "categoryId" | "availableCopies" | "coverColor" | "coverImage" | "isbn"> & { category: string }; book?: DBook; isbn: string };
+  const plans: Plan[] = [];
+  const results = [];
+
+  for (const [index, raw] of rows.entries()) {
+    const data = Object.fromEntries(IMPORT_FIELDS.map((f) => [f, null])) as Record<ImportField, unknown>;
+    for (const [h, v] of Object.entries(raw)) {
+      const f = columns[h];
+      if (f && cell(data[f as ImportField]) === "") data[f as ImportField] = v;
+    }
+    if (!IMPORT_FIELDS.some((f) => cell(data[f]))) continue; // blank line
+    const row = Number(raw.__row) || index + 1;
+    const errors: Record<string, string | number>[] = [];
+    const title = cell(data.title), author = cell(data.author);
+    const isbn = cell(data.isbn) ? normalizeIsbn(data.isbn) : null;
+    if (!cell(data.isbn)) errors.push({ code: "isbn_missing" });
+    else if (!isbn) errors.push({ code: "isbn_invalid" });
+    else if (seen.has(isbn)) errors.push({ code: "isbn_duplicate", row: seen.get(isbn)! });
+    if (isbn && !seen.has(isbn)) seen.set(isbn, row);
+    if (!title) errors.push({ code: "title_missing" });
+    else if (title.length > 300) errors.push({ code: "title_too_long" });
+    if (!author) errors.push({ code: "author_missing" });
+    let year: number | null = null;
+    if (cell(data.year)) {
+      year = wholeNumber(data.year);
+      if (year === null || year < 1000 || year > thisYear + 1) { errors.push({ code: "year_invalid" }); year = null; }
+    }
+    let copies = 1;
+    if (cell(data.totalCopies)) {
+      const n = wholeNumber(data.totalCopies);
+      if (n === null || n < 1 || n > 1000) errors.push({ code: "copies_invalid", max: 1000 });
+      else copies = n;
+    }
+    const book = isbn ? existing.get(isbn) : undefined;
+    if (book && mode === "update") {
+      const onLoan = book.totalCopies - book.availableCopies;
+      if (copies < onLoan) errors.push({ code: "copies_below_loans", onLoan });
+    }
+    const res = { row, status: "error", isbn: isbn ?? cell(data.isbn), title, author, totalCopies: copies, errors, changes: [] as string[] };
+    if (errors.length) { results.push(res); continue; }
+
+    const category = cell(data.category) || "General";
+    if (!categories.has(category.toLowerCase()) && !newCategories.includes(category)) newCategories.push(category);
+    const values = {
+      title, author, category, publisher: cell(data.publisher), year, totalCopies: copies,
+      shelfLocation: cell(data.shelfLocation), description: cell(data.description),
+    };
+    if (!book) res.status = "create";
+    else if (mode === "skip") res.status = "skip";
+    else {
+      const current: Record<string, unknown> = {
+        title: book.title, author: book.author, category: state.categories.find((c) => c.id === book.categoryId)?.name ?? "",
+        publisher: book.publisher, year: book.year, totalCopies: book.totalCopies,
+        shelfLocation: book.shelfLocation, description: book.description,
+      };
+      const labels: Record<string, string> = { totalCopies: "copies", shelfLocation: "shelf" };
+      res.changes = Object.entries(values)
+        .filter(([k, v]) => (k === "category" ? String(current[k]).toLowerCase() !== String(v).toLowerCase() : current[k] !== v))
+        .map(([k]) => labels[k] ?? k);
+      res.status = res.changes.length ? "update" : "unchanged";
+    }
+    results.push(res);
+    if (res.status === "create" || res.status === "update") plans.push({ values, book, isbn: isbn! });
+  }
+
+  if (!dryRun && plans.length) {
+    for (const name of newCategories) {
+      const c = { id: nextId(), name, color: "#4A5560" };
+      state.categories.push(c);
+      categories.set(name.toLowerCase(), c);
+    }
+    let created = 0, updated = 0;
+    for (const { values, book, isbn } of plans) {
+      const { category, ...fields } = values;
+      const categoryId = categories.get(category.toLowerCase())!.id;
+      if (!book) {
+        const hash = [...isbn].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+        state.books.push({
+          id: nextId(), isbn, categoryId, ...fields, availableCopies: fields.totalCopies,
+          coverColor: BINDINGS[hash % BINDINGS.length], coverImage: null,
+        });
+        created++;
+      } else {
+        const onLoan = book.totalCopies - book.availableCopies;
+        Object.assign(book, fields, { categoryId, availableCopies: Math.max(0, fields.totalCopies - onLoan) });
+        updated++;
+      }
+    }
+    log(actor, "BOOKS_IMPORTED", `Imported ${created} new books and updated ${updated}${source ? ` from ${source}` : ""}.`);
+  }
+
+  const summary = { ...empty, total: results.length, newCategories: newCategories.length };
+  for (const r of results) summary[r.status as keyof typeof empty]++;
+  return { dryRun, columns, missingColumns: [], newCategories, rows: results, summary };
+}
+
 const ROUTES: [string, RegExp, Handler][] = [
   // ------------------------------ auth ------------------------------
   ["POST", /^\/auth\/login$/, (ctx) => {
@@ -624,6 +786,13 @@ const ROUTES: [string, RegExp, Handler][] = [
     state.reservations = state.reservations.filter((r) => r.bookId !== book.id);
     log(staff.name, "BOOK_DELETED", `Removed “${book.title}” from the catalog.`);
     return new Reply(204, null);
+  }],
+  ["POST", /^\/books\/import$/, (ctx) => {
+    const staff = requireStaff(ctx);
+    const rows = ctx.body.rows;
+    if (!Array.isArray(rows) || !rows.every((r) => r && typeof r === "object")) throw bad("Expected a list of rows.");
+    return runImport(rows as Record<string, unknown>[], String(ctx.body.mode ?? "skip"), ctx.body.dryRun !== false,
+      staff.name, String(ctx.body.filename ?? "").slice(0, 120));
   }],
   ["GET", /^\/books\/(\d+)\/copies$/, (ctx, [id]) => {
     // Where every copy is; borrower names only for staff (mirrors BookCopiesView).

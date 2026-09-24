@@ -17,6 +17,7 @@ import ApprovalsPage from "@/pages/staff/ApprovalsPage";
 import PickupsPage from "@/pages/staff/PickupsPage";
 import LoansPage from "@/pages/staff/LoansPage";
 import InventoryPage from "@/pages/staff/InventoryPage";
+import ImportBooksPage from "@/pages/staff/ImportBooksPage";
 import ReservationsPage from "@/pages/staff/ReservationsPage";
 import UsersPage from "@/pages/staff/UsersPage";
 import UserDetailPage from "@/pages/staff/UserDetailPage";
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="pickups" element={<PickupsPage />} />
             <Route path="loans" element={<LoansPage />} />
             <Route path="inventory" element={<InventoryPage />} />
+            <Route path="inventory/import" element={<ImportBooksPage />} />
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="users/:id" element={<UserDetailPage />} />

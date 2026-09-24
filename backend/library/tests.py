@@ -1,3 +1,4 @@
+import io
 from datetime import timedelta
 
 from django.contrib.auth.models import User
@@ -6,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from . import services
-from .models import Book, BorrowRecord, Category, Reservation, Role, Status, UserProfile
+from .models import ActivityLog, Book, BorrowRecord, Category, Reservation, Role, Status, UserProfile
 
 
 def make_user(email, role=Role.MEMBER, limit=5):
@@ -282,3 +283,98 @@ class RegistrationTests(TestCase):
             self.assertEqual(res.status_code, 400, weak)
         res = client.post("/api/auth/register", {**base, "password": "shelf-mark-FIC-7"}, format="json")
         self.assertEqual(res.status_code, 201)
+
+
+class BookImportTests(TestCase):
+    """Bulk import: POST /api/books/import and the import_books command."""
+
+    def setUp(self):
+        self.staff = make_user("s@x.com", Role.STAFF)
+        self.member = make_user("m@x.com")
+        self.client = APIClient()
+        self.client.force_authenticate(self.staff)
+        self.existing = make_book(copies=2)
+        self.existing.isbn = "978-0441172719"   # hyphenated, as typed by staff
+        self.existing.save()
+
+    def post(self, rows, **body):
+        return self.client.post("/api/books/import", {"rows": rows, **body}, format="json")
+
+    def test_dry_run_previews_without_writing(self):
+        rows = [
+            {"ISBN": "9780062316097", "Titre": "Sapiens", "Auteur": "Harari", "Exemplaires": "3", "Cote": "HIS-B-11"},
+            {"ISBN": "9780441172719", "Titre": "Dune", "Auteur": "Herbert"},  # existing, no hyphens
+            {"ISBN": "123", "Titre": "Bad", "Auteur": "X"},
+            {"ISBN": "", "Titre": "", "Auteur": ""},  # blank line: ignored
+        ]
+        res = self.post(rows)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual([r["status"] for r in res.data["rows"]], ["create", "skip", "error"])
+        self.assertEqual(res.data["rows"][2]["errors"], [{"code": "isbn_invalid"}])
+        self.assertEqual(res.data["columns"]["Cote"], "shelfLocation")
+        self.assertEqual(Book.objects.count(), 1)
+
+    def test_import_creates_valid_rows_and_skips_errors(self):
+        rows = [
+            {"isbn": "978-0-06-231609-7", "title": "Sapiens", "author": "Harari", "copies": 3,
+             "category": "History", "year": 2015},
+            {"isbn": "9780062316097", "title": "Sapiens again", "author": "Harari"},  # duplicate in file
+            {"isbn": "0-201-89683-4", "title": "TAOCP", "author": "Knuth", "year": "not a year"},
+        ]
+        res = self.post(rows, dryRun=False, filename="catalogue.csv")
+        self.assertEqual(res.data["summary"]["create"], 1)
+        self.assertEqual(res.data["summary"]["error"], 2)
+        self.assertEqual(res.data["rows"][1]["errors"], [{"code": "isbn_duplicate", "row": 1}])
+        book = Book.objects.get(isbn="9780062316097")
+        self.assertEqual((book.total_copies, book.available_copies, book.year), (3, 3, 2015))
+        self.assertEqual(book.category.name, "History")
+        self.assertTrue(ActivityLog.objects.filter(action="BOOKS_IMPORTED").exists())
+
+    def test_update_mode_respects_copies_on_loan(self):
+        loan = services.create_request(self.member, self.existing)
+        services.approve(self.staff, loan)
+        services.confirm_pickup(self.staff, loan)
+        row = {"isbn": "9780441172719", "title": "Dune (revised)", "author": "Herbert"}
+        res = self.post([{**row, "copies": 0}], mode="update", dryRun=False)
+        self.assertEqual(res.data["rows"][0]["errors"], [{"code": "copies_invalid", "max": 1000}])
+        res = self.post([{**row, "copies": 0.5}], mode="update")
+        self.assertEqual(res.data["rows"][0]["status"], "error")
+        res = self.post([{**row, "copies": 5}], mode="update", dryRun=False)
+        self.assertEqual(res.data["rows"][0]["status"], "update")
+        self.assertIn("title", res.data["rows"][0]["changes"])
+        self.existing.refresh_from_db()
+        self.assertEqual((self.existing.title, self.existing.total_copies, self.existing.available_copies),
+                         ("Dune (revised)", 5, 4))
+
+    def test_missing_required_columns_reported(self):
+        res = self.post([{"Name": "Dune", "Writer": "Herbert"}])
+        self.assertEqual(res.data["missingColumns"], ["isbn", "title"])
+
+    def test_members_cannot_import(self):
+        client = APIClient()
+        client.force_authenticate(self.member)
+        res = client.post("/api/books/import", {"rows": []}, format="json")
+        self.assertEqual(res.status_code, 403)
+
+    def test_command_reads_xlsx_csv_and_json(self):
+        import json as jsonlib
+        import tempfile
+        from pathlib import Path
+        from django.core.management import call_command
+        from openpyxl import Workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            wb = Workbook()
+            wb.active.append(["ISBN", "Title", "Author", "Copies"])
+            wb.active.append([9780062316097, "Sapiens", "Harari", 2])  # ISBN stored as a number
+            wb.save(Path(tmp, "books.xlsx"))
+            Path(tmp, "books.csv").write_text("titre;auteur;isbn\nDune;Herbert;9780441172719\n"
+                                              "Meditations;Aurelius;9780812968255\n", encoding="utf-8-sig")
+            Path(tmp, "books.json").write_text(jsonlib.dumps({"books": [
+                {"isbn": "9781476733524", "title": "The Gene", "author": "Mukherjee"}]}))
+            for name in ("books.xlsx", "books.csv", "books.json"):
+                call_command("import_books", str(Path(tmp, name)), stdout=io.StringIO())
+
+        titles = set(Book.objects.values_list("title", flat=True))
+        self.assertTrue({"Sapiens", "Meditations", "The Gene"} <= titles)
+        self.assertEqual(Book.objects.filter(title="Dune").count(), 0)  # existing one kept (skip mode)

@@ -287,6 +287,29 @@ class ReservationListCreateView(APIView):
         return Response(ReservationSerializer(reservation).data, status=http.HTTP_201_CREATED)
 
 
+class BookImportView(APIView):
+    """Staff-only bulk import. Body: {rows: [{header: value, "__row": n}], mode: "skip"|"update",
+    dryRun: bool, filename: str}. A dry run returns the preview; nothing is written."""
+    permission_classes = [IsStaffOrAdmin]
+
+    def post(self, request):
+        from .importing import run_import
+        rows = request.data.get("rows")
+        if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
+            return Response({"detail": "Expected a list of rows."}, status=http.HTTP_400_BAD_REQUEST)
+        try:
+            report = run_import(
+                rows,
+                mode=request.data.get("mode", "skip"),
+                dry_run=bool(request.data.get("dryRun", True)),
+                actor_name=display_name(request.user),
+                source=str(request.data.get("filename", ""))[:120],
+            )
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=http.HTTP_400_BAD_REQUEST)
+        return Response(report)
+
+
 class BookCopiesView(APIView):
     """Where every copy of a book is: on loan (with due date), held for pickup, or on the shelf.
 

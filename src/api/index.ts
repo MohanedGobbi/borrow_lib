@@ -5,6 +5,7 @@ import type {
   AppNotification,
   Book,
   BookCopy,
+  ImportReport,
   BorrowRecord,
   Category,
   DashboardStats,
@@ -22,6 +23,9 @@ export const apiBooks = {
     return api<Book[]>(`/books${q.size ? `?${q}` : ""}`, { auth: false });
   },
   get: (id: number | string) => api<Book>(`/books/${id}`, { auth: false }),
+  /** Bulk import (staff). A dry run returns the preview without saving anything. */
+  importRows: (body: { rows: Record<string, unknown>[]; mode: "skip" | "update"; dryRun: boolean; filename: string }) =>
+    api<ImportReport>("/books/import", { method: "POST", body }),
   /** Where each copy is. Borrower names are included only for staff. */
   copies: (id: number | string) => api<BookCopy[]>(`/books/${id}/copies`),
   create: (payload: Partial<Book> & { categoryId?: number }) =>

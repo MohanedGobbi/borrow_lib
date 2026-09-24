@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { apiBooks, apiCategories } from "@/api";
 import { ApiError } from "@/api/client";
 import { useApi } from "@/hooks/useApi";
@@ -41,7 +41,14 @@ export default function InventoryPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("staff.inventory")}
-        actions={<Button size="sm" onClick={() => openEdit(null)}><Plus className="size-4" aria-hidden /> {t("dash.addBook")}</Button>}
+        actions={
+          <>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/staff/inventory/import"><Upload className="size-4" aria-hidden /> {t("import.title")}</Link>
+            </Button>
+            <Button size="sm" onClick={() => openEdit(null)}><Plus className="size-4" aria-hidden /> {t("dash.addBook")}</Button>
+          </>
+        }
       />
 
       <CategoryManager onChanged={refetch} />

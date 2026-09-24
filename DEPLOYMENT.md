@@ -36,6 +36,16 @@
    python backend/manage.py createsuperuser   # then set role=ADMIN in /admin if desired
    ```
 
+   **Loading the existing catalogue:** librarians can use Staff desk → Inventory →
+   Import books (Excel, CSV or JSON, up to 5,000 rows per file). For a first big load
+   from the command line:
+
+   ```bash
+   python backend/manage.py import_books catalogue.xlsx --dry-run   # report only
+   python backend/manage.py import_books catalogue.xlsx             # import new books
+   python backend/manage.py import_books catalogue.xlsx --update    # also update existing ISBNs
+   ```
+
 3. **Serve** — `gunicorn config.wsgi -b 0.0.0.0:8000` (from `backend/`), behind
    nginx/Cloudflare/etc. terminating TLS.
 

@@ -40,6 +40,30 @@ export interface BookCopy {
   userProfileId?: number;
 }
 
+export type ImportStatus = "create" | "update" | "unchanged" | "skip" | "error";
+
+/** One row of a bulk import, as validated by the server. */
+export interface ImportRow {
+  row: number;
+  status: ImportStatus;
+  isbn: string;
+  title: string;
+  author: string;
+  totalCopies: number | null;
+  errors: ({ code: string } & Record<string, string | number>)[];
+  changes: string[];
+}
+
+export interface ImportReport {
+  dryRun: boolean;
+  /** raw file header → field name, or null when the column is ignored */
+  columns: Record<string, string | null>;
+  missingColumns: string[];
+  newCategories?: string[];
+  rows: ImportRow[];
+  summary: Record<ImportStatus | "total" | "newCategories", number>;
+}
+
 export interface Profile {
   id: number;
   uuid: string;
