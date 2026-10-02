@@ -6,6 +6,7 @@ import { apiBooks } from "@/api";
 import { useApi } from "@/hooks/useApi";
 import { useCart } from "@/cart/CartContext";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { BookCover } from "@/components/BookCover";
 import { Availability } from "@/components/BookActions";
 import { Container } from "@/components/Layout";
@@ -29,7 +30,7 @@ export default function CartPage() {
     setBusy(true);
     const { ok, failed } = await cart.submitAll();
     if (ok > 0) toast.success(t("toast.cartSent", { n: ok }));
-    failed.forEach((f) => toast.error(f));
+    failed.forEach((f) => toast.error(errorMessage(t, f)));
     setBusy(false);
     refetch();
   };

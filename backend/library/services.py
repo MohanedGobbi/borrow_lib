@@ -21,6 +21,7 @@ from .models import (
     log_activity,
     notify,
 )
+from .errors import BusinessRuleError, StateMachineError  # noqa: F401  (re-exported for callers and tests)
 
 PICKUP_WINDOW = timedelta(hours=48)
 LOAN_PERIOD = timedelta(days=14)
@@ -41,18 +42,12 @@ TRANSITIONS = {
 UNVERIFIED_MESSAGE = "Confirm your email address first: check your inbox for the verification link."
 
 
-class StateMachineError(Exception):
-    """Invalid transition — maps to HTTP 409."""
-
-
-class BusinessRuleError(Exception):
-    """Business rule violation — maps to HTTP 400."""
-
-
 def _assert_transition(op: str, record: BorrowRecord):
     if record.status not in TRANSITIONS[op]:
         raise StateMachineError(
-            f"Invalid transition: cannot {op} a record in status {record.status}."
+            "invalid_transition",
+            f"Invalid transition: cannot {op} a record in status {record.status}.",
+            action=op, status=record.status,
         )
 
 
@@ -93,7 +88,8 @@ def _hand_to_queue(book: Book, now) -> BorrowRecord | None:
         )
         log_activity("System", "QUEUE_HANDOFF",
                      f"Reservation queue: “{book.title}” is now held for {display_name(reservation.user)} (fresh 48h window).")
-        notify(reservation.user, f"Good news — “{book.title}” is now held for you. Pick it up within 48 hours.")
+        notify(reservation.user, "queue_handoff",
+               f"Good news — “{book.title}” is now held for you. Pick it up within 48 hours.", title=book.title)
         return record
     return None
 
@@ -102,17 +98,18 @@ def _hand_to_queue(book: Book, now) -> BorrowRecord | None:
 def create_request(user: User, book: Book) -> BorrowRecord:
     """Member creates a PENDING request. Stock is NOT touched."""
     if not user.profile.active:
-        raise BusinessRuleError("Your account is deactivated.")
+        raise BusinessRuleError("account_inactive", "Your account is deactivated.")
     if not user.profile.email_verified:
-        raise BusinessRuleError(UNVERIFIED_MESSAGE)
+        raise BusinessRuleError("email_unverified", UNVERIFIED_MESSAGE)
     if has_overdue(user):
-        raise BusinessRuleError("You have an overdue loan. Resolve it before requesting new books.")
-    if active_loan_count(user) >= user.profile.max_borrow_limit:
-        raise BusinessRuleError(f"Borrow limit reached ({user.profile.max_borrow_limit}). Return a book first.")
+        raise BusinessRuleError("overdue_block", "You have an overdue loan. Resolve it before requesting new books.")
+    limit = user.profile.max_borrow_limit
+    if active_loan_count(user) >= limit:
+        raise BusinessRuleError("borrow_limit", f"Borrow limit reached ({limit}). Return a book first.", limit=limit)
     if free_copies(book) <= 0:
-        raise BusinessRuleError("No copies available — join the reservation queue instead.")
+        raise BusinessRuleError("no_free_copy", "No copies available — join the reservation queue instead.")
     if user.borrow_records.filter(book=book, status__in=[Status.PENDING, Status.READY]).exists():
-        raise BusinessRuleError("You already have an open request for this book.")
+        raise BusinessRuleError("already_requested", "You already have an open request for this book.")
     record = BorrowRecord.objects.create(user=user, book=book)
     log_activity(display_name(user), "REQUEST_CREATED", f"{display_name(user)} requested “{book.title}”.")
     return record
@@ -124,7 +121,8 @@ def approve(staff: User, record: BorrowRecord) -> BorrowRecord:
     _assert_transition("approve", record)
     book = Book.objects.select_for_update().get(pk=record.book_id)
     if free_copies(book) <= 0:
-        raise BusinessRuleError("No free copy to hold — every copy is on loan or already held for pickup.")
+        raise BusinessRuleError("approve_no_free_copy",
+                                "No free copy to hold — every copy is on loan or already held for pickup.")
     now = timezone.now()
     record.status = Status.READY
     record.approved_at = now
@@ -133,7 +131,8 @@ def approve(staff: User, record: BorrowRecord) -> BorrowRecord:
     record.save(update_fields=["status", "approved_at", "pickup_deadline", "approved_by"])
     log_activity(display_name(staff), "APPROVED",
                  f"Approved {display_name(record.user)}'s request for “{record.book.title}”. Pickup within 48h.")
-    notify(record.user, f"Your request for “{record.book.title}” was approved. Pick it up within 48 hours.")
+    notify(record.user, "request_approved",
+           f"Your request for “{record.book.title}” was approved. Pick it up within 48 hours.", title=record.book.title)
     return record
 
 
@@ -145,7 +144,8 @@ def reject(staff: User, record: BorrowRecord) -> BorrowRecord:
     record.save(update_fields=["status"])
     log_activity(display_name(staff), "REJECTED",
                  f"Rejected {display_name(record.user)}'s request for “{record.book.title}”.")
-    notify(record.user, f"Your request for “{record.book.title}” was rejected by staff.")
+    notify(record.user, "request_rejected",
+           f"Your request for “{record.book.title}” was rejected by staff.", title=record.book.title)
     return record
 
 
@@ -155,7 +155,7 @@ def confirm_pickup(staff: User, record: BorrowRecord) -> BorrowRecord:
     _assert_transition("pickup", record)
     book = Book.objects.select_for_update().get(pk=record.book_id)
     if book.available_copies <= 0:
-        raise BusinessRuleError("No physical copy on the shelf to hand out.")
+        raise BusinessRuleError("pickup_no_copy", "No physical copy on the shelf to hand out.")
     now = timezone.now()
     record.status = Status.BORROWED
     record.borrowed_at = now
@@ -165,7 +165,8 @@ def confirm_pickup(staff: User, record: BorrowRecord) -> BorrowRecord:
     book.save(update_fields=["available_copies"])
     log_activity(display_name(staff), "PICKUP_CONFIRMED",
                  f"{display_name(record.user)} picked up “{book.title}”. Due in 14 days.")
-    notify(record.user, f"You picked up “{book.title}”. Due back on {record.due_date:%b %d, %Y}.")
+    notify(record.user, "picked_up", f"You picked up “{book.title}”. Due back on {record.due_date:%b %d, %Y}.",
+           title=book.title, dueDate=record.due_date.isoformat())
     return record
 
 
@@ -189,18 +190,19 @@ def confirm_return(staff: User, record: BorrowRecord) -> BorrowRecord:
 def create_reservation(user: User, book: Book) -> Reservation:
     """Member joins the FIFO queue for a book with no free copy."""
     if not user.profile.active:
-        raise BusinessRuleError("Your account is deactivated.")
+        raise BusinessRuleError("account_inactive", "Your account is deactivated.")
     if not user.profile.email_verified:
-        raise BusinessRuleError(UNVERIFIED_MESSAGE)
+        raise BusinessRuleError("email_unverified", UNVERIFIED_MESSAGE)
     if free_copies(book) > 0:
-        raise BusinessRuleError("Copies are available — submit a borrow request instead.")
+        raise BusinessRuleError("copies_available", "Copies are available — submit a borrow request instead.")
     if queue_for_book(book).filter(user=user).exists():
-        raise BusinessRuleError("You are already in the reservation queue for this book.")
+        raise BusinessRuleError("already_queued", "You are already in the reservation queue for this book.")
     reservation = Reservation.objects.create(user=user, book=book)
     position = list(queue_for_book(book).values_list("id", flat=True)).index(reservation.id) + 1
     log_activity(display_name(user), "RESERVED",
                  f"{display_name(user)} joined the queue for “{book.title}” (position {position}).")
-    notify(user, f"You joined the reservation queue for “{book.title}” at position {position}.")
+    notify(user, "queue_joined", f"You joined the reservation queue for “{book.title}” at position {position}.",
+           title=book.title, position=position)
     return reservation
 
 
@@ -231,7 +233,9 @@ def run_hourly_cancellation(now=None) -> int:
             cancelled += 1
             log_activity("System", "AUTO_CANCELLED",
                          f"{display_name(record.user)} missed the 48h pickup window for “{book.title}”. Request auto-cancelled.")
-            notify(record.user, f"Your request for “{book.title}” was auto-cancelled after the 48h pickup window expired.")
+            notify(record.user, "hold_expired",
+                   f"Your request for “{book.title}” was auto-cancelled after the 48h pickup window expired.",
+                   title=book.title)
             _hand_to_queue(book, now)
     return cancelled
 
@@ -254,5 +258,7 @@ def run_nightly_overdue(now=None) -> int:
             flagged += 1
             log_activity("System", "MARKED_OVERDUE",
                          f"{display_name(record.user)}'s loan of “{record.book.title}” is now overdue.")
-            notify(record.user, f"“{record.book.title}” is overdue. Please return it — new requests are blocked until resolved.")
+            notify(record.user, "overdue",
+                   f"“{record.book.title}” is overdue. Please return it — new requests are blocked until resolved.",
+                   title=record.book.title)
     return flagged

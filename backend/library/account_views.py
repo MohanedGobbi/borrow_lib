@@ -10,17 +10,21 @@ from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import status as http
+from rest_framework.exceptions import ValidationError
+from rest_framework.fields import get_error_detail
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from . import emails
 from .auth_views import SessionView
+from .errors import BusinessRuleError, NotFoundError
 from .models import StaffInvite, display_name, log_activity
 from .permissions import IsAdmin
 from .serializers import StaffInviteSerializer
 
-BAD_LINK = {"detail": "This link is invalid or has expired."}
+def bad_link():
+    return BusinessRuleError("link_invalid", "This link is invalid or has expired.")
 
 
 def user_from_uid(uid):
@@ -48,12 +52,12 @@ class PasswordResetConfirmView(SessionView):
         user = user_from_uid(str(request.data.get("uid", "")))
         token = str(request.data.get("token", ""))
         if not user or not user.profile.active or not default_token_generator.check_token(user, token):
-            return Response(BAD_LINK, status=http.HTTP_400_BAD_REQUEST)
+            raise bad_link()
         password = str(request.data.get("password", ""))
         try:
             validate_password(password, user)
         except DjangoValidationError as e:
-            return Response({"password": list(e.messages)}, status=http.HTTP_400_BAD_REQUEST)
+            raise ValidationError({"password": get_error_detail(e)})
         user.set_password(password)  # also what makes the token single-use
         user.save(update_fields=["password"])
         # A reset is how people recover from a stolen password: end every session.
@@ -69,7 +73,7 @@ class VerifyEmailView(SessionView):
     def post(self, request):
         user = user_from_uid(str(request.data.get("uid", "")))
         if not user or not emails.email_verification_token.check_token(user, str(request.data.get("token", ""))):
-            return Response(BAD_LINK, status=http.HTTP_400_BAD_REQUEST)
+            raise bad_link()
         user.profile.email_verified = True
         user.profile.save(update_fields=["email_verified"])
         return Response(status=http.HTTP_204_NO_CONTENT)
@@ -80,7 +84,7 @@ class ResendVerificationView(APIView):
 
     def post(self, request):
         if request.user.profile.email_verified:
-            return Response({"detail": "Your email address is already verified."}, status=http.HTTP_400_BAD_REQUEST)
+            raise BusinessRuleError("already_verified", "Your email address is already verified.")
         emails.send_verification(request.user)
         return Response(status=http.HTTP_202_ACCEPTED)
 
@@ -103,7 +107,7 @@ class InviteListCreateView(APIView):
         s.is_valid(raise_exception=True)
         email = s.validated_data["email"].lower()
         if User.objects.filter(email__iexact=email).exists():
-            return Response({"email": ["An account with this email already exists."]}, status=http.HTTP_400_BAD_REQUEST)
+            raise BusinessRuleError("account_exists", "An account with this email already exists.")
         token = secrets.token_urlsafe(32)
         invite = s.save(email=email, token_hash=StaffInvite.hash_token(token), created_by=request.user)
         emails.send_staff_invite(invite, token)  # a failed send is logged; the admin can copy the link below
@@ -130,5 +134,5 @@ class InviteLookupView(SessionView):
         invite = StaffInvite.objects.filter(
             token_hash=StaffInvite.hash_token(request.query_params.get("token", ""))).first()
         if not invite or not invite.is_pending:
-            return Response({"detail": "Invitation not found."}, status=http.HTTP_404_NOT_FOUND)
+            raise NotFoundError("invite_not_found", "Invitation not found.")
         return Response({"email": invite.email, "role": invite.role})

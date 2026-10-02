@@ -37,7 +37,9 @@ interface DRecord {
 }
 interface DReservation { id: number; userId: number; bookId: number; reservedAt: number; isActive: boolean }
 interface DActivity { id: number; at: number; actorName: string; action: string; detail: string }
-interface DNotification { id: number; userId: number; at: number; message: string; read: boolean }
+interface DNotification {
+  id: number; userId: number; at: number; code: string; params: Record<string, unknown>; message: string; read: boolean;
+}
 interface DEmailToken { token: string; kind: "reset" | "verify"; userId: number; expiresAt: number; used: boolean }
 interface DInvite {
   id: number; email: string; role: "STAFF" | "ADMIN"; token: string; createdBy: number;
@@ -241,7 +243,7 @@ function seed(): DemoState {
     if (r.status === "OVERDUE") trail(r.dueDate! + 12 * H, "System", "MARKED_OVERDUE", `${who}'s loan of “${what}” is now overdue.`);
   }
   s.activity = s.activity.filter((a) => a.at <= now).sort((a, b) => b.at - a.at);
-  s.notifications.push({ id: 1, userId: daniel, at: now, read: false,
+  s.notifications.push({ id: 1, userId: daniel, at: now, read: false, code: "", params: {},
     message: "Your pickup window for “Thinking, Fast and Slow” closes soon." });
   return s;
 }
@@ -324,11 +326,14 @@ const recordsNewestFirst = (list: DRecord[]) => [...list].sort((a, b) => b.reque
 
 // ------------------------------ services ------------------------------
 
+/** An API error with the same body as Django's: `detail` plus a `code` (and `params`) the UI translates. */
 class HttpError extends Error {
   status: number;
-  constructor(status: number, detail: string) {
+  body: Record<string, unknown>;
+  constructor(status: number, detail: string, code?: string, params?: Record<string, unknown>, extra: Record<string, unknown> = {}) {
     super(detail);
     this.status = status;
+    this.body = { detail, ...(code ? { code } : {}), ...(params ? { params } : {}), ...extra };
   }
 }
 
@@ -342,20 +347,33 @@ class Reply {
   }
 }
 
-const bad = (detail: string) => new HttpError(400, detail);
-const notFound = () => new HttpError(404, "Not found.");
+const bad = (code: string, detail: string, params: Record<string, unknown> = {}) => new HttpError(400, detail, code, params);
+const forbidden = (code: string, detail: string) => new HttpError(403, detail, code, {});
+const notFound = () => new HttpError(404, "Not found.", "not_found");
+
+/** A validation error shaped like DRF's: per-field messages and codes, also at the top level. */
+function invalid(...errors: [field: string, message: string, code: string][]) {
+  const fields: Record<string, string[]> = {};
+  const fieldCodes: Record<string, string[]> = {};
+  for (const [field, message, code] of errors) {
+    (fields[field] ??= []).push(message);
+    (fieldCodes[field] ??= []).push(code);
+  }
+  return new HttpError(400, "Invalid input.", "invalid", undefined, { ...fields, fields, fieldCodes });
+}
 
 function log(actorName: string, action: string, detail: string) {
   state.activity.unshift({ id: nextId(), at: Date.now(), actorName, action, detail });
 }
 
-function notify(userId: number, message: string) {
-  state.notifications.unshift({ id: nextId(), userId, at: Date.now(), message, read: false });
+function notify(userId: number, code: string, message: string, params: Record<string, unknown>) {
+  state.notifications.unshift({ id: nextId(), userId, at: Date.now(), code, params, message, read: false });
 }
 
 function transition(op: string, r: DRecord, allowed: BorrowStatus[]) {
   if (!allowed.includes(r.status)) {
-    throw new HttpError(409, `Invalid transition: cannot ${op} a record in status ${r.status}.`);
+    throw new HttpError(409, `Invalid transition: cannot ${op} a record in status ${r.status}.`, "invalid_transition",
+      { action: op, status: r.status });
   }
 }
 
@@ -371,7 +389,8 @@ function handToQueue(book: DBook, now: number) {
       pickupDeadline: now + PICKUP_WINDOW, borrowedAt: null, dueDate: null, returnedAt: null, status: "READY",
     });
     log("System", "QUEUE_HANDOFF", `Reservation queue: “${book.title}” is now held for ${nu.name} (fresh 48h window).`);
-    notify(nu.id, `Good news — “${book.title}” is now held for you. Pick it up within 48 hours.`);
+    notify(nu.id, "queue_handoff", `Good news — “${book.title}” is now held for you. Pick it up within 48 hours.`,
+      { title: book.title });
     return;
   }
 }
@@ -387,7 +406,8 @@ function runJobs() {
     r.status = "CANCELLED";
     cancelled++;
     log("System", "AUTO_CANCELLED", `${user.name} missed the 48h pickup window for “${book.title}”. Request auto-cancelled.`);
-    notify(user.id, `Your request for “${book.title}” was auto-cancelled after the 48h pickup window expired.`);
+    notify(user.id, "hold_expired", `Your request for “${book.title}” was auto-cancelled after the 48h pickup window expired.`,
+      { title: book.title });
     handToQueue(book, now);
   }
   for (const r of state.records.filter((x) => x.status === "BORROWED" && (x.dueDate ?? Infinity) < now)) {
@@ -396,7 +416,8 @@ function runJobs() {
     r.status = "OVERDUE";
     flaggedOverdue++;
     log("System", "MARKED_OVERDUE", `${user.name}'s loan of “${book.title}” is now overdue.`);
-    notify(user.id, `“${book.title}” is overdue. Please return it — new requests are blocked until resolved.`);
+    notify(user.id, "overdue", `“${book.title}” is overdue. Please return it — new requests are blocked until resolved.`,
+      { title: book.title });
   }
   return { cancelled, flaggedOverdue };
 }
@@ -481,7 +502,7 @@ function orderBy<T extends { id: number }>(
   const keys = (asked ? asked.split(",") : [fallback]).map((k) => k.trim()).filter(Boolean);
   const order = keys.map((k) => {
     const field = k.replace(/^-/, "");
-    if (!fields[field]) throw bad("Invalid ordering.");
+    if (!fields[field]) throw invalid(["ordering", "Invalid ordering.", "invalid_choice"]);
     return { get: fields[field], sign: k.startsWith("-") ? -1 : 1 };
   });
   // Nulls sort as the largest value, like PostgreSQL.
@@ -500,19 +521,19 @@ function orderBy<T extends { id: number }>(
 const csvNumbers = (raw: string | null) => (raw ?? "").split(",").map((v) => v.trim()).filter(Boolean).map(Number);
 
 function requireUser(ctx: Ctx): DUser {
-  if (!ctx.user) throw new HttpError(401, "Authentication credentials were not provided.");
+  if (!ctx.user) throw new HttpError(401, "Authentication credentials were not provided.", "not_authenticated");
   return ctx.user;
 }
 
 function requireStaff(ctx: Ctx): DUser {
   const u = requireUser(ctx);
-  if (u.role === "MEMBER") throw new HttpError(403, "Forbidden: staff or admin role required.");
+  if (u.role === "MEMBER") throw new HttpError(403, "Forbidden: staff or admin role required.", "permission_denied");
   return u;
 }
 
 function requireAdmin(ctx: Ctx): DUser {
   const u = requireUser(ctx);
-  if (u.role !== "ADMIN") throw new HttpError(403, "Forbidden: admin role required.");
+  if (u.role !== "ADMIN") throw new HttpError(403, "Forbidden: admin role required.", "permission_denied");
   return u;
 }
 
@@ -542,8 +563,8 @@ async function updateBook(ctx: Ctx, book: DBook, actor: DUser) {
   const onLoan = book.totalCopies - book.availableCopies;
   if (src.totalCopies !== undefined) {
     const total = Number(src.totalCopies);
-    if (!Number.isInteger(total) || total < 1) throw bad("Total copies must be at least 1.");
-    if (total < onLoan) throw bad(`Cannot set total below ${onLoan} — that many copies are on loan.`);
+    if (!Number.isInteger(total) || total < 1) throw invalid(["totalCopies", "Total copies must be at least 1.", "min_value"]);
+    if (total < onLoan) throw bad("total_below_on_loan", `Cannot set total below ${onLoan} — that many copies are on loan.`, { onLoan });
     book.totalCopies = total;
     book.availableCopies = total - onLoan;
   }
@@ -552,7 +573,7 @@ async function updateBook(ctx: Ctx, book: DBook, actor: DUser) {
   }
   if (src.year !== undefined) book.year = src.year === "" || src.year === null ? null : Number(src.year);
   if (src.categoryId !== undefined) {
-    if (!state.categories.some((c) => c.id === Number(src.categoryId))) throw bad("Invalid category.");
+    if (!state.categories.some((c) => c.id === Number(src.categoryId))) throw invalid(["categoryId", "Invalid category.", "does_not_exist"]);
     book.categoryId = Number(src.categoryId);
   }
   if (src.coverImage instanceof File) book.coverImage = await fileToDataUrl(src.coverImage);
@@ -570,22 +591,26 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
     const now = Date.now();
     if (op === "approve") {
       transition("approve", r, ["PENDING"]);
-      if (freeCopies(book) <= 0) throw bad("No free copy to hold — every copy is on loan or already held for pickup.");
+      if (freeCopies(book) <= 0) {
+        throw bad("approve_no_free_copy", "No free copy to hold — every copy is on loan or already held for pickup.");
+      }
       Object.assign(r, { status: "READY", approvedAt: now, pickupDeadline: now + PICKUP_WINDOW });
       log(staff.name, "APPROVED", `Approved ${user.name}'s request for “${book.title}”. Pickup within 48h.`);
-      notify(user.id, `Your request for “${book.title}” was approved. Pick it up within 48 hours.`);
+      notify(user.id, "request_approved", `Your request for “${book.title}” was approved. Pick it up within 48 hours.`,
+        { title: book.title });
     } else if (op === "reject") {
       transition("reject", r, ["PENDING"]);
       r.status = "REJECTED";
       log(staff.name, "REJECTED", `Rejected ${user.name}'s request for “${book.title}”.`);
-      notify(user.id, `Your request for “${book.title}” was rejected by staff.`);
+      notify(user.id, "request_rejected", `Your request for “${book.title}” was rejected by staff.`, { title: book.title });
     } else if (op === "pickup") {
       transition("pickup", r, ["READY"]);
-      if (book.availableCopies <= 0) throw bad("No physical copy on the shelf to hand out.");
+      if (book.availableCopies <= 0) throw bad("pickup_no_copy", "No physical copy on the shelf to hand out.");
       Object.assign(r, { status: "BORROWED", borrowedAt: now, dueDate: now + LOAN_PERIOD });
       book.availableCopies -= 1;
       log(staff.name, "PICKUP_CONFIRMED", `${user.name} picked up “${book.title}”. Due in 14 days.`);
-      notify(user.id, `You picked up “${book.title}”. Due back on ${new Date(r.dueDate!).toLocaleDateString()}.`);
+      notify(user.id, "picked_up", `You picked up “${book.title}”. Due back on ${new Date(r.dueDate!).toLocaleDateString()}.`,
+        { title: book.title, dueDate: iso(r.dueDate) });
     } else {
       transition("return", r, ["BORROWED", "OVERDUE"]);
       Object.assign(r, { status: "RETURNED", returnedAt: now });
@@ -649,8 +674,8 @@ function wholeNumber(v: unknown): number | null {
 }
 
 function runImport(rows: Record<string, unknown>[], mode: string, dryRun: boolean, actor: string, source: string) {
-  if (mode !== "skip" && mode !== "update") throw bad("mode must be 'skip' or 'update'.");
-  if (rows.length > 5000) throw bad("A single import is limited to 5000 rows; split the file.");
+  if (mode !== "skip" && mode !== "update") throw bad("import_bad_mode", "mode must be 'skip' or 'update'.");
+  if (rows.length > 5000) throw bad("import_too_many_rows", "A single import is limited to 5000 rows; split the file.", { max: 5000 });
   const headers = [...new Set(rows.flatMap((r) => Object.keys(r)).filter((h) => !h.startsWith("__")))];
   const columns = Object.fromEntries(headers.map((h) => [h, HEADER_LOOKUP.get(headerKey(h)) ?? null]));
   const mapped = new Set(Object.values(columns));
@@ -779,7 +804,7 @@ function refreshTokenUser(token: string): DUser | undefined {
   return user && Number(m![2]) >= (user.sessionsRevokedAt ?? 0) ? user : undefined;
 }
 function requireCsrfHeader(ctx: Ctx) {
-  if (!ctx.headers.get(CSRF_HEADER)) throw new HttpError(403, "Missing CSRF header.");
+  if (!ctx.headers.get(CSRF_HEADER)) throw forbidden("csrf_missing", "Missing CSRF header.");
 }
 
 // ------------------------------ email ------------------------------
@@ -825,7 +850,7 @@ const ROLE_NAMES: Record<"STAFF" | "ADMIN", Record<Lang, string>> = {
 };
 const LINK_LIFETIME = H;
 const INVITE_LIFETIME = 7 * D;
-const BAD_LINK = "This link is invalid or has expired.";
+const badLink = () => bad("link_invalid", "This link is invalid or has expired.");
 const UNVERIFIED = "Confirm your email address first: check your inbox for the verification link.";
 const LANGS: Lang[] = ["en", "fr", "ar"];
 
@@ -877,13 +902,16 @@ function sInvite(i: DInvite) {
 }
 
 /** Mirrors Django's password validators (length, all-numeric, common, similar to the email). */
-function passwordErrors(pw: string, email: string): string[] {
-  if (pw.length < 8) return ["This password is too short. It must contain at least 8 characters."];
-  if (/^\d+$/.test(pw)) return ["This password is entirely numeric."];
+/** The first password rule the password breaks, with Django's validator codes (empty when it passes). */
+function passwordErrors(pw: string, email: string): [message: string, code: string][] {
+  if (pw.length < 8) return [["This password is too short. It must contain at least 8 characters.", "password_too_short"]];
+  if (/^\d+$/.test(pw)) return [["This password is entirely numeric.", "password_entirely_numeric"]];
   if (["password", "password1", "12345678", "qwertyuiop", "iloveyou", "azertyuiop"].includes(pw.toLowerCase())) {
-    return ["This password is too common."];
+    return [["This password is too common.", "password_too_common"]];
   }
-  if (email && pw.toLowerCase().includes(email.split("@")[0])) return ["The password is too similar to the email address."];
+  if (email && pw.toLowerCase().includes(email.split("@")[0])) {
+    return [["The password is too similar to the email address.", "password_too_similar"]];
+  }
   return [];
 }
 
@@ -893,7 +921,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     const email = String(ctx.body.username ?? "").trim().toLowerCase();
     const u = state.users.find((x) => x.email === email);
     if (!u || u.password !== ctx.body.password || !u.active) {
-      throw new HttpError(401, "No active account found with the given credentials");
+      throw new HttpError(401, "No active account found with the given credentials", "no_active_account");
     }
     setRefreshToken(u.id);
     return { access: `demo.${u.id}` };
@@ -901,11 +929,11 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["POST", /^\/auth\/refresh$/, (ctx) => {
     requireCsrfHeader(ctx);
     const token = readRefreshToken();
-    if (!token) throw new HttpError(401, "No active session.");
+    if (!token) throw new HttpError(401, "No active session.", "no_session", {});
     const user = refreshTokenUser(token);
     if (!user || !user.active) {
       dropRefreshToken();
-      throw new HttpError(401, "Session expired.");
+      throw new HttpError(401, "Session expired.", "session_expired", {});
     }
     state.revokedTokens.push(token);
     setRefreshToken(user.id);
@@ -921,22 +949,26 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["POST", /^\/auth\/register$/, (ctx) => {
     const d = ctx.body as Record<string, string | undefined>;
     const email = (d.email ?? "").trim().toLowerCase();
-    const errors: string[] = [];
-    if (!d.name?.trim()) errors.push("Name is required.");
-    if (!/^\S+@\S+\.\S+$/.test(email)) errors.push("Enter a valid email address.");
-    errors.push(...passwordErrors(d.password ?? "", email));
-    if (!d.studentId?.trim()) errors.push("Student ID is required.");
-    if (state.users.some((u) => u.email === email)) errors.push("An account with this email already exists.");
-    if (state.users.some((u) => u.idNumber.toLowerCase() === (d.studentId ?? "").toLowerCase())) {
-      errors.push("This ID is already registered.");
+    const errors: [string, string, string][] = [];
+    if (!d.name?.trim()) errors.push(["name", "Name is required.", "blank"]);
+    if (!/^\S+@\S+\.\S+$/.test(email)) errors.push(["email", "Enter a valid email address.", "invalid"]);
+    else if (state.users.some((u) => u.email === email)) {
+      errors.push(["email", "An account with this email already exists.", "unique"]);
     }
-    if (errors.length) throw bad(errors.join(" "));
+    for (const [message, code] of passwordErrors(d.password ?? "", email)) errors.push(["password", message, code]);
+    if (!d.studentId?.trim()) errors.push(["studentId", "Student ID is required.", "blank"]);
+    else if (state.users.some((u) => u.idNumber.toLowerCase() === d.studentId!.toLowerCase())) {
+      errors.push(["studentId", "This ID is already registered.", "unique"]);
+    }
+    if (errors.length) throw invalid(...errors);
     let role: Role = "MEMBER";
     // An invite fixes the role and the address; a missing, used, revoked, expired or foreign one creates nothing.
     const token = ctx.body.inviteToken;
     const invite = token ? pendingInvites().find((i) => i.token === token) : undefined;
     if (token) {
-      if (!invite || invite.email !== email) throw bad("This invitation is invalid, expired or for another email address.");
+      if (!invite || invite.email !== email) {
+        throw bad("invite_invalid", "This invitation is invalid, expired or for another email address.");
+      }
       role = invite.role;
     }
     const u: DUser = {
@@ -969,9 +1001,9 @@ const ROUTES: [string, RegExp, Handler][] = [
   }],
   ["POST", /^\/auth\/password-reset\/confirm$/, (ctx) => {
     const user = userForToken("reset", ctx.body.uid, ctx.body.token);
-    if (!user || !user.active) throw bad(BAD_LINK);
+    if (!user || !user.active) throw badLink();
     const errors = passwordErrors(String(ctx.body.password ?? ""), user.email);
-    if (errors.length) return new Reply(400, { password: errors });
+    if (errors.length) throw invalid(...errors.map(([message, code]): [string, string, string] => ["password", message, code]));
     user.password = String(ctx.body.password);
     spendTokens("reset", user);
     user.sessionsRevokedAt = Date.now() + 1; // every session ends; the next sign-in starts a new one
@@ -980,14 +1012,14 @@ const ROUTES: [string, RegExp, Handler][] = [
   }],
   ["POST", /^\/auth\/verify-email$/, (ctx) => {
     const user = userForToken("verify", ctx.body.uid, ctx.body.token);
-    if (!user) throw bad(BAD_LINK);
+    if (!user) throw badLink();
     user.emailVerified = true;
     spendTokens("verify", user);
     return new Reply(204, null);
   }],
   ["POST", /^\/auth\/verify-email\/resend$/, (ctx) => {
     const u = requireUser(ctx);
-    if (u.emailVerified) throw bad("Your email address is already verified.");
+    if (u.emailVerified) throw bad("already_verified", "Your email address is already verified.");
     sendLinkMail("verify", u);
     return new Reply(202, null);
   }],
@@ -1000,9 +1032,11 @@ const ROUTES: [string, RegExp, Handler][] = [
     const admin = requireAdmin(ctx);
     const email = String(ctx.body.email ?? "").trim().toLowerCase();
     const role = ctx.body.role;
-    if (!/^\S+@\S+\.\S+$/.test(email)) throw bad("Enter a valid email address.");
-    if (role !== "STAFF" && role !== "ADMIN") throw bad(`"${String(role ?? "")}" is not a valid choice.`);
-    if (state.users.some((u) => u.email === email)) throw bad("An account with this email already exists.");
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw invalid(["email", "Enter a valid email address.", "invalid"]);
+    if (role !== "STAFF" && role !== "ADMIN") {
+      throw invalid(["role", `"${String(role ?? "")}" is not a valid choice.`, "invalid_choice"]);
+    }
+    if (state.users.some((u) => u.email === email)) throw bad("account_exists", "An account with this email already exists.");
     const now = Date.now();
     const invite: DInvite = {
       id: nextId(), email, role, token: (uuid() + uuid()).replace(/-/g, ""),
@@ -1016,7 +1050,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   }],
   ["GET", /^\/invites\/lookup$/, (ctx) => {
     const invite = pendingInvites().find((i) => i.token === ctx.query.get("token"));
-    if (!invite) throw notFound();
+    if (!invite) throw new HttpError(404, "Invitation not found.", "invite_not_found", {});
     return { email: invite.email, role: invite.role };
   }],
   ["DELETE", /^\/invites\/(\d+)$/, (ctx, [id]) => {
@@ -1067,10 +1101,14 @@ const ROUTES: [string, RegExp, Handler][] = [
     const staff = requireStaff(ctx);
     const d = ctx.body;
     const total = Number(d.totalCopies ?? 1);
-    if (!d.title || !d.author || !d.isbn) throw bad("Title, author and ISBN are required.");
-    if (state.books.some((b) => b.isbn === d.isbn)) throw bad("book with this isbn already exists.");
-    if (!state.categories.some((c) => c.id === Number(d.categoryId))) throw bad("Pick a category.");
-    if (!Number.isInteger(total) || total < 1) throw bad("Total copies must be at least 1.");
+    const errors: [string, string, string][] = [];
+    for (const field of ["title", "author", "isbn"] as const) {
+      if (!d[field]) errors.push([field, "This field may not be blank.", "blank"]);
+    }
+    if (d.isbn && state.books.some((b) => b.isbn === d.isbn)) errors.push(["isbn", "book with this isbn already exists.", "unique"]);
+    if (!state.categories.some((c) => c.id === Number(d.categoryId))) errors.push(["categoryId", "Pick a category.", "does_not_exist"]);
+    if (!Number.isInteger(total) || total < 1) errors.push(["totalCopies", "Total copies must be at least 1.", "min_value"]);
+    if (errors.length) throw invalid(...errors);
     const book: DBook = {
       id: nextId(), title: String(d.title), author: String(d.author), isbn: String(d.isbn),
       categoryId: Number(d.categoryId), publisher: String(d.publisher ?? ""),
@@ -1087,7 +1125,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["DELETE", /^\/books\/(\d+)$/, (ctx, [id]) => {
     const staff = requireStaff(ctx);
     const book = findBook(id);
-    if (book.availableCopies !== book.totalCopies) throw bad("Cannot delete: copies are currently on loan.");
+    if (book.availableCopies !== book.totalCopies) throw bad("book_on_loan", "Cannot delete: copies are currently on loan.");
     state.books = state.books.filter((b) => b.id !== book.id);
     state.records = state.records.filter((r) => r.bookId !== book.id);
     state.reservations = state.reservations.filter((r) => r.bookId !== book.id);
@@ -1097,7 +1135,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["POST", /^\/books\/import$/, (ctx) => {
     const staff = requireStaff(ctx);
     const rows = ctx.body.rows;
-    if (!Array.isArray(rows) || !rows.every((r) => r && typeof r === "object")) throw bad("Expected a list of rows.");
+    if (!Array.isArray(rows) || !rows.every((r) => r && typeof r === "object")) throw bad("import_bad_rows", "Expected a list of rows.");
     return runImport(rows as Record<string, unknown>[], String(ctx.body.mode ?? "skip"), ctx.body.dryRun !== false,
       staff.name, String(ctx.body.filename ?? "").slice(0, 120));
   }],
@@ -1133,9 +1171,9 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["POST", /^\/categories$/, (ctx) => {
     requireStaff(ctx);
     const name = String(ctx.body.name ?? "").trim();
-    if (!name) throw bad("Name is required.");
+    if (!name) throw invalid(["name", "Name is required.", "blank"]);
     if (state.categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
-      throw bad("category with this name already exists.");
+      throw invalid(["name", "category with this name already exists.", "unique"]);
     }
     const c = { id: nextId(), name, color: String(ctx.body.color ?? "#4A5560") };
     state.categories.push(c);
@@ -1151,7 +1189,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   }],
   ["DELETE", /^\/categories\/(\d+)$/, (ctx, [id]) => {
     requireStaff(ctx);
-    if (state.books.some((b) => b.categoryId === Number(id))) throw bad("Cannot delete a category that still has books.");
+    if (state.books.some((b) => b.categoryId === Number(id))) throw bad("category_has_books", "Cannot delete a category that still has books.");
     state.categories = state.categories.filter((c) => c.id !== Number(id));
     return new Reply(204, null);
   }],
@@ -1171,15 +1209,17 @@ const ROUTES: [string, RegExp, Handler][] = [
   }],
   ["POST", /^\/borrow-records$/, (ctx) => {
     const u = requireUser(ctx);
-    if (u.role !== "MEMBER") throw new HttpError(403, "Only member accounts can request books.");
+    if (u.role !== "MEMBER") throw forbidden("members_only", "Only member accounts can request books.");
     const book = findBook(ctx.body.bookId);
-    if (!u.active) throw bad("Your account is deactivated.");
-    if (!u.emailVerified) throw bad(UNVERIFIED);
-    if (hasOverdue(u.id)) throw bad("You have an overdue loan. Resolve it before requesting new books.");
-    if (activeLoans(u.id) >= u.maxLimit) throw bad(`Borrow limit reached (${u.maxLimit}). Return a book first.`);
-    if (freeCopies(book) <= 0) throw bad("No copies available — join the reservation queue instead.");
+    if (!u.active) throw bad("account_inactive", "Your account is deactivated.");
+    if (!u.emailVerified) throw bad("email_unverified", UNVERIFIED);
+    if (hasOverdue(u.id)) throw bad("overdue_block", "You have an overdue loan. Resolve it before requesting new books.");
+    if (activeLoans(u.id) >= u.maxLimit) {
+      throw bad("borrow_limit", `Borrow limit reached (${u.maxLimit}). Return a book first.`, { limit: u.maxLimit });
+    }
+    if (freeCopies(book) <= 0) throw bad("no_free_copy", "No copies available — join the reservation queue instead.");
     if (state.records.some((r) => r.userId === u.id && r.bookId === book.id && (r.status === "PENDING" || r.status === "READY"))) {
-      throw bad("You already have an open request for this book.");
+      throw bad("already_requested", "You already have an open request for this book.");
     }
     const r: DRecord = {
       id: nextId(), userId: u.id, bookId: book.id, requestedAt: Date.now(), approvedAt: null,
@@ -1200,7 +1240,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["GET", /^\/borrow-records\/(\d+)\/document$/, (ctx, [id]) => {
     const u = requireUser(ctx);
     const r = findRecord(id);
-    if (r.userId !== u.id && u.role === "MEMBER") throw new HttpError(403, "Forbidden.");
+    if (r.userId !== u.id && u.role === "MEMBER") throw forbidden("forbidden", "Forbidden.");
     const member = userById(r.userId)!;
     const book = bookById(r.bookId)!;
     return textPdf(`Borrow request REQ-${String(r.id).padStart(3, "0")}`, [
@@ -1219,17 +1259,20 @@ const ROUTES: [string, RegExp, Handler][] = [
   }],
   ["POST", /^\/reservations$/, (ctx) => {
     const u = requireUser(ctx);
-    if (u.role !== "MEMBER") throw new HttpError(403, "Only member accounts can reserve books.");
+    if (u.role !== "MEMBER") throw forbidden("members_only", "Only member accounts can reserve books.");
     const book = findBook(ctx.body.bookId);
-    if (!u.active) throw bad("Your account is deactivated.");
-    if (!u.emailVerified) throw bad(UNVERIFIED);
-    if (freeCopies(book) > 0) throw bad("Copies are available — submit a borrow request instead.");
-    if (queueFor(book.id).some((r) => r.userId === u.id)) throw bad("You are already in the reservation queue for this book.");
+    if (!u.active) throw bad("account_inactive", "Your account is deactivated.");
+    if (!u.emailVerified) throw bad("email_unverified", UNVERIFIED);
+    if (freeCopies(book) > 0) throw bad("copies_available", "Copies are available — submit a borrow request instead.");
+    if (queueFor(book.id).some((r) => r.userId === u.id)) {
+      throw bad("already_queued", "You are already in the reservation queue for this book.");
+    }
     const r: DReservation = { id: nextId(), userId: u.id, bookId: book.id, reservedAt: Date.now(), isActive: true };
     state.reservations.push(r);
     const position = queueFor(book.id).findIndex((x) => x.id === r.id) + 1;
     log(u.name, "RESERVED", `${u.name} joined the queue for “${book.title}” (position ${position}).`);
-    notify(u.id, `You joined the reservation queue for “${book.title}” at position ${position}.`);
+    notify(u.id, "queue_joined", `You joined the reservation queue for “${book.title}” at position ${position}.`,
+      { title: book.title, position });
     return new Reply(201, sReservation(r));
   }],
   ["GET", /^\/reservations\/all$/, (ctx) => {
@@ -1258,7 +1301,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     const admin = requireAdmin(ctx);
     const u = userById(Number(id));
     if (!u) throw notFound();
-    if (u.id === admin.id) throw bad("You cannot delete your own account.");
+    if (u.id === admin.id) throw bad("cannot_delete_self", "You cannot delete your own account.");
     // Undo the stock effect of copies this member still holds, as a cascade delete would lose them.
     for (const r of state.records.filter((x) => x.userId === u.id && (x.status === "BORROWED" || x.status === "OVERDUE"))) {
       const book = bookById(r.bookId);
@@ -1325,7 +1368,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["GET", /^\/notifications\/mine$/, (ctx) => {
     const u = requireUser(ctx);
     return state.notifications.filter((n) => n.userId === u.id).sort((a, b) => b.at - a.at).slice(0, 20)
-      .map(({ id, at, message, read }) => ({ id, at: iso(at), message, read }));
+      .map(({ id, at, code, params, message, read }) => ({ id, at: iso(at), code, params, message, read }));
   }],
   ["POST", /^\/notifications\/read$/, (ctx) => {
     const u = requireUser(ctx);
@@ -1382,10 +1425,10 @@ export async function demoFetch(url: string, init: RequestInit = {}): Promise<Re
       if (result instanceof Reply) return json(result.status, result.data);
       return json(200, result);
     } catch (e) {
-      if (e instanceof HttpError) return json(e.status, { detail: e.message });
+      if (e instanceof HttpError) return json(e.status, e.body);
       console.error("[demo api]", e);
       return json(500, { detail: "Demo backend error." });
     }
   }
-  return json(404, { detail: "Not found." });
+  return json(404, { detail: "Not found.", code: "not_found" });
 }

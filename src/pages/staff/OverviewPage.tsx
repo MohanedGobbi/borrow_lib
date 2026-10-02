@@ -2,9 +2,9 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCcw } from "lucide-react";
 import { apiMisc, apiRecords } from "@/api";
-import { ApiError } from "@/api/client";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { Countdown } from "@/components/Countdown";
 import { daysFrom, fmtDate, msLeft, timeAgo } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/Page";
@@ -50,7 +50,7 @@ export default function OverviewPage() {
       refetchActivity();
       refreshCounts();
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : t("toast.failed"));
+      toast.error(errorMessage(t, e));
     }
   };
 

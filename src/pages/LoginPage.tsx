@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useAuth } from "@/auth/AuthContext";
-import { ApiError, DEMO, DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/api/client";
+import { DEMO, DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/api/client";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { BrandMark } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +44,7 @@ export default function LoginPage() {
       await login(address, secret);
       navigate(location.state?.from ?? "/catalog", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError && err.status === 401 ? t("auth.wrongCreds") : t("auth.failed"));
+      setError(errorMessage(t, err, "auth.failed"));
     } finally {
       setBusy(false);
     }

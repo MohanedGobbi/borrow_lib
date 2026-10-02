@@ -3,6 +3,7 @@ import { Inbox, Mail } from "lucide-react";
 import { apiDemo } from "@/api";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { fmtDateTime } from "@/lib/time";
 import { Container } from "@/components/Layout";
 import { EmptyState, ErrorState, PageHeader, Panel } from "@/components/Page";
@@ -20,7 +21,7 @@ export default function MailboxPage() {
     <Container className="max-w-4xl">
       <PageHeader title={t("mailbox.title")} description={t("mailbox.sub")} />
       <div className="mt-6 space-y-4">
-        {error && !mails && <ErrorState message={error} onRetry={refetch} />}
+        {error && !mails && <ErrorState message={errorMessage(t, error)} onRetry={refetch} />}
         {mails && mails.length === 0 && (
           <Panel><EmptyState icon={Inbox} title={t("mailbox.empty")} /></Panel>
         )}

@@ -14,6 +14,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, Toke
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .errors import Forbidden, Unauthorized, error_response
+
 
 def set_refresh_cookie(response, token):
     cfg = settings.AUTH_REFRESH_COOKIE
@@ -59,16 +61,16 @@ class RefreshView(SessionView):
 
     def post(self, request):
         if csrf_header_missing(request):
-            return Response({"detail": "Missing CSRF header."}, status=http.HTTP_403_FORBIDDEN)
+            raise Forbidden("csrf_missing", "Missing CSRF header.")
         token = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE["name"])
         if not token:
-            return Response({"detail": "No active session."}, status=http.HTTP_401_UNAUTHORIZED)
+            raise Unauthorized("no_session", "No active session.")
         s = TokenRefreshSerializer(data={"refresh": token})
         try:
             s.is_valid(raise_exception=True)
             data = s.validated_data
         except (TokenError, AuthenticationFailed, ObjectDoesNotExist):
-            res = Response({"detail": "Session expired."}, status=http.HTTP_401_UNAUTHORIZED)
+            res = error_response(Unauthorized("session_expired", "Session expired."))
             delete_refresh_cookie(res)
             return res
         res = Response({"access": data["access"]})
@@ -79,7 +81,7 @@ class RefreshView(SessionView):
 class LogoutView(SessionView):
     def post(self, request):
         if csrf_header_missing(request):
-            return Response({"detail": "Missing CSRF header."}, status=http.HTTP_403_FORBIDDEN)
+            raise Forbidden("csrf_missing", "Missing CSRF header.")
         token = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE["name"])
         if token:
             try:

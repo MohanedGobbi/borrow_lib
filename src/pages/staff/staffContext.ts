@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useOutletContext } from "react-router";
 import { toast } from "sonner";
-import { ApiError } from "@/api/client";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 
 export interface StaffContext {
   /** Re-read the sidebar queue counts after an action changes them. */
@@ -30,7 +30,7 @@ export function useStaffAction(after: () => void) {
       after();
       refreshCounts();
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : t("toast.failed"));
+      toast.error(errorMessage(t, e));
     } finally {
       setBusyId(null);
     }

@@ -3,10 +3,10 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 import { Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { apiBooks, apiCategories } from "@/api";
-import { ApiError } from "@/api/client";
 import { useApi } from "@/hooks/useApi";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { BookEditDialog } from "@/components/BookEditDialog";
 import { Availability } from "@/components/BookActions";
 import { Pager } from "@/components/Pager";
@@ -154,7 +154,7 @@ function CategoryManager({ onChanged }: { onChanged: () => void }) {
       refetch();
       onChanged();
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : t("toast.failed"));
+      toast.error(errorMessage(t, e));
     }
   };
 

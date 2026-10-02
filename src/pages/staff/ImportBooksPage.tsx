@@ -5,8 +5,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiBooks } from "@/api";
-import { ApiError } from "@/api/client";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -63,7 +63,7 @@ export default function ImportBooksPage() {
       setFilter(r.summary.error > 0 ? "error" : "all");
       setPhase("preview");
     } catch (e) {
-      setProblem(e instanceof ApiError ? e.message : t("toast.failed"));
+      setProblem(errorMessage(t, e));
       setPhase("idle");
     }
   };
@@ -102,7 +102,7 @@ export default function ImportBooksPage() {
       refreshCounts();
       toast.success(t("import.doneBody", { c: r.summary.create, u: r.summary.update }));
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : t("toast.failed"));
+      toast.error(errorMessage(t, e));
       setPhase("preview");
     }
   };

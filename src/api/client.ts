@@ -9,7 +9,7 @@ const BASE = API_ROOT;
 /** Static demo build (`npm run build:demo`): the API runs in the browser, no server needed. */
 export const DEMO = import.meta.env.VITE_DEMO === "true";
 
-export const DEMO_STORAGE_KEY = "lb_demo_state_v7";
+export const DEMO_STORAGE_KEY = "lb_demo_state_v8";
 /** Demo-only stand-in for the httpOnly refresh cookie. */
 export const DEMO_REFRESH_KEY = "lb_demo_refresh";
 
@@ -41,10 +41,23 @@ export class ApiError extends Error {
   status: number;
   /** Names of the form fields the server complained about, when it answered with field errors. */
   fields: string[];
-  constructor(status: number, message: string, fields: string[] = []) {
+  /** Machine-readable error code (`borrow_limit`, `no_active_account`, …); the UI translates it. */
+  code?: string;
+  params?: Record<string, unknown>;
+  /** Per-field validation codes, e.g. `{ password: ["password_too_common"] }`. */
+  fieldCodes?: Record<string, string[]>;
+  constructor(
+    status: number,
+    message: string,
+    fields: string[] = [],
+    extra: { code?: string; params?: Record<string, unknown>; fieldCodes?: Record<string, string[]> } = {},
+  ) {
     super(message);
     this.status = status;
     this.fields = fields;
+    this.code = extra.code;
+    this.params = extra.params;
+    this.fieldCodes = extra.fieldCodes;
   }
 }
 
@@ -129,20 +142,34 @@ export async function api<T = unknown>(
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const init: RequestInit = { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined };
-  const res = auth
-    ? await authFetch(`${BASE}${path}`, init)
-    : await apiFetch(`${BASE}${path}`, { ...init, credentials: "include" });
+  let res: Response;
+  try {
+    res = auth
+      ? await authFetch(`${BASE}${path}`, init)
+      : await apiFetch(`${BASE}${path}`, { ...init, credentials: "include" });
+  } catch {
+    throw new ApiError(0, "Network error — the server could not be reached.", [], { code: "network" });
+  }
 
-  if (res.status === 401 && auth) throw new ApiError(401, "Session expired — please sign in again.");
+  if (res.status === 401 && auth) {
+    throw new ApiError(401, "Session expired — please sign in again.", [], { code: "not_authenticated" });
+  }
   if (!res.ok) {
     let detail = `Request failed (${res.status})`;
     let fields: string[] = [];
+    let extra: ConstructorParameters<typeof ApiError>[3] = {};
     try {
       const data = await res.json();
-      detail = data.detail || Object.values(data).flat().join(" ") || detail;
-      if (!data.detail) fields = Object.keys(data);
+      if (data.fields) {
+        // Validation errors: the per-field messages, joined, are the English text.
+        fields = Object.keys(data.fields);
+        detail = Object.values(data.fields).flat().join(" ") || data.detail || detail;
+      } else {
+        detail = data.detail || detail;
+      }
+      extra = { code: data.code, params: data.params, fieldCodes: data.fieldCodes };
     } catch { /* non-JSON error body */ }
-    throw new ApiError(res.status, detail, fields);
+    throw new ApiError(res.status, detail, fields, extra);
   }
   if (res.status === 204) return undefined as T;
   // 202 Accepted answers carry no body.

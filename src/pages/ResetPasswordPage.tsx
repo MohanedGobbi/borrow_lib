@@ -4,6 +4,7 @@ import { CheckCircle2, LinkIcon } from "lucide-react";
 import { apiAuth } from "@/api";
 import { ApiError } from "@/api/client";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { AuthCard } from "@/pages/LoginPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,7 @@ export default function ResetPasswordPage() {
       setDone(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 400 && !err.fields.includes("password")) setBadLink(true);
-      else setError(err instanceof ApiError && err.status === 400 ? err.message : t("auth.failed"));
+      else setError(errorMessage(t, err, "auth.failed"));
     } finally {
       setBusy(false);
     }

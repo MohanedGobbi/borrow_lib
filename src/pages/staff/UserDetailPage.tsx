@@ -2,10 +2,10 @@ import { Link, useNavigate, useParams } from "react-router";
 import { ArrowLeft, Trash2, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { apiUsers } from "@/api";
-import { ApiError } from "@/api/client";
 import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { MemberStanding } from "@/components/MemberStanding";
@@ -46,7 +46,7 @@ export default function UserDetailPage() {
       toast.success(t("toast.userDeleted"));
       navigate("/staff/users");
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : t("toast.failed"));
+      toast.error(errorMessage(t, e));
     }
   };
 

@@ -3,10 +3,10 @@ import { Link } from "react-router";
 import { Check, ClipboardPlus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { apiRecords, apiReservations } from "@/api";
-import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { useCart } from "@/cart/CartContext";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Book } from "@/types";
@@ -33,7 +33,7 @@ export function BookActions({
       toast.success(ok);
       onChanged?.();
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : t("toast.failed"));
+      toast.error(errorMessage(t, e));
     } finally {
       setBusy(false);
     }

@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { apiInvites } from "@/api";
-import { ApiError } from "@/api/client";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +42,7 @@ export function InviteStaffDialog({
       setCreated(await apiInvites.create({ email: email.trim(), role }));
       onInvited();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("invite.failed"));
+      setError(errorMessage(t, err, "invite.failed"));
     } finally {
       setBusy(false);
     }

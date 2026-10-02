@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { apiBooks, apiCategories } from "@/api";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,7 +79,7 @@ export function BookEditDialog({
       onOpenChange(false);
       onSaved();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("toast.failed"));
+      toast.error(errorMessage(t, e));
     } finally {
       setBusy(false);
     }

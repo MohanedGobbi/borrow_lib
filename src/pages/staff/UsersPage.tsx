@@ -7,6 +7,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { InviteStaffDialog } from "@/components/InviteStaffDialog";
 import { MemberStanding } from "@/components/MemberStanding";
 import { Pager } from "@/components/Pager";
@@ -35,7 +36,7 @@ export default function UsersPage() {
       toast.success(t("invite.revoked"));
       refetchInvites();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("toast.failed"));
+      toast.error(errorMessage(t, e));
     }
   };
   const [search, setSearch] = useState("");

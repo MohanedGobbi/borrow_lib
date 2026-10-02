@@ -4,8 +4,8 @@ import { toast } from "sonner";
 import { LinkIcon, ShieldCheck } from "lucide-react";
 import { apiInvites } from "@/api";
 import { useAuth } from "@/auth/AuthContext";
-import { ApiError } from "@/api/client";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { AuthCard } from "@/pages/LoginPage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +67,7 @@ export default function SignupPage() {
       if (!invited) toast.success(t("auth.created"));
       navigate(invited ? "/staff" : "/catalog", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("auth.failed"));
+      setError(errorMessage(t, err, "auth.failed"));
     } finally {
       setBusy(false);
     }

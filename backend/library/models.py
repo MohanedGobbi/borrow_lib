@@ -158,6 +158,8 @@ class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
     at = models.DateTimeField(auto_now_add=True)
     message = models.CharField(max_length=500)
+    code = models.CharField(max_length=40, blank=True)
+    params = models.JSONField(default=dict, blank=True)
     read = models.BooleanField(default=False)
 
     class Meta:
@@ -168,8 +170,9 @@ def log_activity(actor_name: str, action: str, detail: str) -> ActivityLog:
     return ActivityLog.objects.create(actor_name=actor_name, action=action, detail=detail)
 
 
-def notify(user: User, message: str) -> Notification:
-    return Notification.objects.create(user=user, message=message)
+def notify(user: User, code: str, message: str, **params) -> Notification:
+    """`message` is the English text (old rows, the admin, API clients); the UI translates `code` + `params`."""
+    return Notification.objects.create(user=user, code=code, message=message, params=params)
 
 
 def display_name(user: User) -> str:

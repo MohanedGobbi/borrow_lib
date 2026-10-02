@@ -160,6 +160,10 @@ export interface ActivityEntry {
 export interface AppNotification {
   id: number;
   at: string;
+  /** Translatable notification code (`request_approved`, …); empty on older rows. */
+  code: string;
+  params: Record<string, unknown>;
+  /** English text, for rows without a code. */
   message: string;
   read: boolean;
 }

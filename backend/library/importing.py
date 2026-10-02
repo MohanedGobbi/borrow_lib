@@ -23,6 +23,7 @@ from datetime import date
 
 from django.db import transaction
 
+from .errors import BusinessRuleError
 from .models import Book, Category, Status, log_activity
 
 MAX_ROWS = 5000
@@ -43,6 +44,10 @@ ERROR_TEXT = {
     "copies_invalid": "Copies must be a whole number from 1 to {max}.",
     "copies_below_loans": "Copies cannot be below the {onLoan} on loan.",
 }
+
+
+class ImportError_(BusinessRuleError, ValueError):
+    """Bad import request. Also a ValueError, so the management command can catch it with the file-reading errors."""
 
 
 def error_text(error: dict) -> str:
@@ -134,9 +139,10 @@ def run_import(rows: list[dict], *, mode: str = "skip", dry_run: bool = True,
                actor_name: str = "System", source: str = "") -> dict:
     """Validate (and unless dry_run, apply) an import. `rows` are dicts keyed by raw headers."""
     if mode not in ("skip", "update"):
-        raise ValueError("mode must be 'skip' or 'update'.")
+        raise ImportError_("import_bad_mode", "mode must be 'skip' or 'update'.")
     if len(rows) > MAX_ROWS:
-        raise ValueError(f"A single import is limited to {MAX_ROWS} rows; split the file.")
+        raise ImportError_("import_too_many_rows", f"A single import is limited to {MAX_ROWS} rows; split the file.",
+                           max=MAX_ROWS)
 
     headers = list(dict.fromkeys(h for r in rows for h in r.keys() if not str(h).startswith("__")))
     columns = map_columns(headers)

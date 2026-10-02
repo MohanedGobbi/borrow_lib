@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router";
 import { UserX } from "lucide-react";
 import { apiAuth } from "@/api";
+import { ApiError } from "@/api/client";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -22,7 +23,7 @@ export default function ScanLookupPage() {
   if (error || !data) {
     return (
       <Container>
-        <EmptyState icon={UserX} title={error?.toLowerCase().includes("not found") ? t("scan.unknown") : t("scan.failed")}>
+        <EmptyState icon={UserX} title={error instanceof ApiError && error.status === 404 ? t("scan.unknown") : t("scan.failed")}>
           <Button asChild variant="outline" size="sm"><Link to="/staff">{t("scan.back")}</Link></Button>
         </EmptyState>
       </Container>

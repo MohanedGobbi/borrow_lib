@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import emails, services
+from .errors import AppError, BusinessRuleError, Forbidden
 from .filters import BookFilter, BorrowRecordFilter, UserFilter
 from .idcard import id_card_response
 from .models import (
@@ -40,18 +41,6 @@ from .serializers import (
 )
 
 
-def business_errors(fn):
-    """Map service-layer errors to HTTP responses."""
-    def wrapper(*args, **kwargs):
-        try:
-            return fn(*args, **kwargs)
-        except services.StateMachineError as e:
-            return Response({"detail": str(e)}, status=http.HTTP_409_CONFLICT)
-        except services.BusinessRuleError as e:
-            return Response({"detail": str(e)}, status=http.HTTP_400_BAD_REQUEST)
-    return wrapper
-
-
 # ------------------------------- auth -------------------------------
 
 class RegisterView(APIView):
@@ -71,8 +60,8 @@ class RegisterView(APIView):
                 invite = StaffInvite.objects.select_for_update().filter(
                     token_hash=StaffInvite.hash_token(d["inviteToken"])).first()
                 if not invite or not invite.is_pending or invite.email.lower() != d["email"].lower():
-                    return Response({"detail": "This invitation is invalid, expired or for another email address."},
-                                    status=http.HTTP_400_BAD_REQUEST)
+                    raise BusinessRuleError("invite_invalid",
+                                            "This invitation is invalid, expired or for another email address.")
                 role = invite.role
             user = User.objects.create_user(
                 username=d["email"].lower(), email=d["email"].lower(),
@@ -167,16 +156,15 @@ class BookDetailView(generics.RetrieveUpdateDestroyAPIView):
         new_total = serializer.validated_data.get("total_copies", book.total_copies)
         on_loan = book.total_copies - book.available_copies
         if new_total < on_loan:
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({"detail": f"Cannot set total below {on_loan} — that many copies are on loan."})
+            raise BusinessRuleError("total_below_on_loan",
+                                    f"Cannot set total below {on_loan} — that many copies are on loan.", onLoan=on_loan)
         serializer.save(available_copies=new_total - on_loan)
         log_activity(display_name(self.request.user), "BOOK_UPDATED", f"Updated “{book.title}”.")
 
     def destroy(self, request, *args, **kwargs):
         book = self.get_object()
         if book.available_copies != book.total_copies:
-            return Response({"detail": "Cannot delete: copies are currently on loan."},
-                            status=http.HTTP_400_BAD_REQUEST)
+            raise BusinessRuleError("book_on_loan", "Cannot delete: copies are currently on loan.")
         log_activity(display_name(request.user), "BOOK_DELETED", f"Removed “{book.title}” from the catalog.")
         return super().destroy(request, *args, **kwargs)
 
@@ -205,8 +193,7 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         category = self.get_object()
         if category.books.exists():
-            return Response({"detail": "Cannot delete a category that still has books."},
-                            status=http.HTTP_400_BAD_REQUEST)
+            raise BusinessRuleError("category_has_books", "Cannot delete a category that still has books.")
         return super().destroy(request, *args, **kwargs)
 
 
@@ -226,11 +213,9 @@ class BorrowRecordListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return BorrowRecord.objects.select_related("user", "user__profile", "book").order_by("-requested_at")
 
-    @business_errors
     def post(self, request):
         if request.user.profile.role != Role.MEMBER:
-            return Response({"detail": "Only member accounts can request books."},
-                            status=http.HTTP_403_FORBIDDEN)
+            raise Forbidden("members_only", "Only member accounts can request books.")
         book = get_object_or_404(Book, pk=request.data.get("bookId"))
         record = services.create_request(request.user, book)
         return Response(BorrowRecordSerializer(record).data, status=http.HTTP_201_CREATED)
@@ -247,7 +232,6 @@ class _TransitionView(APIView):
     permission_classes = [IsStaffOrAdmin]
     op = None
 
-    @business_errors
     def post(self, request, pk):
         record = get_object_or_404(BorrowRecord, pk=pk)
         result = getattr(services, self.op)(request.user, record)
@@ -276,7 +260,7 @@ class BorrowDocumentView(APIView):
         record = get_object_or_404(BorrowRecord, pk=pk)
         from .permissions import role_of
         if record.user != request.user and role_of(request.user) not in (Role.STAFF, Role.ADMIN):
-            return Response({"detail": "Forbidden."}, status=http.HTTP_403_FORBIDDEN)
+            raise Forbidden("forbidden", "Forbidden.")
         from .documents import request_document_response
         return request_document_response(record)
 
@@ -288,11 +272,9 @@ class ReservationListCreateView(APIView):
         qs = request.user.reservations.filter(is_active=True).select_related("book")
         return Response(ReservationSerializer(qs, many=True).data)
 
-    @business_errors
     def post(self, request):
         if request.user.profile.role != Role.MEMBER:
-            return Response({"detail": "Only member accounts can reserve books."},
-                            status=http.HTTP_403_FORBIDDEN)
+            raise Forbidden("members_only", "Only member accounts can reserve books.")
         book = get_object_or_404(Book, pk=request.data.get("bookId"))
         reservation = services.create_reservation(request.user, book)
         return Response(ReservationSerializer(reservation).data, status=http.HTTP_201_CREATED)
@@ -307,17 +289,14 @@ class BookImportView(APIView):
         from .importing import run_import
         rows = request.data.get("rows")
         if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
-            return Response({"detail": "Expected a list of rows."}, status=http.HTTP_400_BAD_REQUEST)
-        try:
-            report = run_import(
-                rows,
-                mode=request.data.get("mode", "skip"),
-                dry_run=bool(request.data.get("dryRun", True)),
-                actor_name=display_name(request.user),
-                source=str(request.data.get("filename", ""))[:120],
-            )
-        except ValueError as e:
-            return Response({"detail": str(e)}, status=http.HTTP_400_BAD_REQUEST)
+            raise BusinessRuleError("import_bad_rows", "Expected a list of rows.")
+        report = run_import(
+            rows,
+            mode=request.data.get("mode", "skip"),
+            dry_run=bool(request.data.get("dryRun", True)),
+            actor_name=display_name(request.user),
+            source=str(request.data.get("filename", ""))[:120],
+        )
         return Response(report)
 
 
@@ -450,11 +429,9 @@ class UserDeleteView(APIView):
     def delete(self, request, pk):
         profile = get_object_or_404(UserProfile, pk=pk)
         if profile.user == request.user:
-            return Response({"detail": "You cannot delete your own account."},
-                            status=http.HTTP_400_BAD_REQUEST)
+            raise BusinessRuleError("cannot_delete_self", "You cannot delete your own account.")
         if profile.role == Role.ADMIN and not profile.user.is_superuser:
-            return Response({"detail": "Only superusers can delete admin accounts."},
-                            status=http.HTTP_400_BAD_REQUEST)
+            raise BusinessRuleError("cannot_delete_admin", "Only superusers can delete admin accounts.")
         name = display_name(profile.user)
         profile.user.delete()
         log_activity(display_name(request.user), "ACCOUNT_DELETED", f"Deleted {name}'s account.")
@@ -468,7 +445,7 @@ class UserRoleView(APIView):
         profile = get_object_or_404(UserProfile, pk=pk)
         role = request.data.get("role")
         if role not in Role.values:
-            return Response({"detail": "Invalid role."}, status=http.HTTP_400_BAD_REQUEST)
+            raise BusinessRuleError("invalid_role", "Invalid role.")
         profile.role = role
         profile.save(update_fields=["role"])
         log_activity(display_name(request.user), "ROLE_CHANGED",

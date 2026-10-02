@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { apiRecords } from "@/api";
-import { ApiError } from "@/api/client";
 
 /** Borrowing cart: members collect books, then submit all requests at once. */
 
@@ -10,7 +9,7 @@ interface CartState {
   remove: (id: number) => void;
   clear: () => void;
   has: (id: number) => boolean;
-  submitAll: () => Promise<{ ok: number; failed: string[] }>;
+  submitAll: () => Promise<{ ok: number; failed: unknown[] }>;
 }
 
 const CartContext = createContext<CartState | null>(null);
@@ -35,14 +34,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const submitAll = async () => {
     let ok = 0;
-    const failed: string[] = [];
+    const failed: unknown[] = [];
     for (const id of bookIds) {
       try {
         await apiRecords.create(id);
         ok += 1;
         setBookIds((ids) => ids.filter((x) => x !== id));
       } catch (e) {
-        failed.push(e instanceof ApiError ? e.message : "Request failed");
+        failed.push(e);
       }
     }
     return { ok, failed };

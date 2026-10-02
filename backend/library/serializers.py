@@ -156,13 +156,13 @@ class ActivitySerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ["id", "at", "message", "read"]
+        fields = ["id", "at", "code", "params", "message", "read"]
 
 
 class RegisterSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
-    password = serializers.CharField(min_length=8, write_only=True)
+    password = serializers.CharField(write_only=True)  # length and strength: Django's validators, below
     studentId = serializers.CharField(max_length=30)
     phoneNumber = serializers.CharField(max_length=40, required=False, allow_blank=True, default="")
     address = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
@@ -171,7 +171,7 @@ class RegisterSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
-            raise serializers.ValidationError("An account with this email already exists.")
+            raise serializers.ValidationError("An account with this email already exists.", code="unique")
         return value
 
     def validate_password(self, value):
@@ -183,7 +183,7 @@ class RegisterSerializer(serializers.Serializer):
 
     def validate_studentId(self, value):
         if UserProfile.objects.filter(student_or_staff_id__iexact=value).exists():
-            raise serializers.ValidationError("This ID is already registered.")
+            raise serializers.ValidationError("This ID is already registered.", code="unique")
         return value
 
 
