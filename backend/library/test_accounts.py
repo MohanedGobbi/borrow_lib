@@ -232,3 +232,34 @@ class StaffInviteTests(TestCase):
     def test_members_cannot_be_invited(self):
         res = self.admin.post("/api/invites", {"email": "a@x.com", "role": "MEMBER"}, format="json")
         self.assertEqual(res.status_code, 400)
+
+    def test_invites_die_with_their_creators_authority(self):
+        creator = make_user("second-admin@x.com", Role.ADMIN)
+        client = APIClient()
+        client.force_authenticate(creator)
+        for email in ("a1@x.com", "a2@x.com", "a3@x.com"):
+            self.assertEqual(client.post("/api/invites", {"email": email, "role": "ADMIN"}, format="json").status_code, 201)
+        tokens = [invite_link(m) for m in mail.outbox]
+        creator.profile.role = Role.STAFF  # demoted
+        creator.profile.save()
+        self.assertEqual(register(APIClient(), "a1@x.com", inviteToken=tokens[0]).status_code, 400)
+        self.assertEqual(self.admin.get("/api/invites").json(), [])
+
+
+class InviteRevocationOnDeleteTests(TestCase):
+    def test_deleting_the_admin_revokes_their_invites(self):
+        creator = make_user("gone-admin@x.com", Role.ADMIN)
+        client = APIClient()
+        client.force_authenticate(creator)
+        client.post("/api/invites", {"email": "late@x.com", "role": "STAFF"}, format="json")
+        token = invite_link(mail.outbox[0])
+        creator.delete()
+        self.assertEqual(register(APIClient(), "late@x.com", inviteToken=token).status_code, 400)
+
+
+class LoginCsrfTests(TestCase):
+    def test_login_refuses_form_posts(self):
+        make_user("m@x.com")
+        res = APIClient().post("/api/auth/login", {"username": "m@x.com", "password": PASSWORD})  # multipart
+        self.assertEqual(res.status_code, 415)
+        self.assertNotIn("lb_refresh", res.cookies)

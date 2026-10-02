@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import status as http
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -47,6 +48,9 @@ class SessionView(APIView):
 
 class LoginView(SessionView):
     throttle_scope = "auth_login"
+    # JSON only: a cross-site HTML form cannot send it, so another site cannot sign a visitor
+    # into an attacker's account (login CSRF) now that the session lives in a cookie.
+    parser_classes = [JSONParser]
 
     def post(self, request):
         s = TokenObtainPairSerializer(data=request.data)

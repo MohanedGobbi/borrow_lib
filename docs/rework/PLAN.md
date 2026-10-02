@@ -37,7 +37,7 @@ Never switch models mid-WP: the prompt cache is per model.
 | 07 | DRF throttling on login, register, refresh, invite code | folded into WP-06 (same views; a cold Haiku start cost more) | |
 | 08 | Password reset + email verification; admin-issued single-use expiring staff invites replacing the shared invite code ([spec](WP-08.md), contract `test_accounts.py` by Opus) | Sonnet · high | done, Opus-reviewed. Agent found and fixed a privilege escalation (`PATCH /users/me` could set `role`), hotfix branch off main. Open: verification links last 1 h (shared `PASSWORD_RESET_TIMEOUT`); dev `FRONTEND_URL` is :3000 while `frontend-dev` serves :3001 |
 | 09 | Error + notification codes translated in the UI ([spec](WP-09.md)) | Opus spec → Sonnet · high (translations in the same pass; a separate Haiku pass cost more) | done, Opus-reviewed. `scripts/check-i18n.mjs` in CI keeps EN/FR/AR key sets equal |
-| R2 | `/security-review` | Opus · high | |
+| R2 | `/security-review` | Opus · high | done: no high/medium findings; fixed both lows (login is JSON-only against login CSRF; invites are revoked when their creator loses admin, is deactivated or deleted) |
 
 ## Sprint 3: Frontend and tests
 
