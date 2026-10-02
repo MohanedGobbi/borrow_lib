@@ -68,8 +68,8 @@ export function Layout() {
   );
   const unread = (notifications ?? []).filter((n) => !n.read).length;
 
-  const signOut = () => {
-    logout();
+  const signOut = async () => {
+    await logout();
     navigate("/");
   };
 

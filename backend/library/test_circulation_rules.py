@@ -204,7 +204,8 @@ class DeactivatedMemberTests(TestCase):
         res = self.client.post("/api/borrow-records", {"bookId": self.book.pk}, format="json")
         self.assertEqual(res.status_code, 401)
         self.client.credentials()
-        res = self.client.post("/api/auth/refresh", {"refresh": tokens["refresh"]}, format="json")
+        # The refresh token travels in the httpOnly cookie set at login (WP-05).
+        res = self.client.post("/api/auth/refresh", {}, format="json", HTTP_X_LIBBORROW_CSRF="1")
         self.assertEqual(res.status_code, 401)
 
     def test_reactivation_restores_access(self):

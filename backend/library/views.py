@@ -54,6 +54,7 @@ def business_errors(fn):
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "auth_register"  # also limits guesses at the staff invite code
 
     def post(self, request):
         s = RegisterSerializer(data=request.data)
@@ -467,9 +468,7 @@ class UserActiveView(APIView):
         profile = get_object_or_404(UserProfile, pk=pk)
         profile.active = bool(request.data.get("active"))
         profile.save(update_fields=["active"])
-        # SimpleJWT checks User.is_active at login, on every access token and on refresh.
-        profile.user.is_active = profile.active
-        profile.user.save(update_fields=["is_active"])
+        # signals.py mirrors this onto User.is_active, which SimpleJWT checks.
         log_activity(display_name(request.user), "ACCOUNT_TOGGLED",
                      f"{'Reactivated' if profile.active else 'Deactivated'} {display_name(profile.user)}'s account.")
         return Response(ProfileSerializer(profile).data)

@@ -16,7 +16,10 @@
    | `STAFF_INVITE_CODE` | staff self-registration gate | **required in production** (`LIB-STAFF-2024` in debug) |
    | `DJANGO_DEBUG` | `1` for local development only | `0` (`1` via `manage.py`) |
    | `DB_ENGINE` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` | point at PostgreSQL | SQLite file |
-   | `CORS_ALLOWED_ORIGINS` | frontend origin(s) | `http://localhost:3000` in debug, none in production |
+   | `CORS_ALLOWED_ORIGINS` | frontend origin(s); only needed when the API is on a different subdomain (see "Same-site requirement") | `http://localhost:3000` in debug, none in production |
+   | `AUTH_COOKIE_SAMESITE` | `Strict` (same origin) or `Lax` (API on a sibling subdomain). `None` is refused in production | `Strict` |
+   | `AUTH_COOKIE_DOMAIN` | parent domain for the refresh cookie (e.g. `library.example.edu`); only for the subdomain setup | host-only cookie |
+   | `DJANGO_NUM_PROXIES` | number of reverse proxies in front of Django, so login/register rate limits key on the real client IP (`X-Forwarded-For`) | `0` |
    | `CSRF_TRUSTED_ORIGINS` | origins allowed to post to the Django admin | none |
    | `FRONTEND_URL` | base URL embedded in ID-card QR codes | `http://localhost:3000` |
    | `LIBRARY_NAME` | printed on ID cards | University Library |
@@ -46,10 +49,21 @@
    python backend/manage.py import_books catalogue.xlsx --update    # also update existing ISBNs
    ```
 
-3. **Serve** — `gunicorn config.wsgi -b 0.0.0.0:8000` (from `backend/`), behind
+3. **Sessions and rate limits.** The access token (10 minutes) lives only in the
+   page's memory; the 7-day refresh token is an httpOnly cookie named `lb_refresh` scoped to
+   `/api/auth`, rotated on every use and blacklisted when rotated or on sign-out (the
+   `token_blacklist` tables come with `migrate`). Rotated tokens pile up in the database;
+   prune expired ones now and then with `python backend/manage.py flushexpiredtokens`.
+   Sign-in is limited to 10/min per client, registration to 5/hour (it also guards the staff
+   invite code) and refresh to 30/min. Throttle counters use Django's default cache (per
+   process); configure a shared cache such as Redis if you run several workers and want exact
+   limits. Set `DJANGO_NUM_PROXIES` to the number of proxies in front of Django, otherwise
+   every client shares the proxy's address.
+
+4. **Serve** — `gunicorn config.wsgi -b 0.0.0.0:8000` (from `backend/`), behind
    nginx/Cloudflare/etc. terminating TLS.
 
-4. **Schedule the background jobs** (idempotent, so overlap is safe):
+5. **Schedule the background jobs** (idempotent, so overlap is safe):
 
    ```cron
    # the crontab needs the same environment variables (DJANGO_DEBUG=0 etc.)
@@ -64,14 +78,28 @@
 
 1. `npm ci && npm run build` → static site in `dist/`.
 2. Host `dist/` on any static host / CDN (Netlify, Vercel, S3+CloudFront, nginx).
-3. The app calls `${VITE_API_URL}/api/...` — either:
-   - leave `VITE_API_URL` empty and serve the SPA and the API from the **same
-     origin** (reverse-proxy `/api` → Django, e.g. nginx
-     `location /api/ { proxy_pass http://127.0.0.1:8000; }`), or
-   - run the API on a separate origin, set `VITE_API_URL=https://api.example.com`
-     at build time, and add the frontend origin to `CORS_ALLOWED_ORIGINS`.
+3. The app calls `${VITE_API_URL}/api/...`. Serve the SPA and the API from the **same
+   origin** and leave `VITE_API_URL` empty (reverse-proxy `/api` → Django, e.g. nginx
+   `location /api/ { proxy_pass http://127.0.0.1:8000; }`; on Vercel use the rewrite below).
+   See "Same-site requirement".
 4. SPA fallback: configure the host to serve `index.html` for unknown paths
    (client-side routing).
+
+### Same-site requirement
+
+The refresh token is an httpOnly cookie, and Safari and Firefox block cookies that belong to a
+different site (third-party cookies). `*.vercel.app` and `*.onrender.com` are public suffixes,
+so `app.vercel.app` → `api.onrender.com` is cross-site and sign-in would not survive a reload.
+The API must therefore be **same-site** with the frontend:
+
+1. **Same origin (recommended):** the frontend's host proxies `/api` (and `/media`) to Django
+   (nginx `location /api/`, or the Vercel rewrite below). No CORS, cookie `SameSite=Strict`.
+2. **Sibling subdomain** (`library.example.edu` + `api.library.example.edu`): set
+   `AUTH_COOKIE_SAMESITE=Lax`, `AUTH_COOKIE_DOMAIN=library.example.edu`,
+   `CORS_ALLOWED_ORIGINS=https://library.example.edu`, and build the frontend with
+   `VITE_API_URL=https://api.library.example.edu`.
+
+A `VITE_API_URL` on another registrable domain is not supported.
 
 ### Vercel
 
@@ -88,25 +116,24 @@ reseeds it. The login page offers one-click demo accounts. Receipts and ID
 cards are simple browser-generated PDFs. Try it locally with `npm run dev:demo`.
 
 **Real backend.** Vercel hosts only the frontend, so deploy Django elsewhere
-(Render, Railway, Fly.io, a VPS) with PostgreSQL and persistent media storage:
+(Render, Railway, Fly.io, a VPS) with PostgreSQL and persistent media storage, and have Vercel
+proxy `/api` to it so the browser sees one origin (see "Same-site requirement" for why):
 
-1. In `vercel.json`, change `buildCommand` back to `npm run build`, then import
-   the repo in Vercel (framework preset: **Vite**, root: repo root).
-2. Environment variable (Production + Preview):
-   `VITE_API_URL=https://<your-backend-host>` — no trailing slash, no `/api`.
-3. On the backend set:
-   - `CORS_ALLOWED_ORIGINS=https://<project>.vercel.app` (plus any custom domain)
-   - `CORS_ALLOWED_ORIGIN_REGEXES=^https://<project>-.*\.vercel\.app$` for preview URLs
-   - `FRONTEND_URL=https://<project>.vercel.app` so ID-card QR codes open the deployed app
+1. In `vercel.json`, change `buildCommand` back to `npm run build` and add these rewrites to
+   the *top* of the `rewrites` array, then import the repo in Vercel (framework preset:
+   **Vite**, root: repo root). Leave `VITE_API_URL` unset.
+
+   ```json
+   { "source": "/api/:path*", "destination": "https://<your-backend-host>/api/:path*" },
+   { "source": "/media/:path*", "destination": "https://<your-backend-host>/media/:path*" }
+   ```
+
+2. On the backend set:
    - `DJANGO_ALLOWED_HOSTS=<your-backend-host>`, `DJANGO_DEBUG=0`, a real `DJANGO_SECRET_KEY`
-
-**Alternative — same-origin proxy (no CORS):** leave `VITE_API_URL` empty and
-add these rewrites to the *top* of the `rewrites` array in `vercel.json`:
-
-```json
-{ "source": "/api/:path*", "destination": "https://<your-backend-host>/api/:path*" },
-{ "source": "/media/:path*", "destination": "https://<your-backend-host>/media/:path*" }
-```
+   - `FRONTEND_URL=https://<project>.vercel.app` so ID-card QR codes open the deployed app
+   - `DJANGO_NUM_PROXIES=<n>`, the number of proxies between the browser and Django that append
+     to `X-Forwarded-For` (Vercel plus your backend host's own proxy, if it has one)
+   - no `CORS_*` settings are needed, and the cookie stays `SameSite=Strict`.
 
 ## Continuous integration
 
@@ -118,6 +145,7 @@ settings.
 ## Smoke test after deploy
 
 - `GET /api/books` → 200 without auth.
-- Register a member → login → request a book.
+- Register a member → login → request a book; reload the page and confirm you are still signed in
+  (a `POST /api/auth/refresh` returns 200) and that `localStorage` holds no tokens.
 - Staff: approve → confirm pickup (stock −1) → confirm return (stock +1).
 - `GET /api/users/me/id-card` downloads a PDF whose QR opens `/scan/<uuid>` as staff.

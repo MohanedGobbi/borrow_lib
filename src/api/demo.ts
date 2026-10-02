@@ -5,7 +5,7 @@
  * backend/library/services.py. State is seeded from the `seed_demo` dataset
  * and persisted to localStorage so the demo survives reloads.
  */
-import { DEMO_STORAGE_KEY as STORAGE_KEY } from "@/api/client";
+import { CSRF_HEADER, DEMO_REFRESH_KEY, DEMO_STORAGE_KEY as STORAGE_KEY } from "@/api/client";
 import type { BorrowStatus, Role } from "@/types";
 
 const PASSWORD = "password123";
@@ -44,6 +44,8 @@ interface DemoState {
   reservations: DReservation[];
   activity: DActivity[];
   notifications: DNotification[];
+  /** Rotated or signed-out refresh tokens, like Django's token blacklist. */
+  revokedTokens: string[];
 }
 
 // ------------------------------- seed -------------------------------
@@ -105,7 +107,7 @@ function uuid(): string {
 function seed(): DemoState {
   const now = Date.now();
   const s: DemoState = {
-    seq: 1000, categories: [], books: [], users: [], records: [], reservations: [], activity: [], notifications: [],
+    seq: 1000, categories: [], books: [], users: [], records: [], reservations: [], activity: [], notifications: [], revokedTokens: [],
   };
   CATEGORY_COLORS.forEach(([name, color], i) => s.categories.push({ id: i + 1, name, color }));
   BOOKS.forEach(([title, author, isbn, cat, publisher, year, total, avail, shelf, color, description], i) =>
@@ -420,6 +422,7 @@ interface Ctx {
   body: Record<string, unknown>;
   form: FormData | null;
   user: DUser | null;
+  headers: Headers;
 }
 
 type Handler = (ctx: Ctx, params: string[]) => unknown | Promise<unknown>;
@@ -732,6 +735,28 @@ function runImport(rows: Record<string, unknown>[], mode: string, dryRun: boolea
   return { dryRun, columns, missingColumns: [], newCategories, rows: results, summary };
 }
 
+// The demo has no real cookies: the refresh token sits in localStorage under DEMO_REFRESH_KEY,
+// which plays the part of the httpOnly cookie jar.
+const readRefreshToken = () => {
+  try { return localStorage.getItem(DEMO_REFRESH_KEY); } catch { return null; }
+};
+const dropRefreshToken = () => {
+  try { localStorage.removeItem(DEMO_REFRESH_KEY); } catch { /* storage blocked */ }
+};
+function setRefreshToken(userId: number) {
+  try {
+    localStorage.setItem(DEMO_REFRESH_KEY, `demo-refresh.${userId}.${Math.random().toString(36).slice(2)}`);
+  } catch { /* storage blocked: the session will not survive a reload */ }
+}
+function refreshTokenUser(token: string): DUser | undefined {
+  if (state.revokedTokens.includes(token)) return undefined;
+  const m = /^demo-refresh\.(\d+)\./.exec(token);
+  return m ? userById(Number(m[1])) : undefined;
+}
+function requireCsrfHeader(ctx: Ctx) {
+  if (!ctx.headers.get(CSRF_HEADER)) throw new HttpError(403, "Missing CSRF header.");
+}
+
 const ROUTES: [string, RegExp, Handler][] = [
   // ------------------------------ auth ------------------------------
   ["POST", /^\/auth\/login$/, (ctx) => {
@@ -740,12 +765,28 @@ const ROUTES: [string, RegExp, Handler][] = [
     if (!u || u.password !== ctx.body.password || !u.active) {
       throw new HttpError(401, "No active account found with the given credentials");
     }
-    return { access: `demo.${u.id}`, refresh: `demo.${u.id}` };
+    setRefreshToken(u.id);
+    return { access: `demo.${u.id}` };
   }],
   ["POST", /^\/auth\/refresh$/, (ctx) => {
-    const id = Number(String(ctx.body.refresh ?? "").replace("demo.", ""));
-    if (!userById(id)) throw new HttpError(401, "Token is invalid or expired");
-    return { access: `demo.${id}` };
+    requireCsrfHeader(ctx);
+    const token = readRefreshToken();
+    if (!token) throw new HttpError(401, "No active session.");
+    const user = refreshTokenUser(token);
+    if (!user || !user.active) {
+      dropRefreshToken();
+      throw new HttpError(401, "Session expired.");
+    }
+    state.revokedTokens.push(token);
+    setRefreshToken(user.id);
+    return { access: `demo.${user.id}` };
+  }],
+  ["POST", /^\/auth\/logout$/, (ctx) => {
+    requireCsrfHeader(ctx);
+    const token = readRefreshToken();
+    if (token) state.revokedTokens.push(token);
+    dropRefreshToken();
+    return new Reply(204, null);
   }],
   ["POST", /^\/auth\/register$/, (ctx) => {
     const d = ctx.body as Record<string, string | undefined>;
@@ -1136,7 +1177,7 @@ export async function demoFetch(url: string, init: RequestInit = {}): Promise<Re
     try {
       // Stand-in for the cron jobs: expire pickups / flag overdue loans before serving.
       const jobs = runJobs();
-      const result = await handler({ method, path, query: parsed.searchParams, body, form, user }, match.slice(1));
+      const result = await handler({ method, path, query: parsed.searchParams, body, form, user, headers }, match.slice(1));
       if (method !== "GET" || jobs.cancelled || jobs.flaggedOverdue) save();
       if (result instanceof Blob) return new Response(result, { status: 200, headers: { "Content-Type": result.type } });
       if (result instanceof Reply) return json(result.status, result.data);

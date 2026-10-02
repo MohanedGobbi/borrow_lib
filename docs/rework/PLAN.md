@@ -32,9 +32,9 @@ Never switch models mid-WP: the prompt cache is per model.
 
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
-| 05 | Auth design spec: refresh token in httpOnly cookie, access token in memory, CSRF, CORS across Vercel + API origins, rotation + blacklist | Opus · xhigh | |
-| 06 | Implement WP-05 | Sonnet · high | |
-| 07 | DRF throttling on login, register, refresh, invite code | Haiku | |
+| 05 | Auth design spec + contract tests ([spec](WP-05.md), `test_auth_cookies.py`) | Opus · xhigh | done: API must be same-site (third-party cookies are blocked) |
+| 06 | Implement WP-05 (includes WP-07) | Sonnet · high | done, Opus-reviewed. Open: throttle counters are per process (LocMem); use a shared cache when WP-15 adds Redis |
+| 07 | DRF throttling on login, register, refresh, invite code | folded into WP-06 (same views; a cold Haiku start cost more) | |
 | 08 | Password reset + email verification; admin-issued single-use expiring staff invites replacing the Konami-hidden form | Sonnet · medium | |
 | 09 | Error codes: catalogue (Opus · low) → services return `{code, params}`, frontend translates (Sonnet · medium) → keys in EN/FR/AR (Haiku) | mixed | |
 | R2 | `/security-review` | Opus · high | |

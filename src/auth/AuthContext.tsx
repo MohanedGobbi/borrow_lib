@@ -8,7 +8,7 @@ interface AuthState {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (payload: Parameters<typeof apiAuth.register>[0]) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -19,11 +19,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!authClient.isLoggedIn()) {
-      setMe(null);
-      setLoading(false);
-      return;
-    }
     try {
       setMe(await apiAuth.me());
     } catch (e) {
@@ -32,13 +27,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    refresh();
-    const onLogout = () => setMe(null);
-    window.addEventListener("lb:logout", onLogout);
-    return () => window.removeEventListener("lb:logout", onLogout);
-  }, [refresh]);
 
   const login = useCallback(async (email: string, password: string) => {
     await authClient.login(email, password);
@@ -51,10 +39,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMe(await apiAuth.me());
   }, []);
 
-  const logout = useCallback(() => {
-    authClient.logout();
+  const logout = useCallback(async () => {
+    await authClient.logout();
     setMe(null);
   }, []);
+
+  useEffect(() => {
+    // The access token lives only in memory, so after a reload trade the refresh cookie for one.
+    // `loading` stays true until this settles, so route guards do not redirect too early.
+    authClient.restore().then((ok) => {
+      if (ok) return refresh();
+      setMe(null);
+      setLoading(false);
+    });
+    const onLogout = () => setMe(null);
+    window.addEventListener("lb:logout", onLogout);
+    return () => window.removeEventListener("lb:logout", onLogout);
+  }, [refresh]);
 
   return (
     <AuthContext.Provider value={{ me, loading, login, register, logout, refresh }}>

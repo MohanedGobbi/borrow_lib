@@ -1,7 +1,7 @@
 /**
- * API root. Leave VITE_API_URL empty to call same-origin `/api` (Vite dev proxy
- * or a Vercel rewrite); set it to the backend origin (e.g. https://api.example.com)
- * to call a separately hosted Django server directly.
+ * API root. Leave VITE_API_URL empty to call same-origin `/api` (Vite dev proxy, a Vercel
+ * rewrite or nginx). Set it only for an API on a sibling subdomain of the same site: the
+ * refresh cookie is blocked as a third-party cookie on any other domain (see DEPLOYMENT.md).
  */
 export const API_ROOT = `${(import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "")}/api`;
 const BASE = API_ROOT;
@@ -9,7 +9,9 @@ const BASE = API_ROOT;
 /** Static demo build (`npm run build:demo`): the API runs in the browser, no server needed. */
 export const DEMO = import.meta.env.VITE_DEMO === "true";
 
-export const DEMO_STORAGE_KEY = "lb_demo_state_v5";
+export const DEMO_STORAGE_KEY = "lb_demo_state_v6";
+/** Demo-only stand-in for the httpOnly refresh cookie. */
+export const DEMO_REFRESH_KEY = "lb_demo_refresh";
 
 /** Seeded demo accounts offered as one-click sign-ins in demo builds. */
 export const DEMO_ACCOUNTS = [
@@ -24,8 +26,7 @@ export const DEMO_PASSWORD = "password123";
 export function resetDemo() {
   try {
     localStorage.removeItem(DEMO_STORAGE_KEY);
-    localStorage.removeItem("lb_access");
-    localStorage.removeItem("lb_refresh");
+    localStorage.removeItem(DEMO_REFRESH_KEY);
   } catch { /* storage blocked — the reload still resets in-memory state */ }
   window.location.assign("/");
 }
@@ -44,34 +45,76 @@ export class ApiError extends Error {
   }
 }
 
-const tokens = {
-  get access() { return localStorage.getItem("lb_access"); },
-  get refresh() { return localStorage.getItem("lb_refresh"); },
-  set(access: string, refresh: string) {
-    localStorage.setItem("lb_access", access);
-    localStorage.setItem("lb_refresh", refresh);
-  },
-  clear() {
-    localStorage.removeItem("lb_access");
-    localStorage.removeItem("lb_refresh");
-  },
-};
+/** Sent on the cookie-authenticated endpoints; a cross-site form or image cannot add a custom header. */
+export const CSRF_HEADER = "X-LibBorrow-CSRF";
 
-async function refreshAccess(): Promise<string | null> {
-  if (!tokens.refresh) return null;
+// The access token lives only in memory (10 minutes). The refresh token is an httpOnly cookie
+// the page cannot read; `auth.restore()` and `refreshAccess()` trade it for a new access token.
+let accessToken: string | null = null;
+export const getAccessToken = () => accessToken;
+
+// Earlier versions kept both tokens in localStorage. Remove them so nothing readable lingers.
+try {
+  localStorage.removeItem("lb_access");
+  localStorage.removeItem("lb_refresh");
+} catch { /* storage blocked */ }
+
+const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("lb-auth") : null;
+channel?.addEventListener("message", (e) => {
+  if (e.data === "logout") endSession();
+});
+
+function endSession() {
+  accessToken = null;
+  window.dispatchEvent(new Event("lb:logout"));
+}
+
+async function requestRefresh(): Promise<string | null> {
   try {
     const res = await apiFetch(`${BASE}/auth/refresh`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh: tokens.refresh }),
+      headers: { [CSRF_HEADER]: "1" },
+      credentials: "include",
     });
     if (!res.ok) return null;
-    const data = await res.json();
-    localStorage.setItem("lb_access", data.access);
-    return data.access;
+    accessToken = (await res.json()).access;
+    return accessToken;
   } catch {
     return null;
   }
+}
+
+let refreshing: Promise<string | null> | null = null;
+
+/**
+ * Trade the refresh cookie for a new access token. Callers in this tab share one request; across
+ * tabs a Web Lock serialises them, because rotation makes the old cookie invalid and two parallel
+ * refreshes would sign one tab out. Once the lock is ours the browser holds the newest cookie.
+ */
+function refreshAccess(): Promise<string | null> {
+  if (!refreshing) {
+    const run = async () => (navigator.locks
+      ? await navigator.locks.request("lb-auth-refresh", requestRefresh)
+      : await requestRefresh());
+    refreshing = run().finally(() => { refreshing = null; });
+  }
+  return refreshing;
+}
+
+/** `fetch` with the Bearer token: on a 401 it refreshes once and retries once, then ends the session. */
+export async function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const send = (access: string | null) => {
+    const headers = new Headers(init.headers);
+    if (access) headers.set("Authorization", `Bearer ${access}`);
+    return apiFetch(url, { ...init, headers, credentials: "include" });
+  };
+  let res = await send(accessToken);
+  if (res.status === 401) {
+    const fresh = await refreshAccess();
+    if (fresh) res = await send(fresh);
+  }
+  if (res.status === 401) endSession();
+  return res;
 }
 
 export async function api<T = unknown>(
@@ -80,27 +123,14 @@ export async function api<T = unknown>(
 ): Promise<T> {
   const { method = "GET", body, auth = true } = opts;
 
-  const doFetch = async (access: string | null) => {
-    const headers: Record<string, string> = {};
-    if (body !== undefined) headers["Content-Type"] = "application/json";
-    if (auth && access) headers.Authorization = `Bearer ${access}`;
-    return apiFetch(`${BASE}${path}`, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-  };
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const init: RequestInit = { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined };
+  const res = auth
+    ? await authFetch(`${BASE}${path}`, init)
+    : await apiFetch(`${BASE}${path}`, { ...init, credentials: "include" });
 
-  let res = await doFetch(tokens.access);
-  if (res.status === 401 && auth && tokens.refresh) {
-    const fresh = await refreshAccess();
-    if (fresh) res = await doFetch(fresh);
-  }
-  if (res.status === 401 && auth) {
-    tokens.clear();
-    window.dispatchEvent(new Event("lb:logout"));
-    throw new ApiError(401, "Session expired — please sign in again.");
-  }
+  if (res.status === 401 && auth) throw new ApiError(401, "Session expired — please sign in again.");
   if (!res.ok) {
     let detail = `Request failed (${res.status})`;
     try {
@@ -115,15 +145,26 @@ export async function api<T = unknown>(
 
 export const auth = {
   async login(email: string, password: string) {
-    const data = await api<{ access: string; refresh: string }>("/auth/login", {
+    const data = await api<{ access: string }>("/auth/login", {
       method: "POST",
       body: { username: email, password },
       auth: false,
     });
-    tokens.set(data.access, data.refresh);
+    accessToken = data.access;
   },
-  logout() {
-    tokens.clear();
+  async logout() {
+    accessToken = null;
+    try {
+      await apiFetch(`${BASE}/auth/logout`, {
+        method: "POST",
+        headers: { [CSRF_HEADER]: "1" },
+        credentials: "include",
+      });
+    } catch { /* offline: the cookie expires on its own */ }
+    channel?.postMessage("logout");
   },
-  isLoggedIn: () => !!tokens.access,
+  /** Called once at startup: sign back in from the refresh cookie, if there is one. */
+  async restore(): Promise<boolean> {
+    return (await refreshAccess()) !== null;
+  },
 };

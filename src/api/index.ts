@@ -1,4 +1,4 @@
-import { api, apiFetch, API_ROOT } from "@/api/client";
+import { api, authFetch, API_ROOT } from "@/api/client";
 import type {
   ActivityEntry,
   Analytics,
@@ -50,12 +50,7 @@ export const apiBooks = {
     api<Book>(`/books/${id}`, { method: "PATCH", body: payload }),
   /** multipart PATCH — for cover image upload */
   updateWithCover: async (id: number, form: FormData): Promise<Book> => {
-    const access = localStorage.getItem("lb_access");
-    const res = await apiFetch(`${API_ROOT}/books/${id}`, {
-      method: "PATCH",
-      headers: access ? { Authorization: `Bearer ${access}` } : {},
-      body: form,
-    });
+    const res = await authFetch(`${API_ROOT}/books/${id}`, { method: "PATCH", body: form });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.detail || `Upload failed (${res.status})`);
@@ -110,8 +105,7 @@ export const apiUsers = {
 
 /** Download an authenticated binary (PDF) as a file. */
 export async function downloadFile(url: string, filename: string) {
-  const access = localStorage.getItem("lb_access");
-  const res = await apiFetch(url, { headers: access ? { Authorization: `Bearer ${access}` } : {} });
+  const res = await authFetch(url);
   if (!res.ok) throw new Error("Download failed");
   const blob = await res.blob();
   const obj = URL.createObjectURL(blob);
@@ -140,10 +134,7 @@ export const apiMisc = {
 
 /** Download the server-generated ID card PDF with the auth header attached. */
 export async function downloadIdCard() {
-  const access = localStorage.getItem("lb_access");
-  const res = await apiFetch(apiAuth.idCardUrl, {
-    headers: access ? { Authorization: `Bearer ${access}` } : {},
-  });
+  const res = await authFetch(apiAuth.idCardUrl);
   if (!res.ok) throw new Error("Could not generate ID card.");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

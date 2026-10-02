@@ -1,7 +1,9 @@
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
+from corsheaders.defaults import default_headers
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,6 +51,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "django_filters",
     "library",
@@ -96,6 +99,12 @@ DATABASES = {
     }
 }
 
+# The test suite creates hundreds of users; real password hashing would dominate its run time.
+if "test" in sys.argv[1:2]:
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    # Throttle counters would leak between tests; test_throttling.py switches a real cache on.
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.dummy.DummyCache"}}
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -121,16 +130,50 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    # Only views that set throttle_scope are limited.
+    "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
+    "DEFAULT_THROTTLE_RATES": {
+        "auth_login": "10/min",
+        "auth_register": "5/hour",  # its own scope: the staff invite code can be guessed here
+        "auth_refresh": "30/min",
+    },
+    # Number of reverse proxies in front of Django, so throttles key on the real client address.
+    "NUM_PROXIES": int(os.environ.get("DJANGO_NUM_PROXIES", "0")),
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
 }
+
+# The refresh token lives only in this httpOnly cookie (library/auth_views.py). Browsers block
+# third-party cookies, so the API must be same-site with the frontend: same origin through a
+# proxy (SameSite=Strict, the default) or a sibling subdomain (AUTH_COOKIE_SAMESITE=Lax plus
+# AUTH_COOKIE_DOMAIN). See DEPLOYMENT.md.
+AUTH_REFRESH_COOKIE = {
+    "name": "lb_refresh",
+    "path": "/api/auth",
+    "samesite": os.environ.get("AUTH_COOKIE_SAMESITE", "Strict"),
+    "secure": not DEBUG,
+    "domain": os.environ.get("AUTH_COOKIE_DOMAIN") or None,
+}
+AUTH_CSRF_HEADER = "HTTP_X_LIBBORROW_CSRF"
+if AUTH_REFRESH_COOKIE["samesite"] not in ("Strict", "Lax", "None"):
+    raise ImproperlyConfigured("AUTH_COOKIE_SAMESITE must be Strict or Lax.")
+if not DEBUG and AUTH_REFRESH_COOKIE["samesite"] == "None":
+    raise ImproperlyConfigured(
+        "AUTH_COOKIE_SAMESITE=None needs third-party cookies, which browsers block. "
+        "Serve the API from the frontend's site instead (see DEPLOYMENT.md)."
+    )
 
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:3000" if DEBUG else "")
 # Optional comma-separated regexes, e.g. ^https://libborrow-.*\.vercel\.app$ for Vercel previews.
 CORS_ALLOWED_ORIGIN_REGEXES = env_list("CORS_ALLOWED_ORIGIN_REGEXES")
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = (*default_headers, "x-libborrow-csrf")
 
 # Frontend base URL used inside QR codes on ID cards.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
