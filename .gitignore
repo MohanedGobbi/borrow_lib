@@ -25,3 +25,9 @@ backend/staticfiles/
 .impeccable/*.json
 !.impeccable/design.json
 .impeccable/brief-body.md
+
+# end-to-end tests (Playwright)
+backend/e2e.sqlite3
+e2e/.mail/
+playwright-report/
+test-results/

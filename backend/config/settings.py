@@ -185,7 +185,10 @@ PASSWORD_RESET_TIMEOUT = 3600
 # Outgoing email: printed to the console in development, SMTP in production. The test runner
 # swaps in Django's locmem backend by itself.
 if DEBUG:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    # Overridable so the end-to-end suite can write messages to files it reads back (e2e/serve-django.mjs).
+    EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+    if os.environ.get("EMAIL_FILE_PATH"):
+        EMAIL_FILE_PATH = os.environ["EMAIL_FILE_PATH"]
 else:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
     EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
