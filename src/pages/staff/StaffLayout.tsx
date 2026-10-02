@@ -42,10 +42,10 @@ const GROUPS: { key: string; items: { to: string; key: string; icon: LucideIcon;
 export default function StaffLayout() {
   const { t } = useI18n();
   const { data: stats, refetch: refetchStats } = useApi(() => apiMisc.stats(), [], 45_000);
-  const { data: pending, refetch: refetchPending } = useApi(() => apiRecords.list({ status: "PENDING" }), [], 45_000);
+  const { data: pending, refetch: refetchPending } = useApi(() => apiRecords.list({ status: "PENDING", pageSize: 1 }), [], 45_000);
 
   const counts: Record<CountKey, number> = {
-    pending: pending?.length ?? 0,
+    pending: pending?.count ?? 0,
     ready: stats?.totalReady ?? 0,
     overdue: stats?.totalOverdue ?? 0,
   };

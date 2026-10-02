@@ -7,15 +7,21 @@ export function useApi<T>(fn: () => Promise<T>, deps: unknown[] = [], pollMs?: n
   const [loading, setLoading] = useState(true);
   const fnRef = useRef(fn);
   fnRef.current = fn;
+  const seqRef = useRef(0);
 
   const refetch = useCallback(async () => {
+    // Only the latest request may update state, so a slow earlier response cannot overwrite a newer one.
+    const seq = ++seqRef.current;
     try {
-      setData(await fnRef.current());
+      const result = await fnRef.current();
+      if (seq !== seqRef.current) return;
+      setData(result);
       setError(null);
     } catch (e) {
+      if (seq !== seqRef.current) return;
       setError(e instanceof Error ? e.message : "Request failed");
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   }, []);
 

@@ -2,10 +2,13 @@
 Django==6.1.1
 djangorestframework==3.18.1
 djangorestframework-simplejwt==5.5.1
+django-filter==26.1
 django-cors-headers==4.9.0
 reportlab==5.0.1
 qrcode[pil]==8.2
 pillow==12.3.0
 openpyxl==3.1.5
+# PostgreSQL driver (production database; CI runs the tests on it)
+psycopg[binary]==3.3.6
 # Production WSGI server (Linux hosts; not needed for local development on Windows)
 gunicorn==26.2.0; sys_platform != "win32"

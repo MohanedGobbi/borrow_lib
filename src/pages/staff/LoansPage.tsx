@@ -1,33 +1,43 @@
+import { useState } from "react";
 import { Link } from "react-router";
 import { BookOpen } from "lucide-react";
 import { apiRecords } from "@/api";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Pager } from "@/components/Pager";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { daysFrom, fmtDate, msLeft } from "@/lib/time";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { FullPageLoader } from "@/auth/guards";
 import { useStaffAction } from "@/pages/staff/staffContext";
+import { fetchPage } from "@/lib/paging";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
 import { DUE_SOON_MS } from "@/types";
 
+const PAGE_SIZE = 50;
+
 export default function LoansPage() {
   const { t } = useI18n();
-  const { data: records, loading, refetch } = useApi(() => apiRecords.list(), [], 45_000);
+  const [page, setPage] = useState(1);
+  const { data: result, loading, refetch } = useApi(
+    () => fetchPage(
+      (p) => apiRecords.list({ status: ["BORROWED", "OVERDUE"], ordering: "due_date", page: p, pageSize: PAGE_SIZE }),
+      page,
+    ),
+    [page], 45_000,
+  );
   const { run, busyId } = useStaffAction(refetch);
 
-  if (loading) return <FullPageLoader />;
-  const loans = (records ?? [])
-    .filter((r) => r.status === "BORROWED" || r.status === "OVERDUE")
-    .sort((a, b) => msLeft(a.dueDate) - msLeft(b.dueDate));
+  if (loading && !result) return <FullPageLoader />;
+  const loans = result?.results ?? [];
 
   return (
     <div className="space-y-6">
       <PageHeader title={t("staff.loans")} />
-      <Panel title={t("dash.onLoan")} count={loans.length} flush>
+      <Panel title={t("dash.onLoan")} count={result?.count ?? 0} flush>
         {loans.length === 0 ? (
           <EmptyState icon={BookOpen} title={t("dash.noLoans")} />
         ) : (
@@ -80,6 +90,7 @@ export default function LoansPage() {
             </table>
           </div>
         )}
+        {result && <Pager page={result.page} pageSize={result.pageSize} count={result.count} onPage={setPage} />}
       </Panel>
     </div>
   );

@@ -15,8 +15,11 @@ It is a full-stack app:
 Key business rules (enforced in `backend/library/services.py` and mirrored in `src/api/demo.ts`):
 
 - A loan starts at **pickup**, not approval. `availableCopies` changes only at pickup (−1) and return (+1).
-- Approved requests are `READY` for **48 hours**. A missed pickup auto-cancels and the copy goes to the next student in the FIFO reservation queue with a fresh 48-hour window.
+- **Free copies** = `availableCopies` minus the book's `READY` records (copies on the hold shelf). Staff can approve only while a book has a free copy; new requests and queue joins use the same count (`freeCopies` in the API, `free_copies()` in `services.py`).
+- Approved requests are `READY` for **48 hours**. A missed pickup auto-cancels and the copy goes to the next student in the FIFO reservation queue with a fresh 48-hour window. A returned copy serves the queue the same way (`_hand_to_queue`), skipping deactivated members.
 - Loans run **14 days from pickup**. An `OVERDUE` loan blocks the student from new requests until it is returned.
+- Deactivating a member (`PATCH /api/users/<id>/active`) also sets `User.is_active`, so sign-in and token refresh fail; services refuse requests and reservations from inactive profiles.
+- The hourly and nightly jobs run one `transaction.atomic()` per record (lock, re-check status, transition) so `select_for_update` works outside a request.
 
 ```
 PENDING --(staff approves)--> READY --(staff confirms pickup)--> BORROWED --(staff confirms return)--> RETURNED
@@ -63,6 +66,7 @@ src/components/ui/      shadcn/ui (generated; excluded from lint)
 - Double quotes, semicolons, 2-space indentation. `@/` alias for `src` imports.
 - Pages are default exports; shared components and hooks are named exports. A `.tsx` file exports only components (react-refresh lint rule); put helpers in `src/lib/` or a `.ts` module.
 - All user-visible text goes through `t()` with keys in all three languages. Use logical properties (`ms-`, `pe-`, `start-`, `text-start`) so layouts mirror in Arabic; wrap Latin data (IDs, ISBNs, shelf marks, emails) in `dir="ltr"`.
+- `GET /books`, `/users` and `/borrow-records` are paginated: they return `Page<T>` (`{count, page, pageSize, results}`, 25 per page, `pageSize` up to 100) with server-side filters in `backend/library/filters.py`. Never fetch a whole list to filter it in the browser. `src/api/demo.ts` mirrors the same shape and filters.
 - Timestamps are ISO strings from the API; format them with `src/lib/time.ts`, never with raw `toLocale*` calls.
 
 ## Design system

@@ -3,34 +3,46 @@ import { Link } from "react-router";
 import { Search, UserX } from "lucide-react";
 import { apiUsers } from "@/api";
 import { useApi } from "@/hooks/useApi";
+import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { MemberStanding } from "@/components/MemberStanding";
+import { Pager } from "@/components/Pager";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
 import { Input } from "@/components/ui/input";
 import { FullPageLoader } from "@/auth/guards";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { fetchPage } from "@/lib/paging";
 import { tableCls } from "@/lib/table";
 
 export default function UsersPage() {
   const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
-  const { data: users, loading } = useApi(() => apiUsers.list(role === "all" ? {} : { role }), [role], 60_000);
-
-  if (loading) return <FullPageLoader />;
-  const q = search.trim().toLowerCase();
-  const filtered = (users ?? []).filter(
-    (u) => !q || [u.name, u.email, u.studentOrStaffId].some((f) => f.toLowerCase().includes(q)),
+  const debouncedSearch = useDebounced(search.trim(), 300);
+  // The page belongs to one search + role: a new filter starts again from page 1.
+  const filterKey = `${debouncedSearch}|${role}`;
+  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
+  const page = pageState.key === filterKey ? pageState.page : 1;
+  const setPage = (next: number) => setPageState({ key: filterKey, page: next });
+  const { data: result, loading } = useApi(
+    () => fetchPage(
+      (p) => apiUsers.list({ search: debouncedSearch, role: role === "all" ? undefined : role, page: p }),
+      page,
+    ),
+    [debouncedSearch, role, page], 60_000,
   );
+
+  if (loading && !result) return <FullPageLoader />;
+  const filtered = result?.results ?? [];
 
   return (
     <div className="space-y-6">
       <PageHeader title={t("users.title")} />
       <Panel
         title={t("users.title")}
-        count={filtered.length}
+        count={result?.count ?? 0}
         flush
         actions={
           <>
@@ -81,6 +93,7 @@ export default function UsersPage() {
             </table>
           </div>
         )}
+        {result && <Pager page={result.page} pageSize={result.pageSize} count={result.count} onPage={setPage} />}
       </Panel>
     </div>
   );

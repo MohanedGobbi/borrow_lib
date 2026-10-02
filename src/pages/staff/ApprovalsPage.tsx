@@ -4,6 +4,7 @@ import { apiRecords } from "@/api";
 import { useApi } from "@/hooks/useApi";
 import { useI18n } from "@/i18n";
 import { RequestDocButton } from "@/components/RequestDocButton";
+import { ShowingNote } from "@/components/Pager";
 import { timeAgo } from "@/lib/time";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
@@ -14,17 +15,19 @@ import { cn } from "@/lib/utils";
 
 export default function ApprovalsPage() {
   const { t } = useI18n();
-  const { data: records, loading, refetch } = useApi(() => apiRecords.list({ status: "PENDING" }), [], 45_000);
+  // oldest first: first come, first served
+  const { data: result, loading, refetch } = useApi(
+    () => apiRecords.list({ status: "PENDING", ordering: "requested_at", pageSize: 100 }), [], 45_000,
+  );
   const { run, busyId } = useStaffAction(refetch);
 
   if (loading) return <FullPageLoader />;
-  // oldest first: first come, first served
-  const pending = [...(records ?? [])].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
+  const pending = result?.results ?? [];
 
   return (
     <div className="space-y-6">
       <PageHeader title={t("staff.approvals")} />
-      <Panel title={t("dash.pending")} count={pending.length} flush>
+      <Panel title={t("dash.pending")} count={result?.count ?? 0} flush>
         {pending.length === 0 ? (
           <EmptyState icon={ClipboardCheck} title={t("dash.nothingPending")} />
         ) : (
@@ -74,6 +77,7 @@ export default function ApprovalsPage() {
             </table>
           </div>
         )}
+        <ShowingNote shown={pending.length} count={result?.count ?? 0} />
       </Panel>
     </div>
   );

@@ -19,14 +19,18 @@ export default function OverviewPage() {
   const { refreshCounts } = useStaffContext();
   const { data: stats, loading, refetch } = useApi(() => apiMisc.stats(), [], 45_000);
   const { data: activity, refetch: refetchActivity } = useApi(() => apiMisc.activity(), [], 45_000);
-  const { data: pending } = useApi(() => apiRecords.list({ status: "PENDING" }), [], 45_000);
-  const { data: ready } = useApi(() => apiRecords.list({ status: "READY" }), [], 45_000);
-  const { data: overdue } = useApi(() => apiRecords.list({ status: "OVERDUE" }), [], 45_000);
+  const { data: pending } = useApi(() => apiRecords.list({ status: "PENDING", pageSize: 1 }), [], 45_000);
+  const { data: ready } = useApi(
+    () => apiRecords.list({ status: "READY", ordering: "pickup_deadline", pageSize: 100 }), [], 45_000,
+  );
+  const { data: overdue } = useApi(
+    () => apiRecords.list({ status: "OVERDUE", ordering: "due_date", pageSize: 100 }), [], 45_000,
+  );
 
   if (loading) return <FullPageLoader />;
 
   const vitals = [
-    { label: t("dash.pending"), value: pending?.length, to: "/staff/approvals" },
+    { label: t("dash.pending"), value: pending?.count, to: "/staff/approvals" },
     { label: t("dash.awaiting"), value: stats?.totalReady, to: "/staff/pickups" },
     { label: t("dash.onLoan"), value: stats?.totalBorrowed, to: "/staff/loans" },
     { label: t("dash.overdue"), value: stats?.totalOverdue, to: "/staff/loans", danger: (stats?.totalOverdue ?? 0) > 0 },
@@ -34,9 +38,8 @@ export default function OverviewPage() {
     { label: t("dash.copies"), value: stats?.totalBooks, to: "/staff/inventory" },
   ];
 
-  const urgent = (ready ?? []).filter((r) => msLeft(r.pickupDeadline) < URGENT_PICKUP_MS)
-    .sort((a, b) => msLeft(a.pickupDeadline) - msLeft(b.pickupDeadline));
-  const late = (overdue ?? []).sort((a, b) => msLeft(a.dueDate) - msLeft(b.dueDate));
+  const urgent = (ready?.results ?? []).filter((r) => msLeft(r.pickupDeadline) < URGENT_PICKUP_MS);
+  const late = overdue?.results ?? [];
 
   const runJobs = async () => {
     try {

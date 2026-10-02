@@ -31,7 +31,7 @@ export default function BookDetailPage() {
     [id, me?.id],
   );
   const { data: loans } = useApi(
-    () => (isStaff ? apiRecords.list({ book: Number(id) }) : Promise.resolve([])),
+    () => (isStaff ? apiRecords.list({ book: Number(id), pageSize: 100 }).then((p) => p.results) : Promise.resolve([])),
     [id, me?.id],
   );
 
@@ -47,7 +47,7 @@ export default function BookDetailPage() {
   }
 
   const active = (loans ?? []).filter((r) => ["BORROWED", "OVERDUE", "READY", "PENDING"].includes(r.status));
-  const out = book.availableCopies <= 0;
+  const out = book.freeCopies <= 0;
   const nextBack = (copies ?? [])
     .filter((c) => c.state === "BORROWED" && c.dueDate)
     .map((c) => c.dueDate!)

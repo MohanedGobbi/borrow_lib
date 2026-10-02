@@ -9,18 +9,34 @@ import type {
   BorrowRecord,
   Category,
   DashboardStats,
+  Page,
   Profile,
   Reservation,
   ScanResult,
   UserDetail,
 } from "@/types";
 
+type PageParams = {
+  page?: number;
+  pageSize?: number;
+  ordering?: string;
+};
+
+function query(params: Record<string, string | number | boolean | undefined | null>) {
+  const q = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "" || value === false) continue;
+    q.set(key, value === true ? "1" : String(value));
+  }
+  return q.size ? `?${q}` : "";
+}
+
 export const apiBooks = {
-  list: (params: { search?: string; category?: string } = {}) => {
-    const q = new URLSearchParams();
-    if (params.search) q.set("search", params.search);
-    if (params.category) q.set("category", params.category);
-    return api<Book[]>(`/books${q.size ? `?${q}` : ""}`, { auth: false });
+  list: (params: PageParams & {
+    search?: string; category?: string; author?: string; isbn?: string; available?: boolean; ids?: number[];
+  } = {}) => {
+    const { ids, ...rest } = params;
+    return api<Page<Book>>(`/books${query({ ...rest, ids: ids?.join(",") })}`, { auth: false });
   },
   get: (id: number | string) => api<Book>(`/books/${id}`, { auth: false }),
   /** Bulk import (staff). A dry run returns the preview without saving anything. */
@@ -70,12 +86,11 @@ export const apiAuth = {
 
 export const apiRecords = {
   mine: () => api<BorrowRecord[]>("/borrow-records/mine"),
-  list: (params: { status?: string; book?: number; user?: number } = {}) => {
-    const q = new URLSearchParams();
-    if (params.status) q.set("status", params.status);
-    if (params.book) q.set("book", String(params.book));
-    if (params.user) q.set("user", String(params.user));
-    return api<BorrowRecord[]>(`/borrow-records${q.size ? `?${q}` : ""}`);
+  list: (params: PageParams & { status?: string | string[]; book?: number; user?: number } = {}) => {
+    const { status, ...rest } = params;
+    return api<Page<BorrowRecord>>(
+      `/borrow-records${query({ ...rest, status: Array.isArray(status) ? status.join(",") : status })}`,
+    );
   },
   create: (bookId: number) =>
     api<BorrowRecord>("/borrow-records", { method: "POST", body: { bookId } }),
@@ -87,12 +102,8 @@ export const apiRecords = {
 };
 
 export const apiUsers = {
-  list: (params: { search?: string; role?: string } = {}) => {
-    const q = new URLSearchParams();
-    if (params.search) q.set("search", params.search);
-    if (params.role) q.set("role", params.role);
-    return api<Profile[]>(`/users${q.size ? `?${q}` : ""}`);
-  },
+  list: (params: PageParams & { search?: string; role?: string } = {}) =>
+    api<Page<Profile>>(`/users${query(params)}`),
   get: (id: number) => api<UserDetail>(`/users/${id}`),
   remove: (id: number) => api<void>(`/users/${id}/delete`, { method: "DELETE" }),
 };

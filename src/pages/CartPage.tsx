@@ -17,8 +17,11 @@ export default function CartPage() {
   const { t } = useI18n();
   const cart = useCart();
   const [busy, setBusy] = useState(false);
-  const { data: books, loading, refetch } = useApi(() => apiBooks.list(), []);
-  const items = (books ?? []).filter((b) => cart.bookIds.includes(b.id));
+  const { data: books, loading, refetch } = useApi(
+    () => (cart.bookIds.length ? apiBooks.list({ ids: cart.bookIds, pageSize: 100 }) : Promise.resolve(null)),
+    [],
+  );
+  const items = (books?.results ?? []).filter((b) => cart.bookIds.includes(b.id));
 
   if (loading) return <FullPageLoader />;
 

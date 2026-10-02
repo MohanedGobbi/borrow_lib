@@ -2,20 +2,26 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import ActivityLog, Book, BorrowRecord, Category, Notification, Reservation, UserProfile
+from .models import ActivityLog, Book, BorrowRecord, Category, Notification, Reservation, Status, UserProfile
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    bookCount = serializers.IntegerField(source="books.count", read_only=True)
+    bookCount = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
         fields = ["id", "name", "color", "bookCount"]
 
+    def get_bookCount(self, obj):
+        # Annotated by the book list so each nested category costs no query; fall back otherwise.
+        count = getattr(obj, "book_count", None)
+        return obj.books.count() if count is None else count
+
 
 class BookSerializer(serializers.ModelSerializer):
     totalCopies = serializers.IntegerField(source="total_copies", min_value=1)
     availableCopies = serializers.IntegerField(source="available_copies", read_only=True)
+    freeCopies = serializers.SerializerMethodField()
     shelfLocation = serializers.CharField(source="shelf_location", required=False, allow_blank=True)
     coverColor = serializers.CharField(source="cover_color", required=False)
     coverImage = serializers.ImageField(source="cover_image", required=False, allow_null=True)
@@ -27,7 +33,15 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = ["id", "title", "author", "isbn", "category", "categoryId", "publisher", "year",
-                  "totalCopies", "availableCopies", "shelfLocation", "coverColor", "coverImage", "description"]
+                  "totalCopies", "availableCopies", "freeCopies", "shelfLocation", "coverColor", "coverImage",
+                  "description"]
+
+    def get_freeCopies(self, obj):
+        # Views annotate ready_count to avoid a query per book; fall back for bare instances.
+        ready = getattr(obj, "ready_count", None)
+        if ready is None:
+            ready = obj.borrow_records.filter(status=Status.READY).count()
+        return max(0, obj.available_copies - ready)
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -49,12 +63,19 @@ class ProfileSerializer(serializers.ModelSerializer):
         return obj.user.get_full_name() or obj.user.username
 
     def get_activeLoans(self, obj):
-        from .services import active_loan_count
-        return active_loan_count(obj.user)
+        # UserListView annotates this; fall back to a query for bare instances.
+        count = getattr(obj, "active_loans_count", None)
+        if count is None:
+            from .services import active_loan_count
+            count = active_loan_count(obj.user)
+        return count
 
     def get_hasOverdue(self, obj):
-        from .services import has_overdue
-        return has_overdue(obj.user)
+        flag = getattr(obj, "has_overdue_flag", None)
+        if flag is None:
+            from .services import has_overdue
+            flag = has_overdue(obj.user)
+        return flag
 
 
 class BorrowRecordSerializer(serializers.ModelSerializer):

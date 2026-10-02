@@ -110,14 +110,12 @@ class StateMachineTests(TestCase):
         services.approve(self.staff, r)
         # drain stock so a queue forms on a second zero-stock book scenario
         zero = make_book(copies=1)
-        zero.available_copies = 0
-        zero.save()
-        waiter = make_user("w@x.com")
-        q = services.create_reservation(waiter, zero)
-        # simulate: a READY record for the zero-stock book expires
+        # simulate: the only copy is held (READY) and the hold expires; a member is queued
         rr = BorrowRecord.objects.create(user=self.member, book=zero, status=Status.READY,
                                          approved_at=timezone.now() - timedelta(hours=50),
                                          pickup_deadline=timezone.now() - timedelta(hours=2))
+        waiter = make_user("w@x.com")
+        q = services.create_reservation(waiter, zero)
         self.assertEqual(services.run_hourly_cancellation(), 1)
         rr.refresh_from_db()
         self.assertEqual(rr.status, Status.CANCELLED)

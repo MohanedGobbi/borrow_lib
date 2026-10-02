@@ -255,9 +255,13 @@ function sCategory(c: DCategory) {
   return { id: c.id, name: c.name, color: c.color, bookCount: state.books.filter((b) => b.categoryId === c.id).length };
 }
 
+/** Copies on the shelf that are not already held for a READY pickup. */
+const freeCopies = (b: DBook) =>
+  Math.max(0, b.availableCopies - state.records.filter((r) => r.bookId === b.id && r.status === "READY").length);
+
 function sBook(b: DBook) {
   const { categoryId, ...rest } = b;
-  return { ...rest, category: sCategory(state.categories.find((c) => c.id === categoryId)!) };
+  return { ...rest, freeCopies: freeCopies(b), category: sCategory(state.categories.find((c) => c.id === categoryId)!) };
 }
 
 function sProfile(u: DUser) {
@@ -329,6 +333,23 @@ function transition(op: string, r: DRecord, allowed: BorrowStatus[]) {
   }
 }
 
+/** Give a free copy to the first active member of the reservation queue (stock is not touched). */
+function handToQueue(book: DBook, now: number) {
+  if (freeCopies(book) <= 0) return;
+  for (const nxt of queueFor(book.id)) {
+    nxt.isActive = false;
+    const nu = userById(nxt.userId)!;
+    if (!nu.active) continue;
+    state.records.push({
+      id: nextId(), userId: nxt.userId, bookId: book.id, requestedAt: nxt.reservedAt, approvedAt: now,
+      pickupDeadline: now + PICKUP_WINDOW, borrowedAt: null, dueDate: null, returnedAt: null, status: "READY",
+    });
+    log("System", "QUEUE_HANDOFF", `Reservation queue: “${book.title}” is now held for ${nu.name} (fresh 48h window).`);
+    notify(nu.id, `Good news — “${book.title}” is now held for you. Pick it up within 48 hours.`);
+    return;
+  }
+}
+
 /** Hourly + nightly jobs. Idempotent, so running them before every request is safe. */
 function runJobs() {
   const now = Date.now();
@@ -341,17 +362,7 @@ function runJobs() {
     cancelled++;
     log("System", "AUTO_CANCELLED", `${user.name} missed the 48h pickup window for “${book.title}”. Request auto-cancelled.`);
     notify(user.id, `Your request for “${book.title}” was auto-cancelled after the 48h pickup window expired.`);
-    const nxt = queueFor(book.id)[0];
-    if (nxt) {
-      nxt.isActive = false;
-      state.records.push({
-        id: nextId(), userId: nxt.userId, bookId: book.id, requestedAt: nxt.reservedAt, approvedAt: now,
-        pickupDeadline: now + PICKUP_WINDOW, borrowedAt: null, dueDate: null, returnedAt: null, status: "READY",
-      });
-      const nu = userById(nxt.userId)!;
-      log("System", "QUEUE_HANDOFF", `Reservation queue: “${book.title}” is now held for ${nu.name} (fresh 48h window).`);
-      notify(nu.id, `Good news — “${book.title}” is now held for you. Pick it up within 48 hours.`);
-    }
+    handToQueue(book, now);
   }
   for (const r of state.records.filter((x) => x.status === "BORROWED" && (x.dueDate ?? Infinity) < now)) {
     const user = userById(r.userId)!;
@@ -412,6 +423,54 @@ interface Ctx {
 }
 
 type Handler = (ctx: Ctx, params: string[]) => unknown | Promise<unknown>;
+
+const PAGE_SIZE = 25;
+const MAX_PAGE_SIZE = 100;
+
+/** Same envelope and limits as library/pagination.py; a page past the end is a 404. */
+function paginate<T>(items: T[], ctx: Ctx, serialize: (item: T) => unknown) {
+  const asked = ctx.query.get("pageSize") ?? "";
+  const pageSize = /^\d+$/.test(asked) && Number(asked) > 0 ? Math.min(Number(asked), MAX_PAGE_SIZE) : PAGE_SIZE;
+  const raw = ctx.query.get("page") ?? "1";
+  const page = /^\d+$/.test(raw) ? Number(raw) : 0;
+  const pages = Math.max(1, Math.ceil(items.length / pageSize));
+  if (page < 1 || page > pages) throw notFound();
+  return {
+    count: items.length, page, pageSize,
+    results: items.slice((page - 1) * pageSize, page * pageSize).map(serialize),
+  };
+}
+
+type SortKey = string | number | null;
+
+/**
+ * `ordering=` limited to `fields` (snake_case names, as in filters.py), `-` for descending.
+ * `fallback` applies without the parameter. Ties break on id so pages never overlap.
+ */
+function orderBy<T extends { id: number }>(
+  items: T[], ctx: Ctx, fields: Record<string, (item: T) => SortKey>, fallback: string,
+): T[] {
+  const asked = ctx.query.get("ordering");
+  const keys = (asked ? asked.split(",") : [fallback]).map((k) => k.trim()).filter(Boolean);
+  const order = keys.map((k) => {
+    const field = k.replace(/^-/, "");
+    if (!fields[field]) throw bad("Invalid ordering.");
+    return { get: fields[field], sign: k.startsWith("-") ? -1 : 1 };
+  });
+  // Nulls sort as the largest value, like PostgreSQL.
+  const cmp = (a: SortKey, b: SortKey) =>
+    a === b ? 0 : a === null ? 1 : b === null ? -1
+      : typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : Number(a) - Number(b);
+  return [...items].sort((x, y) => {
+    for (const o of order) {
+      const c = cmp(o.get(x), o.get(y));
+      if (c) return c * o.sign;
+    }
+    return x.id - y.id;
+  });
+}
+
+const csvNumbers = (raw: string | null) => (raw ?? "").split(",").map((v) => v.trim()).filter(Boolean).map(Number);
 
 function requireUser(ctx: Ctx): DUser {
   if (!ctx.user) throw new HttpError(401, "Authentication credentials were not provided.");
@@ -484,6 +543,7 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
     const now = Date.now();
     if (op === "approve") {
       transition("approve", r, ["PENDING"]);
+      if (freeCopies(book) <= 0) throw bad("No free copy to hold — every copy is on loan or already held for pickup.");
       Object.assign(r, { status: "READY", approvedAt: now, pickupDeadline: now + PICKUP_WINDOW });
       log(staff.name, "APPROVED", `Approved ${user.name}'s request for “${book.title}”. Pickup within 48h.`);
       notify(user.id, `Your request for “${book.title}” was approved. Pick it up within 48 hours.`);
@@ -504,6 +564,7 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
       Object.assign(r, { status: "RETURNED", returnedAt: now });
       book.availableCopies = Math.min(book.totalCopies, book.availableCopies + 1);
       log(staff.name, "RETURN_CONFIRMED", `${user.name} returned “${book.title}”.`);
+      handToQueue(book, now);
     }
     return sRecord(r);
   };
@@ -750,11 +811,19 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["GET", /^\/books$/, (ctx) => {
     const search = ctx.query.get("search")?.toLowerCase();
     const category = ctx.query.get("category");
-    return state.books
-      .filter((b) => !search || [b.title, b.author, b.isbn].some((f) => f.toLowerCase().includes(search)))
+    const author = ctx.query.get("author")?.toLowerCase();
+    const isbn = ctx.query.get("isbn")?.toLowerCase();
+    const available = ["1", "true", "yes"].includes((ctx.query.get("available") ?? "").toLowerCase());
+    const ids = ctx.query.has("ids") ? csvNumbers(ctx.query.get("ids")) : null;
+    const matches = state.books
+      .filter((b) => !search || [b.title, b.author, b.isbn, b.shelfLocation].some((f) => f.toLowerCase().includes(search)))
       .filter((b) => !category || state.categories.find((c) => c.id === b.categoryId)?.name === category)
-      .sort((a, b) => a.title.localeCompare(b.title))
-      .map(sBook);
+      .filter((b) => !author || b.author.toLowerCase().includes(author))
+      .filter((b) => !isbn || b.isbn.toLowerCase().includes(isbn))
+      .filter((b) => !available || freeCopies(b) > 0)
+      .filter((b) => !ids || ids.includes(b.id));
+    const sorted = orderBy(matches, ctx, { title: (b) => b.title, year: (b) => b.year, author: (b) => b.author }, "title");
+    return paginate(sorted, ctx, sBook);
   }],
   ["POST", /^\/books$/, (ctx) => {
     const staff = requireStaff(ctx);
@@ -851,20 +920,25 @@ const ROUTES: [string, RegExp, Handler][] = [
   // -------------------------- borrow records --------------------------
   ["GET", /^\/borrow-records$/, (ctx) => {
     requireStaff(ctx);
-    const status = ctx.query.get("status");
+    const statuses = (ctx.query.get("status") ?? "").split(",").map((v) => v.trim()).filter(Boolean);
     const book = ctx.query.get("book");
     const user = ctx.query.get("user");
-    return recordsNewestFirst(state.records.filter((r) =>
-      (!status || r.status === status) && (!book || r.bookId === Number(book)) && (!user || r.userId === Number(user)),
-    )).map(sRecord);
+    const matches = state.records.filter((r) =>
+      (!statuses.length || statuses.includes(r.status)) && (!book || r.bookId === Number(book)) && (!user || r.userId === Number(user)),
+    );
+    const sorted = orderBy(matches, ctx, {
+      requested_at: (r) => r.requestedAt, due_date: (r) => r.dueDate, pickup_deadline: (r) => r.pickupDeadline,
+    }, "-requested_at");
+    return paginate(sorted, ctx, sRecord);
   }],
   ["POST", /^\/borrow-records$/, (ctx) => {
     const u = requireUser(ctx);
     if (u.role !== "MEMBER") throw new HttpError(403, "Only member accounts can request books.");
     const book = findBook(ctx.body.bookId);
+    if (!u.active) throw bad("Your account is deactivated.");
     if (hasOverdue(u.id)) throw bad("You have an overdue loan. Resolve it before requesting new books.");
     if (activeLoans(u.id) >= u.maxLimit) throw bad(`Borrow limit reached (${u.maxLimit}). Return a book first.`);
-    if (book.availableCopies <= 0) throw bad("No copies available — join the reservation queue instead.");
+    if (freeCopies(book) <= 0) throw bad("No copies available — join the reservation queue instead.");
     if (state.records.some((r) => r.userId === u.id && r.bookId === book.id && (r.status === "PENDING" || r.status === "READY"))) {
       throw bad("You already have an open request for this book.");
     }
@@ -908,7 +982,8 @@ const ROUTES: [string, RegExp, Handler][] = [
     const u = requireUser(ctx);
     if (u.role !== "MEMBER") throw new HttpError(403, "Only member accounts can reserve books.");
     const book = findBook(ctx.body.bookId);
-    if (book.availableCopies > 0) throw bad("Copies are available — submit a borrow request instead.");
+    if (!u.active) throw bad("Your account is deactivated.");
+    if (freeCopies(book) > 0) throw bad("Copies are available — submit a borrow request instead.");
     if (queueFor(book.id).some((r) => r.userId === u.id)) throw bad("You are already in the reservation queue for this book.");
     const r: DReservation = { id: nextId(), userId: u.id, bookId: book.id, reservedAt: Date.now(), isActive: true };
     state.reservations.push(r);
@@ -926,11 +1001,12 @@ const ROUTES: [string, RegExp, Handler][] = [
     requireStaff(ctx);
     const search = ctx.query.get("search")?.toLowerCase();
     const role = ctx.query.get("role");
-    return state.users
-      .filter((u) => !search || [u.name, u.email, u.idNumber].some((f) => f.toLowerCase().includes(search)))
-      .filter((u) => !role || u.role === role)
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map(sProfile);
+    // Django matches first and last name separately: the first word is the first name.
+    const names = (u: DUser) => [u.name.split(" ")[0], u.name.split(" ").slice(1).join(" ")];
+    const matches = state.users
+      .filter((u) => !search || [...names(u), u.email, u.idNumber].some((f) => f.toLowerCase().includes(search)))
+      .filter((u) => !role || u.role === role);
+    return paginate(orderBy(matches, ctx, { name: (u) => u.name }, "name"), ctx, sProfile);
   }],
   ["GET", /^\/users\/(\d+)$/, (ctx, [id]) => {
     requireStaff(ctx);

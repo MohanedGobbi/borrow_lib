@@ -1,6 +1,6 @@
 """Hourly pickup-cancellation task. Schedule with cron / Celery Beat:
 
-    * * * * * python manage.py cancel_expired_pickups   (run hourly)
+    0 * * * * python manage.py cancel_expired_pickups   (run hourly)
 
 Idempotent: safe to run repeatedly.
 """

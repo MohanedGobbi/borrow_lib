@@ -1,12 +1,13 @@
-import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 import { SearchX, Search } from "lucide-react";
 import { apiBooks, apiCategories } from "@/api";
 import { useApi } from "@/hooks/useApi";
+import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { BookCover } from "@/components/BookCover";
 import { Availability, BookActions } from "@/components/BookActions";
 import { Container } from "@/components/Layout";
+import { Pager } from "@/components/Pager";
 import { EmptyState, ErrorState, PageHeader } from "@/components/Page";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { FullPageLoader } from "@/auth/guards";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { fetchPage } from "@/lib/paging";
 import { cn } from "@/lib/utils";
 
 export default function CatalogPage() {
@@ -23,31 +25,27 @@ export default function CatalogPage() {
   const search = params.get("q") ?? "";
   const category = params.get("category") ?? "";
   const availableOnly = params.get("available") === "1";
+  const page = Math.max(1, Number(params.get("page")) || 1);
+  const pageSize = Number(params.get("pageSize")) || undefined;
+  const debouncedSearch = useDebounced(search.trim(), 300);
 
   const { data: categories } = useApi(() => apiCategories.list(), []);
-  const { data: books, loading, error, refetch } = useApi(() => apiBooks.list(), []);
+  const { data: result, loading, error, refetch } = useApi(
+    () => fetchPage(
+      (p) => apiBooks.list({ search: debouncedSearch, category, available: availableOnly, page: p, pageSize }),
+      page,
+    ),
+    [debouncedSearch, category, availableOnly, page, pageSize],
+  );
 
+  // A filter change is not a page change: go back to page 1.
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
+    if (key !== "page") next.delete("page");
     setParams(next, { replace: true });
   };
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (books ?? []).filter((b) =>
-      (!q || [b.title, b.author, b.isbn].some((f) => f.toLowerCase().includes(q)))
-      && (!category || b.category.name === category)
-      && (!availableOnly || b.availableCopies > 0),
-    );
-  }, [books, search, category, availableOnly]);
-
-  const counts = useMemo(() => {
-    const m = new Map<string, number>();
-    (books ?? []).forEach((b) => m.set(b.category.name, (m.get(b.category.name) ?? 0) + 1));
-    return m;
-  }, [books]);
 
   const hasFilters = !!(search || category || availableOnly);
 
@@ -55,7 +53,7 @@ export default function CatalogPage() {
     <Container>
       <PageHeader
         title={t("catalog.title")}
-        description={books ? <span className="tabular">{filtered.length} {t("catalog.titles")}</span> : null}
+        description={result ? <span className="tabular">{result.count} {t("catalog.titles")}</span> : null}
       />
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -90,8 +88,8 @@ export default function CatalogPage() {
           <nav className="hidden lg:block" aria-label={t("catalog.categories")}>
             <h2 className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("catalog.categories")}</h2>
             <ul className="mt-2 space-y-0.5">
-              {[{ name: "", label: t("catalog.all"), count: books?.length ?? 0, color: null as string | null },
-                ...(categories ?? []).map((c) => ({ name: c.name, label: c.name, count: counts.get(c.name) ?? 0, color: c.color }))]
+              {[{ name: "", label: t("catalog.all"), count: (categories ?? []).reduce((n, c) => n + (c.bookCount ?? 0), 0), color: null as string | null },
+                ...(categories ?? []).map((c) => ({ name: c.name, label: c.name, count: c.bookCount ?? 0, color: c.color }))]
                 .map((c) => (
                   <li key={c.name || "all"}>
                     <button
@@ -125,10 +123,10 @@ export default function CatalogPage() {
 
         {/* results */}
         <div className="min-w-0">
-          {loading && <FullPageLoader />}
+          {loading && !result && <FullPageLoader />}
           {error && !loading && <ErrorState message={t("catalog.loadError")} onRetry={refetch} />}
 
-          {!loading && !error && filtered.length === 0 && (
+          {result && !error && result.results.length === 0 && (
             <div className="rounded-md border">
               <EmptyState icon={SearchX} title={t("catalog.noMatch")}>
                 {hasFilters && (
@@ -140,9 +138,9 @@ export default function CatalogPage() {
             </div>
           )}
 
-          {!loading && filtered.length > 0 && (
+          {result && result.results.length > 0 && (
             <ul className="divide-y rounded-md border bg-white">
-              {filtered.map((b) => (
+              {result.results.map((b) => (
                 <li key={b.id} className="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-4 gap-y-3 p-4 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:gap-x-5">
                   <Link to={`/books/${b.id}`} tabIndex={-1} aria-hidden className="row-span-2 sm:row-span-1">
                     <BookCover book={b} size="sm" />
@@ -171,6 +169,13 @@ export default function CatalogPage() {
                 </li>
               ))}
             </ul>
+          )}
+          {result && (
+            <Pager
+              page={result.page} pageSize={result.pageSize} count={result.count}
+              onPage={(p) => setParam("page", p > 1 ? String(p) : "")}
+              className="mt-4 border-t-0 px-0"
+            />
           )}
         </div>
       </div>

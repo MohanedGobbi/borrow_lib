@@ -34,6 +34,14 @@ BORROWED --(past due date)--> OVERDUE   (blocks new requests until resolved)
 ```
 
 `available_copies` changes at exactly two moments: **pickup (−1)** and **return (+1)**.
+A copy waiting on the hold shelf (a `READY` record) is not free: **free copies** =
+`available_copies` minus the book's `READY` records.
+
+- A returned copy serves the reservation queue first: the first active member in the queue
+  gets a `READY` hold with a fresh 48-hour window (members deactivated in the meantime are skipped).
+- Staff can approve a request only while the book has a free copy; new requests and queue
+  joins follow the same count, so a held copy cannot be taken by someone else.
+- Deactivating a member blocks sign-in (login, access and refresh tokens) and any new request or reservation.
 
 ## Run locally
 

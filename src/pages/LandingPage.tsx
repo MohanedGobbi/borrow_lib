@@ -13,8 +13,8 @@ export default function LandingPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const { data: books } = useApi(() => apiBooks.list(), []);
-  const onShelf = (books ?? []).filter((b) => b.availableCopies > 0).slice(0, 6);
+  const { data: shelf } = useApi(() => apiBooks.list({ available: true, pageSize: 6 }), []);
+  const onShelf = shelf?.results ?? [];
 
   const search = (e: FormEvent) => {
     e.preventDefault();

@@ -1,5 +1,12 @@
 export type Role = "MEMBER" | "STAFF" | "ADMIN";
 
+export interface Page<T> {
+  count: number;
+  page: number;
+  pageSize: number;
+  results: T[];
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -20,6 +27,7 @@ export interface Book {
   year: number | null;
   totalCopies: number;
   availableCopies: number;
+  freeCopies: number;
   shelfLocation: string;
   coverColor: string;
   coverImage: string | null;

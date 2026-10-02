@@ -1,12 +1,15 @@
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status as http
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import services
+from .filters import BookFilter, BorrowRecordFilter, UserFilter
 from .idcard import id_card_response
 from .models import (
     ActivityLog,
@@ -21,6 +24,7 @@ from .models import (
     display_name,
     log_activity,
 )
+from .pagination import StandardPagination
 from .permissions import IsAdmin, IsStaffOrAdmin
 from .serializers import (
     ActivitySerializer,
@@ -106,8 +110,16 @@ class ScanLookupView(APIView):
 
 # ------------------------------- books -------------------------------
 
+def with_ready_count(qs):
+    """Annotate each book with the copies held for pickup (READY), for freeCopies."""
+    return qs.annotate(ready_count=Count("borrow_records", filter=Q(borrow_records__status=Status.READY)))
+
+
 class BookListCreateView(generics.ListCreateAPIView):
     serializer_class = BookSerializer
+    pagination_class = StandardPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = BookFilter
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -115,21 +127,9 @@ class BookListCreateView(generics.ListCreateAPIView):
         return [AllowAny()]
 
     def get_queryset(self):
-        qs = Book.objects.all().select_related("category").order_by("title")
-        search = self.request.query_params.get("search")
-        author = self.request.query_params.get("author")
-        isbn = self.request.query_params.get("isbn")
-        category = self.request.query_params.get("category")
-        if search:
-            from django.db.models import Q
-            qs = qs.filter(Q(title__icontains=search) | Q(author__icontains=search) | Q(isbn__icontains=search))
-        if author:
-            qs = qs.filter(author__icontains=author)
-        if isbn:
-            qs = qs.filter(isbn__icontains=isbn)
-        if category:
-            qs = qs.filter(category__name=category)
-        return qs
+        categories = Category.objects.annotate(book_count=Count("books"))
+        return (with_ready_count(Book.objects.all())
+                .prefetch_related(Prefetch("category", queryset=categories)).order_by("title"))
 
     def perform_create(self, serializer):
         book = serializer.save(available_copies=serializer.validated_data["total_copies"])
@@ -139,7 +139,7 @@ class BookListCreateView(generics.ListCreateAPIView):
 
 class BookDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BookSerializer
-    queryset = Book.objects.all()
+    queryset = with_ready_count(Book.objects.all())
 
     def get_permissions(self):
         if self.request.method == "GET":
@@ -196,24 +196,19 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # --------------------------- borrow records ---------------------------
 
-class BorrowRecordListCreateView(APIView):
+class BorrowRecordListCreateView(generics.ListCreateAPIView):
+    serializer_class = BorrowRecordSerializer
+    pagination_class = StandardPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = BorrowRecordFilter
+
     def get_permissions(self):
         if self.request.method == "GET":
             return [IsStaffOrAdmin()]
         return [IsAuthenticated()]
 
-    def get(self, request):
-        qs = BorrowRecord.objects.select_related("user", "user__profile", "book")
-        status_filter = request.query_params.get("status")
-        book = request.query_params.get("book")
-        user = request.query_params.get("user")
-        if status_filter:
-            qs = qs.filter(status=status_filter)
-        if book:
-            qs = qs.filter(book_id=book)
-        if user:
-            qs = qs.filter(user_id=user)
-        return Response(BorrowRecordSerializer(qs, many=True).data)
+    def get_queryset(self):
+        return BorrowRecord.objects.select_related("user", "user__profile", "book").order_by("-requested_at")
 
     @business_errors
     def post(self, request):
@@ -406,20 +401,17 @@ class UserListView(generics.ListAPIView):
     """Staff-only: all user profiles (search by name/email/ID)."""
     permission_classes = [IsStaffOrAdmin]
     serializer_class = ProfileSerializer
+    pagination_class = StandardPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = UserFilter
 
     def get_queryset(self):
-        qs = UserProfile.objects.select_related("user").order_by("user__first_name")
-        search = self.request.query_params.get("search")
-        role = self.request.query_params.get("role")
-        if search:
-            from django.db.models import Q
-            qs = qs.filter(
-                Q(user__first_name__icontains=search) | Q(user__last_name__icontains=search)
-                | Q(user__email__icontains=search) | Q(student_or_staff_id__icontains=search)
-            )
-        if role:
-            qs = qs.filter(role=role)
-        return qs
+        # Annotated so ProfileSerializer needs no per-row queries (same pattern as ready_count).
+        return UserProfile.objects.select_related("user").annotate(
+            active_loans_count=Count("user__borrow_records",
+                                     filter=Q(user__borrow_records__status__in=services.ACTIVE_STATUSES)),
+            has_overdue_flag=Exists(BorrowRecord.objects.filter(user=OuterRef("user"), status=Status.OVERDUE)),
+        ).order_by("user__first_name")
 
 
 class UserDetailView(APIView):
@@ -475,6 +467,9 @@ class UserActiveView(APIView):
         profile = get_object_or_404(UserProfile, pk=pk)
         profile.active = bool(request.data.get("active"))
         profile.save(update_fields=["active"])
+        # SimpleJWT checks User.is_active at login, on every access token and on refresh.
+        profile.user.is_active = profile.active
+        profile.user.save(update_fields=["is_active"])
         log_activity(display_name(request.user), "ACCOUNT_TOGGLED",
                      f"{'Reactivated' if profile.active else 'Deactivated'} {display_name(profile.user)}'s account.")
         return Response(ProfileSerializer(profile).data)

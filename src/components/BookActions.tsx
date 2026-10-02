@@ -24,7 +24,7 @@ export function BookActions({
   const { t } = useI18n();
   const cart = useCart();
   const [busy, setBusy] = useState(false);
-  const out = book.availableCopies <= 0;
+  const out = book.freeCopies <= 0;
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -96,16 +96,16 @@ export function BookActions({
   );
 }
 
-/** Availability line: green dot with counts, or a neutral "all on loan" note (red is reserved for overdue). */
+/** Availability line: green dot with free copies, or a neutral "on loan" / "held" note (red is reserved for overdue). */
 export function Availability({ book, className }: { book: Book; className?: string }) {
   const { t } = useI18n();
-  const out = book.availableCopies <= 0;
+  const out = book.freeCopies <= 0;
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-sm font-medium", out ? "text-muted-foreground" : "text-brand-dark", className)}>
       <span className={cn("size-2 shrink-0 rounded-full", out ? "bg-muted-foreground/50" : "bg-brand")} aria-hidden />
       {out
-        ? t("catalog.allOnLoan")
-        : <span><span className="tabular">{book.availableCopies} / {book.totalCopies}</span> {t("catalog.copiesAvailable")}</span>}
+        ? t(book.availableCopies > 0 ? "catalog.allHeld" : "catalog.allOnLoan")
+        : <span><span className="tabular">{book.freeCopies} / {book.totalCopies}</span> {t("catalog.copiesAvailable")}</span>}
     </span>
   );
 }

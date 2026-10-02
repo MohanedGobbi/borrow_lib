@@ -5,37 +5,43 @@ import { Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { apiBooks, apiCategories } from "@/api";
 import { ApiError } from "@/api/client";
 import { useApi } from "@/hooks/useApi";
+import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { BookEditDialog } from "@/components/BookEditDialog";
 import { Availability } from "@/components/BookActions";
+import { Pager } from "@/components/Pager";
 import { PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FullPageLoader } from "@/auth/guards";
 import { useStaffAction } from "@/pages/staff/staffContext";
+import { fetchPage } from "@/lib/paging";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
 import type { Book } from "@/types";
 
 export default function InventoryPage() {
   const { t } = useI18n();
-  const { data: books, loading, refetch } = useApi(() => apiBooks.list(), []);
+  const [filter, setFilter] = useState("");
+  const search = useDebounced(filter.trim(), 300);
+  // The page belongs to one search: a new search starts again from page 1.
+  const [pageState, setPageState] = useState({ key: search, page: 1 });
+  const page = pageState.key === search ? pageState.page : 1;
+  const { data: result, loading, refetch } = useApi(
+    () => fetchPage((p) => apiBooks.list({ search, page: p }), page), [search, page],
+  );
   const { run, busyId } = useStaffAction(refetch);
   const [editBook, setEditBook] = useState<Book | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [filter, setFilter] = useState("");
 
-  if (loading) return <FullPageLoader />;
+  if (loading && !result) return <FullPageLoader />;
 
   const openEdit = (b: Book | null) => {
     setEditBook(b);
     setDialogOpen(true);
   };
 
-  const q = filter.trim().toLowerCase();
-  const rows = (books ?? []).filter(
-    (b) => !q || [b.title, b.author, b.isbn, b.shelfLocation].some((f) => f.toLowerCase().includes(q)),
-  );
+  const rows = result?.results ?? [];
 
   return (
     <div className="space-y-6">
@@ -55,7 +61,7 @@ export default function InventoryPage() {
 
       <Panel
         title={t("dash.books")}
-        count={rows.length}
+        count={result?.count ?? 0}
         flush
         actions={
           <div className="relative w-72 max-w-full">
@@ -121,6 +127,12 @@ export default function InventoryPage() {
             </tbody>
           </table>
         </div>
+        {result && (
+          <Pager
+            page={result.page} pageSize={result.pageSize} count={result.count}
+            onPage={(next) => setPageState({ key: search, page: next })}
+          />
+        )}
       </Panel>
 
       <BookEditDialog book={editBook} open={dialogOpen} onOpenChange={setDialogOpen} onSaved={refetch} />

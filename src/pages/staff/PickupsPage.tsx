@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n";
 import { Countdown } from "@/components/Countdown";
 import { fmtDateTime, msLeft } from "@/lib/time";
 import { RequestDocButton } from "@/components/RequestDocButton";
+import { ShowingNote } from "@/components/Pager";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { FullPageLoader } from "@/auth/guards";
@@ -16,16 +17,18 @@ import { URGENT_PICKUP_MS } from "@/types";
 
 export default function PickupsPage() {
   const { t } = useI18n();
-  const { data: records, loading, refetch } = useApi(() => apiRecords.list({ status: "READY" }), [], 45_000);
+  const { data: result, loading, refetch } = useApi(
+    () => apiRecords.list({ status: "READY", ordering: "pickup_deadline", pageSize: 100 }), [], 45_000,
+  );
   const { run, busyId } = useStaffAction(refetch);
 
   if (loading) return <FullPageLoader />;
-  const ready = [...(records ?? [])].sort((a, b) => msLeft(a.pickupDeadline) - msLeft(b.pickupDeadline));
+  const ready = result?.results ?? [];
 
   return (
     <div className="space-y-6">
       <PageHeader title={t("staff.pickups")} />
-      <Panel title={t("dash.awaiting")} count={ready.length} flush>
+      <Panel title={t("dash.awaiting")} count={result?.count ?? 0} flush>
         {ready.length === 0 ? (
           <EmptyState icon={PackageCheck} title={t("dash.noPickups")} />
         ) : (
@@ -77,6 +80,7 @@ export default function PickupsPage() {
             </table>
           </div>
         )}
+        <ShowingNote shown={ready.length} count={result?.count ?? 0} />
       </Panel>
     </div>
   );

@@ -19,7 +19,7 @@ LibBorrow is the borrowing system of a university library. It replaces paper req
 
 ## Positioning
 
-A loan starts at physical pickup, not at approval. Approved requests hold a copy for 48 hours; missed pickups auto-cancel and the copy passes to the next student in a FIFO reservation queue with a fresh window. Loans run 14 days from pickup, and an overdue loan blocks new requests until it is returned.
+A loan starts at physical pickup, not at approval. Approved requests hold a copy for 48 hours; missed pickups auto-cancel and the copy passes to the next student in a FIFO reservation queue with a fresh window. Returned copies serve the queue first, and staff can approve a request only while the book has a free copy (shelf copies minus those on hold). Loans run 14 days from pickup, and an overdue loan blocks new requests until it is returned. A deactivated member cannot sign in or borrow.
 
 ## Operating Context
 
@@ -31,7 +31,9 @@ A loan starts at physical pickup, not at approval. Approved requests hold a copy
 ## Capabilities and Constraints
 
 - State machine: PENDING → READY → BORROWED → RETURNED; PENDING → REJECTED; READY → CANCELLED (48h expiry, queue handoff); BORROWED → OVERDUE.
-- `availableCopies` changes only at pickup (−1) and return (+1).
+- `availableCopies` changes only at pickup (−1) and return (+1). `freeCopies` = `availableCopies` minus copies held for pickup (READY); approval, new requests and queue handoff use it.
+- Returns serve the reservation queue first (FIFO, skipping deactivated members) before a copy is free for anyone else.
+- Deactivating a member blocks sign-in and new requests or reservations.
 - Roles: MEMBER, STAFF, ADMIN; staff registration requires an invite code.
 - Languages: EN / FR / AR with RTL layout for Arabic.
 - Stack: React 19, Vite, TypeScript, Tailwind CSS 3, shadcn/ui; Django REST backend.
