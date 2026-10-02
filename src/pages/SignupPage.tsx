@@ -1,29 +1,53 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { toast } from "sonner";
+import { LinkIcon, ShieldCheck } from "lucide-react";
+import { apiInvites } from "@/api";
 import { useAuth } from "@/auth/AuthContext";
 import { ApiError } from "@/api/client";
 import { useI18n } from "@/i18n";
 import { AuthCard } from "@/pages/LoginPage";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+type Invite =
+  | { status: "none" }
+  | { status: "checking" }
+  | { status: "invalid" }
+  | { status: "valid"; email: string; role: "STAFF" | "ADMIN" };
+
 export default function SignupPage() {
   const { register } = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const [isStaff, setIsStaff] = useState(params.get("role") === "staff");
+  const [params, setParams] = useSearchParams();
+  const token = params.get("invite");
+  const [invite, setInvite] = useState<Invite>(token ? { status: "checking" } : { status: "none" });
   const [form, setForm] = useState({
-    name: "", email: "", password: "", studentId: "",
-    phoneNumber: "", address: "", staffInviteCode: "",
+    name: "", email: "", password: "", studentId: "", phoneNumber: "", address: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (!token) {
+      setInvite({ status: "none" });
+      return;
+    }
+    let current = true;
+    setInvite({ status: "checking" });
+    apiInvites.lookup(token)
+      .then((i) => current && setInvite({ status: "valid", email: i.email, role: i.role }))
+      .catch(() => current && setInvite({ status: "invalid" }));
+    return () => { current = false; };
+  }, [token]);
+
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const invited = invite.status === "valid" ? invite : null;
+  const email = invited ? invited.email : form.email;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -32,14 +56,16 @@ export default function SignupPage() {
     try {
       await register({
         name: form.name.trim(),
-        email: form.email.trim(),
+        email: email.trim(),
         password: form.password,
         studentId: form.studentId.trim(),
         phoneNumber: form.phoneNumber.trim(),
         address: form.address.trim(),
-        staffInviteCode: isStaff ? form.staffInviteCode.trim() : "",
+        language: lang,
+        inviteToken: invited && token ? token : undefined,
       });
-      navigate(isStaff ? "/staff" : "/catalog", { replace: true });
+      if (!invited) toast.success(t("auth.created"));
+      navigate(invited ? "/staff" : "/catalog", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("auth.failed"));
     } finally {
@@ -47,12 +73,44 @@ export default function SignupPage() {
     }
   };
 
+  const continueAsStudent = () => setParams({}, { replace: true });
+
+  if (invite.status === "checking") {
+    return (
+      <AuthCard wide>
+        <div role="status" className="py-6 text-center">
+          <div className="mx-auto size-7 animate-spin rounded-full border-2 border-border border-t-brand" aria-hidden />
+          <p className="mt-4 text-[15px] text-muted-foreground">{t("invite.checking")}</p>
+        </div>
+      </AuthCard>
+    );
+  }
+
+  if (invite.status === "invalid") {
+    return (
+      <AuthCard wide>
+        <div role="alert" className="text-center">
+          <LinkIcon className="mx-auto size-8 text-muted-foreground" aria-hidden />
+          <h1 className="mt-3 text-xl font-semibold tracking-tight">{t("invite.invalid")}</h1>
+          <p className="mt-2 text-[15px] text-muted-foreground">{t("invite.invalidSub")}</p>
+          <Button className="mt-6" onClick={continueAsStudent}>{t("invite.continueStudent")}</Button>
+        </div>
+      </AuthCard>
+    );
+  }
+
   const optional = <span className="font-normal text-muted-foreground">{t("auth.optional")}</span>;
 
   return (
     <AuthCard wide>
       <h1 className="text-xl font-semibold tracking-tight">{t("auth.create")}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{t("auth.createSub")}</p>
+      {invited ? (
+        <p className="mt-3 flex items-center gap-2 rounded-md border bg-surface px-3 py-2 text-sm font-medium text-brand-dark">
+          <ShieldCheck className="size-4 shrink-0" aria-hidden /> {t(`invite.joining.${invited.role}`)}
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-muted-foreground">{t("auth.createSub")}</p>
+      )}
 
       <form onSubmit={submit} className="mt-6 space-y-4">
         <div className="space-y-1.5">
@@ -62,10 +120,15 @@ export default function SignupPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="email">{t("auth.email")}</Label>
-            <Input id="email" type="email" required autoComplete="email" dir="ltr" value={form.email} onChange={set("email")} className="h-11" />
+            <Input
+              id="email" type="email" required autoComplete="email" dir="ltr" value={email} onChange={set("email")}
+              readOnly={!!invited} aria-describedby={invited ? "email-locked" : undefined}
+              className={invited ? "h-11 bg-surface" : "h-11"}
+            />
+            {invited && <p id="email-locked" className="text-xs text-muted-foreground">{t("invite.emailLocked")}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="sid">{isStaff ? t("auth.staffId") : t("auth.studentId")}</Label>
+            <Label htmlFor="sid">{invited ? t("auth.staffId") : t("auth.studentId")}</Label>
             <Input id="sid" required dir="ltr" value={form.studentId} onChange={set("studentId")} className="h-11" />
           </div>
         </div>
@@ -83,20 +146,6 @@ export default function SignupPage() {
             <Label htmlFor="address">{t("auth.address")} {optional}</Label>
             <Input id="address" autoComplete="street-address" value={form.address} onChange={set("address")} className="h-11" />
           </div>
-        </div>
-
-        <div className="rounded-md border bg-surface p-4">
-          <label className="flex cursor-pointer items-center gap-2.5 text-[15px] font-medium">
-            <Checkbox checked={isStaff} onCheckedChange={(v) => setIsStaff(v === true)} />
-            {t("auth.isStaff")}
-          </label>
-          {isStaff && (
-            <div className="mt-4 space-y-1.5">
-              <Label htmlFor="invite">{t("auth.invite")}</Label>
-              <Input id="invite" required dir="ltr" aria-describedby="invite-hint" value={form.staffInviteCode} onChange={set("staffInviteCode")} className="h-11 bg-white" />
-              <p id="invite-hint" className="text-xs text-muted-foreground">{t("auth.inviteHelp")}</p>
-            </div>
-          )}
         </div>
 
         {error && <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}

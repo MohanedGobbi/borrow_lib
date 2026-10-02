@@ -9,7 +9,7 @@ const BASE = API_ROOT;
 /** Static demo build (`npm run build:demo`): the API runs in the browser, no server needed. */
 export const DEMO = import.meta.env.VITE_DEMO === "true";
 
-export const DEMO_STORAGE_KEY = "lb_demo_state_v6";
+export const DEMO_STORAGE_KEY = "lb_demo_state_v7";
 /** Demo-only stand-in for the httpOnly refresh cookie. */
 export const DEMO_REFRESH_KEY = "lb_demo_refresh";
 
@@ -39,9 +39,12 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Names of the form fields the server complained about, when it answered with field errors. */
+  fields: string[];
+  constructor(status: number, message: string, fields: string[] = []) {
     super(message);
     this.status = status;
+    this.fields = fields;
   }
 }
 
@@ -133,14 +136,18 @@ export async function api<T = unknown>(
   if (res.status === 401 && auth) throw new ApiError(401, "Session expired — please sign in again.");
   if (!res.ok) {
     let detail = `Request failed (${res.status})`;
+    let fields: string[] = [];
     try {
       const data = await res.json();
       detail = data.detail || Object.values(data).flat().join(" ") || detail;
+      if (!data.detail) fields = Object.keys(data);
     } catch { /* non-JSON error body */ }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, detail, fields);
   }
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  // 202 Accepted answers carry no body.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const auth = {

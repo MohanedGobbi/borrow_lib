@@ -63,10 +63,10 @@ deleted; the frontend now talks to `/api` exclusively.
 2. **JWT username = email.** Registration uses the email as the Django username;
    `POST /api/auth/login` accepts `{username: <email>, password}`.
 
-3. **Staff self-registration via invite code.** The spec defines roles but no staff
-   onboarding flow. Signup offers Member / Staff tabs; the Staff tab requires
-   `STAFF_INVITE_CODE` (env-configurable). Admins are created via `createsuperuser`
-   or promoted through `PATCH /api/users/<id>/role` (admin-only).
+3. **Staff accounts come from admin invites.** The spec defines roles but no staff
+   onboarding flow. Admins email single-use, expiring invite links (`StaffInvite`, WP-08);
+   signing up through one creates a staff or admin account. The first admin is created via
+   `createsuperuser`, and roles can be changed through `PATCH /api/users/<id>/role` (admin-only).
 
 4. **Book covers are color tokens, not images.** `cover_image` is optional in the
    spec; `Book.cover_color` drives generated editorial-style covers in the UI.

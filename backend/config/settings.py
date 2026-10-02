@@ -19,18 +19,15 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
-STAFF_INVITE_CODE = os.environ.get("STAFF_INVITE_CODE", "")
 
 if DEBUG:
     SECRET_KEY = SECRET_KEY or "dev-only-insecure-key-change-me"
     ALLOWED_HOSTS = ALLOWED_HOSTS or ["*"]
-    STAFF_INVITE_CODE = STAFF_INVITE_CODE or "LIB-STAFF-2024"
 else:
     # Refuse to start with settings that would be unsafe on a public server.
     missing = [name for name, value in [
         ("DJANGO_SECRET_KEY", SECRET_KEY),
         ("DJANGO_ALLOWED_HOSTS", ALLOWED_HOSTS),
-        ("STAFF_INVITE_CODE", STAFF_INVITE_CODE),
     ] if not value]
     if missing:
         raise ImproperlyConfigured(
@@ -134,7 +131,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
     "DEFAULT_THROTTLE_RATES": {
         "auth_login": "10/min",
-        "auth_register": "5/hour",  # its own scope: the staff invite code can be guessed here
+        "auth_register": "5/hour",
+        "auth_reset": "5/hour",  # password reset and verification emails
         "auth_refresh": "30/min",
     },
     # Number of reverse proxies in front of Django, so throttles key on the real client address.
@@ -178,9 +176,23 @@ CORS_ALLOW_HEADERS = (*default_headers, "x-libborrow-csrf")
 # Frontend base URL used inside QR codes on ID cards.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
-# STAFF_INVITE_CODE (required in production) is read at the top of this file.
-
 LIBRARY_NAME = os.environ.get("LIBRARY_NAME", "University Library")
+
+# Password reset links are valid for one hour (verification and invite links have their own rules).
+PASSWORD_RESET_TIMEOUT = 3600
+
+# Outgoing email: printed to the console in development, SMTP in production. The test runner
+# swaps in Django's locmem backend by itself.
+if DEBUG:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") == "1"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "LibBorrow <no-reply@localhost>")
 
 # ---------------------------------------------------------------- production hardening
 if not DEBUG:

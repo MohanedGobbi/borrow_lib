@@ -83,7 +83,7 @@ Flows to sanity-check: request a book / join a waiting list; approve → confirm
 
 ## Security
 
-Role checks live in the Django views and `permissions.py`; the frontend guards are UX only. The demo build has no real authentication. Never commit real secrets. Staff self-registration is gated by `STAFF_INVITE_CODE`.
+Role checks live in the Django views and `permissions.py`; the frontend guards are UX only. The demo build has no real authentication. Never commit real secrets. Staff accounts are created through single-use, expiring invites issued by admins (`StaffInvite`); students must verify their email before borrowing.
 
 ## Deployment
 

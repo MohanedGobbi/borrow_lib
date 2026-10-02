@@ -115,7 +115,6 @@ export default function LandingPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline"><Link to="/login">{t("landing.staffSignin")}</Link></Button>
-            <Button asChild variant="ghost"><Link to="/signup?role=staff">{t("landing.staffRegister")}</Link></Button>
           </div>
         </div>
       </section>

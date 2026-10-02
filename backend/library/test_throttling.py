@@ -25,7 +25,7 @@ class ThrottleTests(TestCase):
     def register(self, n):
         return self.client.post("/api/auth/register", {
             "name": "Nadia Salem", "email": f"n{n}@x.com", "studentId": f"STU-{n}",
-            "password": "shelf-mark-FIC-7", "staffInviteCode": "guess",
+            "password": "shelf-mark-FIC-7",
         }, format="json")
 
     def test_eleventh_login_in_a_minute_is_throttled(self):
@@ -44,7 +44,7 @@ class ThrottleTests(TestCase):
 
     def test_register_has_its_own_limit(self):
         for n in range(5):
-            self.assertEqual(self.register(n).status_code, 403)  # wrong staff invite code
+            self.assertEqual(self.register(n).status_code, 201)
         self.assertEqual(self.register(5).status_code, 429)
         # Login uses a separate scope and is unaffected.
         make_user("m@x.com")
@@ -53,7 +53,7 @@ class ThrottleTests(TestCase):
     def test_login_limit_does_not_block_register(self):
         for _ in range(11):
             self.login()
-        self.assertEqual(self.register(0).status_code, 403)
+        self.assertEqual(self.register(0).status_code, 201)
 
     def test_refresh_is_limited_to_thirty_a_minute(self):
         for _ in range(30):

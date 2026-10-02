@@ -65,7 +65,10 @@ export default function LoginPage() {
           <Input id="email" type="email" required autoComplete="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11" />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="password">{t("auth.password")}</Label>
+          <div className="flex items-baseline justify-between gap-3">
+            <Label htmlFor="password">{t("auth.password")}</Label>
+            <Link to="/forgot-password" className="text-sm font-medium text-brand-dark hover:underline">{t("auth.forgot")}</Link>
+          </div>
           <Input id="password" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11" />
         </div>
         {error && <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}

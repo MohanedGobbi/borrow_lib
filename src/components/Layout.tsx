@@ -6,7 +6,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { useCart } from "@/cart/CartContext";
 import { useI18n, type Lang } from "@/i18n";
 import { useApi } from "@/hooks/useApi";
-import { apiMisc } from "@/api";
+import { apiAuth, apiMisc } from "@/api";
 import { DEMO, resetDemo } from "@/api/client";
 import { timeAgo } from "@/lib/time";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { VerifyBanner } from "@/components/VerifyBanner";
 
 const LANGS: { code: Lang; label: string }[] = [
   { code: "fr", label: "Français" },
@@ -68,6 +69,12 @@ export function Layout() {
   );
   const unread = (notifications ?? []).filter((n) => !n.read).length;
 
+  // The account remembers the language, because the emails the library sends use it.
+  const changeLang = (code: Lang) => {
+    setLang(code);
+    if (me) apiAuth.setLanguage(code).catch(() => { /* the switch itself already worked */ });
+  };
+
   const signOut = async () => {
     await logout();
     navigate("/");
@@ -112,7 +119,7 @@ export function Layout() {
                 {LANGS.map((l) => (
                   <DropdownMenuItem
                     key={l.code}
-                    onClick={() => setLang(l.code)}
+                    onClick={() => changeLang(l.code)}
                     className={cn(lang === l.code && "font-semibold text-brand-dark")}
                     lang={l.code}
                   >
@@ -239,6 +246,8 @@ export function Layout() {
         </div>
       </header>
 
+      <VerifyBanner wide={isStaffArea} />
+
       {DEMO && (
         <div className="border-b bg-surface">
           <div className={cn("mx-auto flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-[13px] text-muted-foreground sm:px-6", isStaffArea ? "max-w-[1440px]" : "max-w-7xl")}>
@@ -247,6 +256,9 @@ export function Layout() {
             <button type="button" onClick={resetDemo} className="font-medium text-brand-dark underline decoration-brand/40 hover:decoration-brand">
               {t("demo.reset")}
             </button>
+            <Link to="/demo/mailbox" className="font-medium text-brand-dark underline decoration-brand/40 hover:decoration-brand">
+              {t("mailbox.open")}
+            </Link>
           </div>
         </div>
       )}

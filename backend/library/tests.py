@@ -376,3 +376,15 @@ class BookImportTests(TestCase):
         titles = set(Book.objects.values_list("title", flat=True))
         self.assertTrue({"Sapiens", "Meditations", "The Gene"} <= titles)
         self.assertEqual(Book.objects.filter(title="Dune").count(), 0)  # existing one kept (skip mode)
+
+
+class ProfileUpdateTests(TestCase):
+    def test_members_cannot_change_their_own_role_or_active_flag(self):
+        member = make_user("m@x.com")
+        client = APIClient()
+        client.force_authenticate(member)
+        res = client.patch("/api/users/me", {"role": "ADMIN", "active": False, "phoneNumber": "123"}, format="json")
+        self.assertEqual(res.status_code, 200)
+        member.profile.refresh_from_db()
+        self.assertEqual((member.profile.role, member.profile.active, member.profile.phone_number),
+                         (Role.MEMBER, True, "123"))

@@ -47,7 +47,6 @@ jobs:
           DJANGO_DEBUG: "0"
           DJANGO_SECRET_KEY: ci-only-${{ github.run_id }}-0123456789abcdefghijklmnopqrstuvwxyz0123456789
           DJANGO_ALLOWED_HOSTS: api.example.edu
-          STAFF_INVITE_CODE: ci
           DJANGO_HSTS_SECONDS: "31536000"
         run: python manage.py check --deploy --fail-level ERROR
 

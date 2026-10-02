@@ -1,23 +1,43 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Search, UserX } from "lucide-react";
-import { apiUsers } from "@/api";
+import { toast } from "sonner";
+import { MailPlus, Search, UserX } from "lucide-react";
+import { apiInvites, apiUsers } from "@/api";
+import { useAuth } from "@/auth/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
+import { InviteStaffDialog } from "@/components/InviteStaffDialog";
 import { MemberStanding } from "@/components/MemberStanding";
 import { Pager } from "@/components/Pager";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FullPageLoader } from "@/auth/guards";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { fetchPage } from "@/lib/paging";
+import { fmtDate } from "@/lib/time";
 import { tableCls } from "@/lib/table";
 
 export default function UsersPage() {
   const { t } = useI18n();
+  const { me } = useAuth();
+  const isAdmin = me?.role === "ADMIN";
+  const [inviting, setInviting] = useState(false);
+  const { data: invites, refetch: refetchInvites } = useApi(
+    () => (isAdmin ? apiInvites.list() : Promise.resolve([])), [isAdmin],
+  );
+  const revoke = async (id: number) => {
+    try {
+      await apiInvites.revoke(id);
+      toast.success(t("invite.revoked"));
+      refetchInvites();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("toast.failed"));
+    }
+  };
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
   const debouncedSearch = useDebounced(search.trim(), 300);
@@ -39,7 +59,49 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("users.title")} />
+      <PageHeader
+        title={t("users.title")}
+        actions={isAdmin && (
+          <Button onClick={() => setInviting(true)}><MailPlus aria-hidden /> {t("invite.button")}</Button>
+        )}
+      />
+      {isAdmin && (
+        <>
+          <InviteStaffDialog open={inviting} onOpenChange={setInviting} onInvited={refetchInvites} />
+          <Panel title={t("invite.pending")} count={(invites ?? []).length} flush>
+            {(invites ?? []).length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t("invite.none")}</p>
+            ) : (
+              <div className={tableCls.wrap}>
+                <table className={tableCls.table}>
+                  <thead>
+                    <tr>
+                      <th className={tableCls.th}>{t("auth.email")}</th>
+                      <th className={tableCls.th}>{t("col.role")}</th>
+                      <th className={tableCls.th}>{t("invite.invitedBy")}</th>
+                      <th className={tableCls.th}>{t("invite.expires")}</th>
+                      <th className={tableCls.th}><span className="sr-only">{t("col.actions")}</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(invites ?? []).map((i) => (
+                      <tr key={i.id} className={tableCls.row}>
+                        <td className={tableCls.td}><span dir="ltr" className="inline-block">{i.email}</span></td>
+                        <td className={tableCls.td}>{t(`role.${i.role}`)}</td>
+                        <td className={tableCls.td}>{i.createdBy ?? "—"}</td>
+                        <td className={tableCls.td}><span className="tabular whitespace-nowrap">{fmtDate(i.expiresAt)}</span></td>
+                        <td className={`${tableCls.td} text-end`}>
+                          <Button variant="outline" size="sm" onClick={() => revoke(i.id)}>{t("invite.revoke")}</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+        </>
+      )}
       <Panel
         title={t("users.title")}
         count={result?.count ?? 0}

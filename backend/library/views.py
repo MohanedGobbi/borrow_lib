@@ -1,14 +1,15 @@
-from django.conf import settings
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status as http
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import services
+from . import emails, services
 from .filters import BookFilter, BorrowRecordFilter, UserFilter
 from .idcard import id_card_response
 from .models import (
@@ -19,6 +20,7 @@ from .models import (
     Notification,
     Reservation,
     Role,
+    StaffInvite,
     Status,
     UserProfile,
     display_name,
@@ -54,27 +56,40 @@ def business_errors(fn):
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
-    throttle_scope = "auth_register"  # also limits guesses at the staff invite code
+    throttle_scope = "auth_register"
 
     def post(self, request):
         s = RegisterSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         d = s.validated_data
-        role = Role.MEMBER
-        if d["staffInviteCode"]:
-            if d["staffInviteCode"] != settings.STAFF_INVITE_CODE:
-                return Response({"detail": "Invalid staff invite code."}, status=http.HTTP_403_FORBIDDEN)
-            role = Role.STAFF
         first, _, last = d["name"].strip().partition(" ")
-        user = User.objects.create_user(
-            username=d["email"].lower(), email=d["email"].lower(),
-            password=d["password"], first_name=first, last_name=last,
-        )
-        UserProfile.objects.create(
-            user=user, student_or_staff_id=d["studentId"],
-            phone_number=d["phoneNumber"], address=d["address"], role=role,
-            max_borrow_limit=10 if role == Role.STAFF else 5,
-        )
+        # The invite check and the sign-up share one transaction, with the invite row locked, so two
+        # sign-ups cannot use the same token.
+        with transaction.atomic():
+            role, invite = Role.MEMBER, None
+            if d["inviteToken"]:
+                invite = StaffInvite.objects.select_for_update().filter(
+                    token_hash=StaffInvite.hash_token(d["inviteToken"])).first()
+                if not invite or not invite.is_pending or invite.email.lower() != d["email"].lower():
+                    return Response({"detail": "This invitation is invalid, expired or for another email address."},
+                                    status=http.HTTP_400_BAD_REQUEST)
+                role = invite.role
+            user = User.objects.create_user(
+                username=d["email"].lower(), email=d["email"].lower(),
+                password=d["password"], first_name=first, last_name=last,
+            )
+            UserProfile.objects.create(
+                user=user, student_or_staff_id=d["studentId"],
+                phone_number=d["phoneNumber"], address=d["address"], role=role,
+                max_borrow_limit=5 if role == Role.MEMBER else 10,
+                language=d["language"],
+                email_verified=invite is not None,  # following the invite link proved the address
+            )
+            if invite:
+                invite.used_at, invite.used_by = timezone.now(), user
+                invite.save(update_fields=["used_at", "used_by"])
+        if not invite:
+            emails.send_verification(user)
         log_activity("System", "REGISTERED", f"{display_name(user)} registered as {role.lower()}.")
         return Response(ProfileSerializer(user.profile).data, status=http.HTTP_201_CREATED)
 

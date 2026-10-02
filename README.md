@@ -64,8 +64,10 @@ npm run dev
 ```
 
 **Demo accounts** (password `password123`): `admin@libborrow.dev` ·
-`staff@libborrow.dev` · `priya@example.com` (member). Staff self-registration uses
-invite code `LIB-STAFF-2024` (env `STAFF_INVITE_CODE`).
+`staff@libborrow.dev` · `priya@example.com` (member). New students confirm their email address
+before borrowing, and staff accounts come from admin invites (Staff desk → Users → Invite staff).
+In development, emails are printed to the Django server's console; in the demo build, open
+`/demo/mailbox`.
 
 **Background jobs** (idempotent; wire to cron/Celery Beat in production):
 

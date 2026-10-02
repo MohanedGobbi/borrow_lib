@@ -1,3 +1,5 @@
+import type { Lang } from "@/i18n/locales";
+
 export type Role = "MEMBER" | "STAFF" | "ADMIN";
 
 export interface Page<T> {
@@ -84,8 +86,37 @@ export interface Profile {
   membershipStartDate: string;
   maxBorrowLimit: number;
   active: boolean;
+  /** UI and email language of the account. */
+  language: Lang;
+  /** False until the member follows the link in the verification email; unverified members cannot borrow. */
+  emailVerified: boolean;
   activeLoans: number;
   hasOverdue: boolean;
+}
+
+/** A pending staff invitation (admins only). */
+export interface StaffInvite {
+  id: number;
+  email: string;
+  role: "STAFF" | "ADMIN";
+  createdAt: string;
+  expiresAt: string;
+  createdBy: string | null;
+}
+
+/** The invite as first returned: `link` is shown once, in case the email bounces. */
+export interface CreatedInvite extends StaffInvite {
+  link: string;
+}
+
+/** A message the demo "sent". Demo builds have no mail server, so these are listed at /demo/mailbox. */
+export interface DemoMail {
+  id: number;
+  to: string;
+  subject: string;
+  body: string;
+  link: string;
+  at: string;
 }
 
 export interface BorrowRecord {

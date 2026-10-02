@@ -6,10 +6,11 @@
  * and persisted to localStorage so the demo survives reloads.
  */
 import { CSRF_HEADER, DEMO_REFRESH_KEY, DEMO_STORAGE_KEY as STORAGE_KEY } from "@/api/client";
+import type { Lang } from "@/i18n/locales";
 import type { BorrowStatus, Role } from "@/types";
 
 const PASSWORD = "password123";
-const STAFF_INVITE_CODE = "LIB-STAFF-2024";
+const LIBRARY = "University Library";
 const H = 60 * 60 * 1000;
 const D = 24 * H;
 const PICKUP_WINDOW = 48 * H;
@@ -25,6 +26,9 @@ interface DBook {
 interface DUser {
   id: number; uuid: string; name: string; email: string; password: string; idNumber: string;
   phone: string; address: string; role: Role; since: number; maxLimit: number; active: boolean;
+  language: Lang; emailVerified: boolean;
+  /** Refresh tokens issued before this moment are dead (set by a password reset). */
+  sessionsRevokedAt?: number;
 }
 interface DRecord {
   id: number; userId: number; bookId: number; requestedAt: number; approvedAt: number | null;
@@ -34,6 +38,12 @@ interface DRecord {
 interface DReservation { id: number; userId: number; bookId: number; reservedAt: number; isActive: boolean }
 interface DActivity { id: number; at: number; actorName: string; action: string; detail: string }
 interface DNotification { id: number; userId: number; at: number; message: string; read: boolean }
+interface DEmailToken { token: string; kind: "reset" | "verify"; userId: number; expiresAt: number; used: boolean }
+interface DInvite {
+  id: number; email: string; role: "STAFF" | "ADMIN"; token: string; createdBy: number;
+  createdAt: number; expiresAt: number; usedAt: number | null; revokedAt: number | null;
+}
+interface DMail { id: number; to: string; subject: string; body: string; link: string; at: number }
 
 interface DemoState {
   seq: number;
@@ -46,6 +56,10 @@ interface DemoState {
   notifications: DNotification[];
   /** Rotated or signed-out refresh tokens, like Django's token blacklist. */
   revokedTokens: string[];
+  emailTokens: DEmailToken[];
+  invites: DInvite[];
+  /** Everything the demo "sent", newest first (the real app emails it). */
+  outbox: DMail[];
 }
 
 // ------------------------------- seed -------------------------------
@@ -76,6 +90,13 @@ const BOOKS: SeedBook[] = [
   ["Meditations", "Marcus Aurelius", "978-0812968255", "Non-Fiction", "Modern Library", 2002, 3, 3, "NON-E-13", "#6E2A2A", "Timeless Stoic wisdom on duty and mortality."],
   ["Project Hail Mary", "Andy Weir", "978-0593135228", "Fiction", "Ballantine", 2021, 4, 0, "FIC-A-20", "#29463F", "A lone astronaut with the fate of humanity on his shoulders."],
 ];
+
+/** Interface language per seeded account; everyone else uses English. */
+const SEED_LANGUAGES: Record<string, Lang> = {
+  "staff@libborrow.dev": "fr", "youssef@example.com": "ar", "amira@example.com": "ar",
+  "lucas@example.com": "fr", "ines@example.com": "fr", "lea@example.com": "fr",
+  "karim@example.com": "ar", "tomas@example.com": "fr",
+};
 
 const USERS: [string, string, string, Role, number][] = [
   ["Eleanor Vance", "admin@libborrow.dev", "STF-0001", "ADMIN", 2700],
@@ -108,6 +129,7 @@ function seed(): DemoState {
   const now = Date.now();
   const s: DemoState = {
     seq: 1000, categories: [], books: [], users: [], records: [], reservations: [], activity: [], notifications: [], revokedTokens: [],
+    emailTokens: [], invites: [], outbox: [],
   };
   CATEGORY_COLORS.forEach(([name, color], i) => s.categories.push({ id: i + 1, name, color }));
   BOOKS.forEach(([title, author, isbn, cat, publisher, year, total, avail, shelf, color, description], i) =>
@@ -121,6 +143,7 @@ function seed(): DemoState {
       id: i + 1, uuid: uuid(), name, email, password: PASSWORD, idNumber,
       phone: `+1 555 010 ${idNumber.slice(-4)}`, address: "", role,
       since: now - sinceDays * D, maxLimit: role === "MEMBER" ? 5 : 10, active: true,
+      language: SEED_LANGUAGES[email] ?? "en", emailVerified: true,
     }));
 
   const u = (email: string) => s.users.find((x) => x.email === email)!.id;
@@ -271,7 +294,8 @@ function sProfile(u: DUser) {
     id: u.id, uuid: u.uuid, name: u.name, email: u.email, studentOrStaffId: u.idNumber,
     phoneNumber: u.phone, address: u.address, role: u.role,
     membershipStartDate: new Date(u.since).toISOString().slice(0, 10),
-    maxBorrowLimit: u.maxLimit, active: u.active, activeLoans: activeLoans(u.id), hasOverdue: hasOverdue(u.id),
+    maxBorrowLimit: u.maxLimit, active: u.active, language: u.language, emailVerified: u.emailVerified,
+    activeLoans: activeLoans(u.id), hasOverdue: hasOverdue(u.id),
   };
 }
 
@@ -745,16 +769,122 @@ const dropRefreshToken = () => {
 };
 function setRefreshToken(userId: number) {
   try {
-    localStorage.setItem(DEMO_REFRESH_KEY, `demo-refresh.${userId}.${Math.random().toString(36).slice(2)}`);
+    localStorage.setItem(DEMO_REFRESH_KEY, `demo-refresh.${userId}.${Date.now()}.${Math.random().toString(36).slice(2)}`);
   } catch { /* storage blocked: the session will not survive a reload */ }
 }
 function refreshTokenUser(token: string): DUser | undefined {
   if (state.revokedTokens.includes(token)) return undefined;
-  const m = /^demo-refresh\.(\d+)\./.exec(token);
-  return m ? userById(Number(m[1])) : undefined;
+  const m = /^demo-refresh\.(\d+)\.(\d+)\./.exec(token);
+  const user = m ? userById(Number(m[1])) : undefined;
+  return user && Number(m![2]) >= (user.sessionsRevokedAt ?? 0) ? user : undefined;
 }
 function requireCsrfHeader(ctx: Ctx) {
   if (!ctx.headers.get(CSRF_HEADER)) throw new HttpError(403, "Missing CSRF header.");
+}
+
+// ------------------------------ email ------------------------------
+// The demo cannot send mail, so messages land in state.outbox and are listed at /demo/mailbox.
+// The wording mirrors backend/library/emails.py.
+
+const MAIL: Record<"reset" | "verify" | "invite", Record<Lang, [string, string]>> = {
+  reset: {
+    en: ["Reset your {library} password",
+      "We received a request to reset the password of your {library} account. Open this link to choose a new one:\n\n{link}\n\nThe link is valid for {validity} and works once. If you did not ask for this, ignore this email: your password stays as it is."],
+    fr: ["Réinitialisez votre mot de passe {library}",
+      "Nous avons reçu une demande de réinitialisation du mot de passe de votre compte {library}. Ouvrez ce lien pour en choisir un nouveau :\n\n{link}\n\nLe lien est valable {validity} et ne fonctionne qu'une fois. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : votre mot de passe reste inchangé."],
+    ar: ["إعادة تعيين كلمة مرور {library}",
+      "تلقينا طلبًا لإعادة تعيين كلمة مرور حسابك في {library}. افتح هذا الرابط لاختيار كلمة مرور جديدة:\n\n{link}\n\nالرابط صالح لمدة {validity} ويعمل مرة واحدة فقط. إذا لم تطلب ذلك، تجاهل هذه الرسالة وستبقى كلمة مرورك كما هي."],
+  },
+  verify: {
+    en: ["Confirm your {library} email address",
+      "Welcome to {library}. Confirm that this address is yours to start borrowing books:\n\n{link}\n\nThe link is valid for {validity}. You can ask for a new one from the notice at the top of the site."],
+    fr: ["Confirmez votre adresse e-mail {library}",
+      "Bienvenue à {library}. Confirmez que cette adresse est bien la vôtre pour pouvoir emprunter des livres :\n\n{link}\n\nLe lien est valable {validity}. Vous pouvez en demander un nouveau depuis l'avis en haut du site."],
+    ar: ["تأكيد عنوان بريدك الإلكتروني في {library}",
+      "مرحبًا بك في {library}. أكّد أن هذا العنوان لك لتتمكن من استعارة الكتب:\n\n{link}\n\nالرابط صالح لمدة {validity}. يمكنك طلب رابط جديد من الإشعار في أعلى الموقع."],
+  },
+  invite: {
+    en: ["You are invited to join {library} as {role}",
+      "You have been invited to create a {role} account at {library}. Open this link to sign up with this email address:\n\n{link}\n\nThe link is valid for {validity} and can be used once."],
+    fr: ["Invitation à rejoindre {library} comme {role}",
+      "Vous êtes invité(e) à créer un compte {role} à {library}. Ouvrez ce lien pour vous inscrire avec cette adresse e-mail :\n\n{link}\n\nLe lien est valable {validity} et ne peut être utilisé qu'une fois."],
+    ar: ["دعوة للانضمام إلى {library} بصفة {role}",
+      "تمت دعوتك لإنشاء حساب {role} في {library}. افتح هذا الرابط للتسجيل بهذا البريد الإلكتروني:\n\n{link}\n\nالرابط صالح لمدة {validity} ويمكن استخدامه مرة واحدة فقط."],
+  },
+};
+const GREETING: Record<Lang, [string, string]> = {
+  en: ["Hello {name},", "Hello,"], fr: ["Bonjour {name},", "Bonjour,"], ar: ["مرحبًا {name}،", "مرحبًا،"],
+};
+const VALIDITY: Record<"hour" | "week", Record<Lang, string>> = {
+  hour: { en: "1 hour", fr: "1 heure", ar: "ساعة واحدة" },
+  week: { en: "7 days", fr: "7 jours", ar: "7 أيام" },
+};
+const ROLE_NAMES: Record<"STAFF" | "ADMIN", Record<Lang, string>> = {
+  STAFF: { en: "staff", fr: "membre du personnel", ar: "موظف" },
+  ADMIN: { en: "admin", fr: "administrateur", ar: "مسؤول" },
+};
+const LINK_LIFETIME = H;
+const INVITE_LIFETIME = 7 * D;
+const BAD_LINK = "This link is invalid or has expired.";
+const UNVERIFIED = "Confirm your email address first: check your inbox for the verification link.";
+const LANGS: Lang[] = ["en", "fr", "ar"];
+
+function sendMail(
+  kind: "reset" | "verify" | "invite", lang: Lang, to: string, name: string | null, path: string,
+  validity: string, role = "",
+) {
+  const link = `${window.location.origin}${path}`;
+  const vars: Record<string, string> = { library: LIBRARY, role, link, validity };
+  const fill = (s: string) => s.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m);
+  const [subject, body] = MAIL[kind][lang];
+  const greeting = name ? GREETING[lang][0].replace("{name}", name) : GREETING[lang][1];
+  state.outbox.unshift({ id: nextId(), to, subject: fill(subject), body: `${greeting}\n\n${fill(body)}\n\n${LIBRARY}`, link, at: Date.now() });
+}
+
+function issueToken(kind: "reset" | "verify", user: DUser): string {
+  const token = uuid().replace(/-/g, "");
+  state.emailTokens.push({ token, kind, userId: user.id, expiresAt: Date.now() + LINK_LIFETIME, used: false });
+  return token;
+}
+
+/** The user a still-valid, unused link belongs to. */
+function userForToken(kind: "reset" | "verify", uid: unknown, token: unknown): DUser | undefined {
+  const user = userById(Number(uid));
+  const found = state.emailTokens.find((t) => t.kind === kind && t.token === token && t.userId === user?.id);
+  return user && found && !found.used && found.expiresAt > Date.now() ? user : undefined;
+}
+
+/** A used link, and every older one of its kind, stops working (the real tokens hash the changed state). */
+function spendTokens(kind: "reset" | "verify", user: DUser) {
+  state.emailTokens.forEach((t) => { if (t.kind === kind && t.userId === user.id) t.used = true; });
+}
+
+/** Queue a reset or verification email whose link carries the user and a fresh token. */
+function sendLinkMail(kind: "reset" | "verify", user: DUser) {
+  const base = kind === "reset" ? "/reset-password" : "/verify-email";
+  sendMail(kind, user.language, user.email, user.name.split(" ")[0],
+    `${base}?uid=${user.id}&token=${issueToken(kind, user)}`, VALIDITY.hour[user.language]);
+}
+
+const pendingInvites = () =>
+  state.invites.filter((i) => i.usedAt == null && i.revokedAt == null && i.expiresAt > Date.now());
+
+function sInvite(i: DInvite) {
+  return {
+    id: i.id, email: i.email, role: i.role, createdAt: iso(i.createdAt), expiresAt: iso(i.expiresAt),
+    createdBy: userById(i.createdBy)?.name ?? null,
+  };
+}
+
+/** Mirrors Django's password validators (length, all-numeric, common, similar to the email). */
+function passwordErrors(pw: string, email: string): string[] {
+  if (pw.length < 8) return ["This password is too short. It must contain at least 8 characters."];
+  if (/^\d+$/.test(pw)) return ["This password is entirely numeric."];
+  if (["password", "password1", "12345678", "qwertyuiop", "iloveyou", "azertyuiop"].includes(pw.toLowerCase())) {
+    return ["This password is too common."];
+  }
+  if (email && pw.toLowerCase().includes(email.split("@")[0])) return ["The password is too similar to the email address."];
+  return [];
 }
 
 const ROUTES: [string, RegExp, Handler][] = [
@@ -794,15 +924,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     const errors: string[] = [];
     if (!d.name?.trim()) errors.push("Name is required.");
     if (!/^\S+@\S+\.\S+$/.test(email)) errors.push("Enter a valid email address.");
-    // Mirrors Django's password validators (length, all-numeric, common, similar to the email).
-    const pw = d.password ?? "";
-    if (pw.length < 8) errors.push("This password is too short. It must contain at least 8 characters.");
-    else if (/^\d+$/.test(pw)) errors.push("This password is entirely numeric.");
-    else if (["password", "password1", "12345678", "qwertyuiop", "iloveyou", "azertyuiop"].includes(pw.toLowerCase())) {
-      errors.push("This password is too common.");
-    } else if (email && pw.toLowerCase().includes(email.split("@")[0])) {
-      errors.push("The password is too similar to the email address.");
-    }
+    errors.push(...passwordErrors(d.password ?? "", email));
     if (!d.studentId?.trim()) errors.push("Student ID is required.");
     if (state.users.some((u) => u.email === email)) errors.push("An account with this email already exists.");
     if (state.users.some((u) => u.idNumber.toLowerCase() === (d.studentId ?? "").toLowerCase())) {
@@ -810,16 +932,23 @@ const ROUTES: [string, RegExp, Handler][] = [
     }
     if (errors.length) throw bad(errors.join(" "));
     let role: Role = "MEMBER";
-    if (d.staffInviteCode) {
-      if (d.staffInviteCode !== STAFF_INVITE_CODE) throw new HttpError(403, "Invalid staff invite code.");
-      role = "STAFF";
+    // An invite fixes the role and the address; a missing, used, revoked, expired or foreign one creates nothing.
+    const token = ctx.body.inviteToken;
+    const invite = token ? pendingInvites().find((i) => i.token === token) : undefined;
+    if (token) {
+      if (!invite || invite.email !== email) throw bad("This invitation is invalid, expired or for another email address.");
+      role = invite.role;
     }
     const u: DUser = {
       id: nextId(), uuid: uuid(), name: d.name!.trim(), email, password: d.password!, idNumber: d.studentId!.trim(),
       phone: d.phoneNumber ?? "", address: d.address ?? "", role, since: Date.now(),
-      maxLimit: role === "STAFF" ? 10 : 5, active: true,
+      maxLimit: role === "MEMBER" ? 5 : 10, active: true,
+      language: LANGS.find((l) => l === ctx.body.language) ?? "en",
+      emailVerified: !!invite, // following the invite link proved the address
     };
     state.users.push(u);
+    if (invite) invite.usedAt = Date.now();
+    else sendLinkMail("verify", u);
     log("System", "REGISTERED", `${u.name} registered as ${role.toLowerCase()}.`);
     return new Reply(201, sProfile(u));
   }],
@@ -828,8 +957,76 @@ const ROUTES: [string, RegExp, Handler][] = [
     const u = requireUser(ctx);
     if (typeof ctx.body.phoneNumber === "string") u.phone = ctx.body.phoneNumber;
     if (typeof ctx.body.address === "string") u.address = ctx.body.address;
+    const language = LANGS.find((l) => l === ctx.body.language);
+    if (language) u.language = language;
     return sProfile(u);
   }],
+  ["POST", /^\/auth\/password-reset$/, (ctx) => {
+    const email = String(ctx.body.email ?? "").trim().toLowerCase();
+    const user = state.users.find((u) => u.email === email && u.active);
+    if (user) sendLinkMail("reset", user);
+    return new Reply(202, null); // the same answer whether or not the account exists
+  }],
+  ["POST", /^\/auth\/password-reset\/confirm$/, (ctx) => {
+    const user = userForToken("reset", ctx.body.uid, ctx.body.token);
+    if (!user || !user.active) throw bad(BAD_LINK);
+    const errors = passwordErrors(String(ctx.body.password ?? ""), user.email);
+    if (errors.length) return new Reply(400, { password: errors });
+    user.password = String(ctx.body.password);
+    spendTokens("reset", user);
+    user.sessionsRevokedAt = Date.now() + 1; // every session ends; the next sign-in starts a new one
+    log(user.name, "PASSWORD_RESET", `${user.name} reset their password.`);
+    return new Reply(204, null);
+  }],
+  ["POST", /^\/auth\/verify-email$/, (ctx) => {
+    const user = userForToken("verify", ctx.body.uid, ctx.body.token);
+    if (!user) throw bad(BAD_LINK);
+    user.emailVerified = true;
+    spendTokens("verify", user);
+    return new Reply(204, null);
+  }],
+  ["POST", /^\/auth\/verify-email\/resend$/, (ctx) => {
+    const u = requireUser(ctx);
+    if (u.emailVerified) throw bad("Your email address is already verified.");
+    sendLinkMail("verify", u);
+    return new Reply(202, null);
+  }],
+  // ------------------------------ staff invites ------------------------------
+  ["GET", /^\/invites$/, (ctx) => {
+    requireAdmin(ctx);
+    return pendingInvites().sort((a, b) => b.createdAt - a.createdAt).map(sInvite);
+  }],
+  ["POST", /^\/invites$/, (ctx) => {
+    const admin = requireAdmin(ctx);
+    const email = String(ctx.body.email ?? "").trim().toLowerCase();
+    const role = ctx.body.role;
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw bad("Enter a valid email address.");
+    if (role !== "STAFF" && role !== "ADMIN") throw bad(`"${String(role ?? "")}" is not a valid choice.`);
+    if (state.users.some((u) => u.email === email)) throw bad("An account with this email already exists.");
+    const now = Date.now();
+    const invite: DInvite = {
+      id: nextId(), email, role, token: (uuid() + uuid()).replace(/-/g, ""),
+      createdBy: admin.id, createdAt: now, expiresAt: now + INVITE_LIFETIME, usedAt: null, revokedAt: null,
+    };
+    state.invites.push(invite);
+    const path = `/signup?invite=${invite.token}`;
+    sendMail("invite", admin.language, email, null, path, VALIDITY.week[admin.language], ROLE_NAMES[role][admin.language]);
+    log(admin.name, "INVITE_SENT", `Invited ${email} as ${role.toLowerCase()}.`);
+    return new Reply(201, { ...sInvite(invite), link: `${window.location.origin}${path}` });
+  }],
+  ["GET", /^\/invites\/lookup$/, (ctx) => {
+    const invite = pendingInvites().find((i) => i.token === ctx.query.get("token"));
+    if (!invite) throw notFound();
+    return { email: invite.email, role: invite.role };
+  }],
+  ["DELETE", /^\/invites\/(\d+)$/, (ctx, [id]) => {
+    requireAdmin(ctx);
+    const invite = state.invites.find((i) => i.id === Number(id));
+    if (!invite) throw notFound();
+    invite.revokedAt ??= Date.now();
+    return new Reply(204, null);
+  }],
+  ["GET", /^\/demo\/mailbox$/, () => state.outbox.map((m) => ({ ...m, at: iso(m.at) }))],
   ["GET", /^\/users\/me\/id-card$/, (ctx) => {
     const u = requireUser(ctx);
     return textPdf("University Library - Library card", [
@@ -977,6 +1174,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     if (u.role !== "MEMBER") throw new HttpError(403, "Only member accounts can request books.");
     const book = findBook(ctx.body.bookId);
     if (!u.active) throw bad("Your account is deactivated.");
+    if (!u.emailVerified) throw bad(UNVERIFIED);
     if (hasOverdue(u.id)) throw bad("You have an overdue loan. Resolve it before requesting new books.");
     if (activeLoans(u.id) >= u.maxLimit) throw bad(`Borrow limit reached (${u.maxLimit}). Return a book first.`);
     if (freeCopies(book) <= 0) throw bad("No copies available — join the reservation queue instead.");
@@ -1024,6 +1222,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     if (u.role !== "MEMBER") throw new HttpError(403, "Only member accounts can reserve books.");
     const book = findBook(ctx.body.bookId);
     if (!u.active) throw bad("Your account is deactivated.");
+    if (!u.emailVerified) throw bad(UNVERIFIED);
     if (freeCopies(book) > 0) throw bad("Copies are available — submit a borrow request instead.");
     if (queueFor(book.id).some((r) => r.userId === u.id)) throw bad("You are already in the reservation queue for this book.");
     const r: DReservation = { id: nextId(), userId: u.id, bookId: book.id, reservedAt: Date.now(), isActive: true };

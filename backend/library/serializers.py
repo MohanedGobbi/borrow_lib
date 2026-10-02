@@ -2,7 +2,20 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import ActivityLog, Book, BorrowRecord, Category, Notification, Reservation, Status, UserProfile
+from .models import (
+    ActivityLog,
+    Book,
+    BorrowRecord,
+    Category,
+    Language,
+    Notification,
+    Reservation,
+    Role,
+    StaffInvite,
+    Status,
+    UserProfile,
+    display_name,
+)
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -51,13 +64,17 @@ class ProfileSerializer(serializers.ModelSerializer):
     phoneNumber = serializers.CharField(source="phone_number")
     membershipStartDate = serializers.DateField(source="membership_start_date", read_only=True)
     maxBorrowLimit = serializers.IntegerField(source="max_borrow_limit", read_only=True)
+    emailVerified = serializers.BooleanField(source="email_verified", read_only=True)
     activeLoans = serializers.SerializerMethodField()
     hasOverdue = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
         fields = ["id", "uuid", "name", "email", "studentOrStaffId", "phoneNumber", "address",
-                  "role", "membershipStartDate", "maxBorrowLimit", "active", "activeLoans", "hasOverdue"]
+                  "role", "membershipStartDate", "maxBorrowLimit", "active", "language", "emailVerified",
+                  "activeLoans", "hasOverdue"]
+        # PATCH /users/me must not let anyone promote or reactivate themselves.
+        read_only_fields = ["role", "active"]
 
     def get_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
@@ -149,7 +166,8 @@ class RegisterSerializer(serializers.Serializer):
     studentId = serializers.CharField(max_length=30)
     phoneNumber = serializers.CharField(max_length=40, required=False, allow_blank=True, default="")
     address = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
-    staffInviteCode = serializers.CharField(required=False, allow_blank=True, default="", write_only=True)
+    language = serializers.ChoiceField(choices=Language.choices, required=False, default=Language.EN)
+    inviteToken = serializers.CharField(required=False, allow_blank=True, default="", write_only=True)
 
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
@@ -167,3 +185,18 @@ class RegisterSerializer(serializers.Serializer):
         if UserProfile.objects.filter(student_or_staff_id__iexact=value).exists():
             raise serializers.ValidationError("This ID is already registered.")
         return value
+
+
+class StaffInviteSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()
+    role = serializers.ChoiceField(choices=[Role.STAFF, Role.ADMIN])
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    expiresAt = serializers.DateTimeField(source="expires_at", read_only=True)
+    createdBy = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StaffInvite
+        fields = ["id", "email", "role", "createdAt", "expiresAt", "createdBy"]
+
+    def get_createdBy(self, obj):
+        return display_name(obj.created_by) if obj.created_by else None

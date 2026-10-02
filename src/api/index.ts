@@ -1,4 +1,5 @@
 import { api, authFetch, API_ROOT } from "@/api/client";
+import type { Lang } from "@/i18n/locales";
 import type {
   ActivityEntry,
   Analytics,
@@ -12,7 +13,10 @@ import type {
   Page,
   Profile,
   Reservation,
+  CreatedInvite,
+  DemoMail,
   ScanResult,
+  StaffInvite,
   UserDetail,
 } from "@/types";
 
@@ -72,9 +76,18 @@ export const apiCategories = {
 export const apiAuth = {
   register: (payload: {
     name: string; email: string; password: string; studentId: string;
-    phoneNumber?: string; address?: string; staffInviteCode?: string;
+    phoneNumber?: string; address?: string; language?: Lang; inviteToken?: string;
   }) => api<Profile>("/auth/register", { method: "POST", body: payload, auth: false }),
   me: () => api<Profile>("/users/me"),
+  /** Fire-and-forget from the language switcher; the server uses it for emails. */
+  setLanguage: (language: Lang) => api<Profile>("/users/me", { method: "PATCH", body: { language } }),
+  requestPasswordReset: (email: string) =>
+    api<void>("/auth/password-reset", { method: "POST", body: { email }, auth: false }),
+  resetPassword: (payload: { uid: string; token: string; password: string }) =>
+    api<void>("/auth/password-reset/confirm", { method: "POST", body: payload, auth: false }),
+  verifyEmail: (payload: { uid: string; token: string }) =>
+    api<void>("/auth/verify-email", { method: "POST", body: payload, auth: false }),
+  resendVerification: () => api<void>("/auth/verify-email/resend", { method: "POST" }),
   idCardUrl: `${API_ROOT}/users/me/id-card`,
   scan: (uuid: string) => api<ScanResult>(`/users/${uuid}/scan`),
 };
@@ -94,6 +107,22 @@ export const apiRecords = {
   confirmPickup: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/confirm-pickup`, { method: "POST" }),
   confirmReturn: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/confirm-return`, { method: "POST" }),
   documentUrl: (id: number) => `${API_ROOT}/borrow-records/${id}/document`,
+};
+
+export const apiInvites = {
+  /** Pending invites (admins only). */
+  list: () => api<StaffInvite[]>("/invites"),
+  create: (payload: { email: string; role: "STAFF" | "ADMIN" }) =>
+    api<CreatedInvite>("/invites", { method: "POST", body: payload }),
+  revoke: (id: number) => api<void>(`/invites/${id}`, { method: "DELETE" }),
+  /** Public: which address and role a signup link is for. 404 when it is used, revoked or expired. */
+  lookup: (token: string) =>
+    api<{ email: string; role: "STAFF" | "ADMIN" }>(`/invites/lookup${query({ token })}`, { auth: false }),
+};
+
+/** Demo builds only: the messages the in-browser "server" has sent. */
+export const apiDemo = {
+  mailbox: () => api<DemoMail[]>("/demo/mailbox", { auth: false }),
 };
 
 export const apiUsers = {

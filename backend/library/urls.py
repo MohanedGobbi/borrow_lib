@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import auth_views, views
+from . import account_views, auth_views, views
 
 urlpatterns = [
     # auth
@@ -8,6 +8,14 @@ urlpatterns = [
     path("auth/login", auth_views.LoginView.as_view()),
     path("auth/refresh", auth_views.RefreshView.as_view()),
     path("auth/logout", auth_views.LogoutView.as_view()),
+    path("auth/password-reset", account_views.PasswordResetView.as_view()),
+    path("auth/password-reset/confirm", account_views.PasswordResetConfirmView.as_view()),
+    path("auth/verify-email", account_views.VerifyEmailView.as_view()),
+    path("auth/verify-email/resend", account_views.ResendVerificationView.as_view()),
+    # staff invites
+    path("invites", account_views.InviteListCreateView.as_view()),
+    path("invites/lookup", account_views.InviteLookupView.as_view()),
+    path("invites/<int:pk>", account_views.InviteDetailView.as_view()),
     path("users/me", views.MeView.as_view()),
     path("users/me/id-card", views.MyIdCardView.as_view()),
     path("users/<uuid:uuid>/scan", views.ScanLookupView.as_view()),

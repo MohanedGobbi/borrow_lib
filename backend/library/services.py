@@ -38,6 +38,9 @@ TRANSITIONS = {
 }
 
 
+UNVERIFIED_MESSAGE = "Confirm your email address first: check your inbox for the verification link."
+
+
 class StateMachineError(Exception):
     """Invalid transition — maps to HTTP 409."""
 
@@ -100,6 +103,8 @@ def create_request(user: User, book: Book) -> BorrowRecord:
     """Member creates a PENDING request. Stock is NOT touched."""
     if not user.profile.active:
         raise BusinessRuleError("Your account is deactivated.")
+    if not user.profile.email_verified:
+        raise BusinessRuleError(UNVERIFIED_MESSAGE)
     if has_overdue(user):
         raise BusinessRuleError("You have an overdue loan. Resolve it before requesting new books.")
     if active_loan_count(user) >= user.profile.max_borrow_limit:
@@ -185,6 +190,8 @@ def create_reservation(user: User, book: Book) -> Reservation:
     """Member joins the FIFO queue for a book with no free copy."""
     if not user.profile.active:
         raise BusinessRuleError("Your account is deactivated.")
+    if not user.profile.email_verified:
+        raise BusinessRuleError(UNVERIFIED_MESSAGE)
     if free_copies(book) > 0:
         raise BusinessRuleError("Copies are available — submit a borrow request instead.")
     if queue_for_book(book).filter(user=user).exists():

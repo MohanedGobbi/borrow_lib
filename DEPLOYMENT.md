@@ -13,7 +13,6 @@
    |---|---|---|
    | `DJANGO_SECRET_KEY` | random value, 50+ characters | **required in production** |
    | `DJANGO_ALLOWED_HOSTS` | comma-separated API host names (no `*`) | **required in production** |
-   | `STAFF_INVITE_CODE` | staff self-registration gate | **required in production** (`LIB-STAFF-2024` in debug) |
    | `DJANGO_DEBUG` | `1` for local development only | `0` (`1` via `manage.py`) |
    | `DB_ENGINE` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` | point at PostgreSQL | SQLite file |
    | `CORS_ALLOWED_ORIGINS` | frontend origin(s); only needed when the API is on a different subdomain (see "Same-site requirement") | `http://localhost:3000` in debug, none in production |
@@ -21,8 +20,10 @@
    | `AUTH_COOKIE_DOMAIN` | parent domain for the refresh cookie (e.g. `library.example.edu`); only for the subdomain setup | host-only cookie |
    | `DJANGO_NUM_PROXIES` | number of reverse proxies in front of Django, so login/register rate limits key on the real client IP (`X-Forwarded-For`) | `0` |
    | `CSRF_TRUSTED_ORIGINS` | origins allowed to post to the Django admin | none |
-   | `FRONTEND_URL` | base URL embedded in ID-card QR codes | `http://localhost:3000` |
-   | `LIBRARY_NAME` | printed on ID cards | University Library |
+   | `FRONTEND_URL` | base URL embedded in ID-card QR codes and in the links of password-reset, verification and invite emails | `http://localhost:3000` |
+   | `LIBRARY_NAME` | printed on ID cards and in emails | University Library |
+   | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP server for password-reset, verification and invite emails (outside debug mode; debug prints them to the console) | none / `587` / none / none / `1` |
+   | `DEFAULT_FROM_EMAIL` | sender of those emails | `LibBorrow <no-reply@localhost>` |
    | `DJANGO_SSL_REDIRECT` | redirect HTTP → HTTPS | `1` |
    | `DJANGO_HSTS_SECONDS` | HSTS max-age; raise to `31536000` once HTTPS is confirmed | `3600` |
 
@@ -54,16 +55,24 @@
    `/api/auth`, rotated on every use and blacklisted when rotated or on sign-out (the
    `token_blacklist` tables come with `migrate`). Rotated tokens pile up in the database;
    prune expired ones now and then with `python backend/manage.py flushexpiredtokens`.
-   Sign-in is limited to 10/min per client, registration to 5/hour (it also guards the staff
-   invite code) and refresh to 30/min. Throttle counters use Django's default cache (per
+   Sign-in is limited to 10/min per client, registration and password-reset or verification
+   emails to 5/hour each, and refresh to 30/min. Throttle counters use Django's default cache (per
    process); configure a shared cache such as Redis if you run several workers and want exact
    limits. Set `DJANGO_NUM_PROXIES` to the number of proxies in front of Django, otherwise
    every client shares the proxy's address.
 
-4. **Serve** — `gunicorn config.wsgi -b 0.0.0.0:8000` (from `backend/`), behind
+4. **Email and staff accounts.** Members must confirm their email address before they can
+   borrow, and anyone can reset a forgotten password; both send an email, so configure SMTP
+   (`EMAIL_*` above) before launch. Password-reset and verification links are valid for one hour.
+   There is no shared staff code: the first admin comes from `createsuperuser`, and admins invite
+   staff or other admins from Staff desk → Users → Invite staff. An invite is an emailed,
+   single-use link bound to one address and valid for 7 days; the admin also sees the link once,
+   in case the email bounces.
+
+5. **Serve** — `gunicorn config.wsgi -b 0.0.0.0:8000` (from `backend/`), behind
    nginx/Cloudflare/etc. terminating TLS.
 
-5. **Schedule the background jobs** (idempotent, so overlap is safe):
+6. **Schedule the background jobs** (idempotent, so overlap is safe):
 
    ```cron
    # the crontab needs the same environment variables (DJANGO_DEBUG=0 etc.)

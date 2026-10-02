@@ -1,8 +1,11 @@
+import hashlib
 import uuid
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 
 
 class Category(models.Model):
@@ -22,6 +25,12 @@ class Role(models.TextChoices):
     MEMBER = "MEMBER"
     STAFF = "STAFF"
     ADMIN = "ADMIN"
+
+
+class Language(models.TextChoices):
+    EN = "en", "English"
+    FR = "fr", "Français"
+    AR = "ar", "العربية"
 
 
 class Status(models.TextChoices):
@@ -62,9 +71,46 @@ class UserProfile(models.Model):
     membership_start_date = models.DateField(auto_now_add=True)
     max_borrow_limit = models.PositiveIntegerField(default=5)
     active = models.BooleanField(default=True)
+    language = models.CharField(max_length=2, choices=Language.choices, default=Language.EN)
+    # True by default so existing accounts stay verified; self-registration sets it to False.
+    email_verified = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.role})"
+
+
+INVITE_LIFETIME = timedelta(days=7)
+
+
+def invite_expiry():
+    return timezone.now() + INVITE_LIFETIME
+
+
+class StaffInvite(models.Model):
+    """An admin-issued, single-use, expiring link that creates a staff or admin account."""
+    email = models.EmailField()
+    role = models.CharField(max_length=10, choices=[(Role.STAFF, "Staff"), (Role.ADMIN, "Admin")])
+    token_hash = models.CharField(max_length=64, unique=True)  # sha256 hex; the token itself is never stored
+    created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=invite_expiry)
+    used_at = models.DateTimeField(null=True, blank=True)
+    used_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @staticmethod
+    def hash_token(token: str) -> str:
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    @property
+    def is_pending(self) -> bool:
+        return self.used_at is None and self.revoked_at is None and self.expires_at > timezone.now()
+
+    def __str__(self):
+        return f"{self.email} ({self.role})"
 
 
 class BorrowRecord(models.Model):

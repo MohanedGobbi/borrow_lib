@@ -23,6 +23,13 @@ from library.models import (
 
 PASSWORD = "password123"
 
+# Interface language per account; everyone else uses English. Every seeded account is verified.
+LANGUAGES = {
+    "staff@libborrow.dev": "fr", "youssef@example.com": "ar", "amira@example.com": "ar",
+    "lucas@example.com": "fr", "ines@example.com": "fr", "lea@example.com": "fr",
+    "karim@example.com": "ar", "tomas@example.com": "fr",
+}
+
 CATEGORY_COLORS = {
     "Fiction": "#1F6E43",
     "Non-Fiction": "#8A5A2B",
@@ -107,6 +114,7 @@ class Command(BaseCommand):
             profile = UserProfile.objects.create(
                 user=user, student_or_staff_id=idnum, role=role,
                 phone_number=f"+1 555 010 {idnum[-4:]}", max_borrow_limit=10 if role != Role.MEMBER else 5,
+                language=LANGUAGES.get(email, "en"), email_verified=True,
             )
             UserProfile.objects.filter(pk=profile.pk).update(membership_start_date=(now - since_days * D).date())
             users[email] = user

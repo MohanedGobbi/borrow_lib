@@ -1,10 +1,14 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router";
 import { Toaster } from "sonner";
 import { Layout } from "@/components/Layout";
-import { RequireAuth, RequireStaff } from "@/auth/guards";
+import { FullPageLoader, RequireAuth, RequireStaff } from "@/auth/guards";
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import CatalogPage from "@/pages/CatalogPage";
 import BookDetailPage from "@/pages/BookDetailPage";
 import CartPage from "@/pages/CartPage";
@@ -24,6 +28,10 @@ import UserDetailPage from "@/pages/staff/UserDetailPage";
 import AnalyticsPage from "@/pages/staff/AnalyticsPage";
 import ActivityPage from "@/pages/staff/ActivityPage";
 
+// Demo builds only: the in-browser "mail server" has no real inbox, so its messages are listed on a page.
+// The literal check lets the bundler drop the import (and the page) from real builds.
+const DemoMailbox = import.meta.env.VITE_DEMO === "true" ? lazy(() => import("@/pages/demo/MailboxPage")) : null;
+
 export default function App() {
   return (
     <>
@@ -33,6 +41,12 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          {DemoMailbox && (
+            <Route path="/demo/mailbox" element={<Suspense fallback={<FullPageLoader />}><DemoMailbox /></Suspense>} />
+          )}
           <Route path="/catalog" element={<CatalogPage />} />
           <Route path="/books/:id" element={<BookDetailPage />} />
           <Route path="/cart" element={<RequireAuth><CartPage /></RequireAuth>} />
