@@ -44,6 +44,8 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ["id", "uuid", "name", "email", "studentOrStaffId", "phoneNumber", "address",
                   "role", "membershipStartDate", "maxBorrowLimit", "active", "activeLoans", "hasOverdue"]
+        # PATCH /users/me must not let anyone promote or reactivate themselves.
+        read_only_fields = ["role", "active"]
 
     def get_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
