@@ -5,28 +5,34 @@ import { Layout } from "@/components/Layout";
 import { FullPageLoader, RequireAuth, RequireStaff } from "@/auth/guards";
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
-import SignupPage from "@/pages/SignupPage";
-import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
-import ResetPasswordPage from "@/pages/ResetPasswordPage";
-import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import CatalogPage from "@/pages/CatalogPage";
-import BookDetailPage from "@/pages/BookDetailPage";
-import CartPage from "@/pages/CartPage";
-import MyRequestsPage from "@/pages/MyRequestsPage";
-import ProfilePage from "@/pages/ProfilePage";
-import ScanLookupPage from "@/pages/ScanLookupPage";
-import StaffLayout from "@/pages/staff/StaffLayout";
-import OverviewPage from "@/pages/staff/OverviewPage";
-import ApprovalsPage from "@/pages/staff/ApprovalsPage";
-import PickupsPage from "@/pages/staff/PickupsPage";
-import LoansPage from "@/pages/staff/LoansPage";
-import InventoryPage from "@/pages/staff/InventoryPage";
-import ImportBooksPage from "@/pages/staff/ImportBooksPage";
-import ReservationsPage from "@/pages/staff/ReservationsPage";
-import UsersPage from "@/pages/staff/UsersPage";
-import UserDetailPage from "@/pages/staff/UserDetailPage";
-import AnalyticsPage from "@/pages/staff/AnalyticsPage";
-import ActivityPage from "@/pages/staff/ActivityPage";
+
+// Lazy-loaded account pages
+const SignupPage = lazy(() => import("@/pages/SignupPage"));
+const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
+const VerifyEmailPage = lazy(() => import("@/pages/VerifyEmailPage"));
+
+// Lazy-loaded student pages
+const BookDetailPage = lazy(() => import("@/pages/BookDetailPage"));
+const CartPage = lazy(() => import("@/pages/CartPage"));
+const MyRequestsPage = lazy(() => import("@/pages/MyRequestsPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const ScanLookupPage = lazy(() => import("@/pages/ScanLookupPage"));
+
+// Lazy-loaded staff pages
+const StaffLayout = lazy(() => import("@/pages/staff/StaffLayout"));
+const OverviewPage = lazy(() => import("@/pages/staff/OverviewPage"));
+const ApprovalsPage = lazy(() => import("@/pages/staff/ApprovalsPage"));
+const PickupsPage = lazy(() => import("@/pages/staff/PickupsPage"));
+const LoansPage = lazy(() => import("@/pages/staff/LoansPage"));
+const InventoryPage = lazy(() => import("@/pages/staff/InventoryPage"));
+const ImportBooksPage = lazy(() => import("@/pages/staff/ImportBooksPage"));
+const ReservationsPage = lazy(() => import("@/pages/staff/ReservationsPage"));
+const UsersPage = lazy(() => import("@/pages/staff/UsersPage"));
+const UserDetailPage = lazy(() => import("@/pages/staff/UserDetailPage"));
+const AnalyticsPage = lazy(() => import("@/pages/staff/AnalyticsPage"));
+const ActivityPage = lazy(() => import("@/pages/staff/ActivityPage"));
 
 // Demo builds only: the in-browser "mail server" has no real inbox, so its messages are listed on a page.
 // The literal check lets the bundler drop the import (and the page) from real builds.
@@ -40,32 +46,32 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/signup" element={<Suspense fallback={<FullPageLoader />}><SignupPage /></Suspense>} />
+          <Route path="/forgot-password" element={<Suspense fallback={<FullPageLoader />}><ForgotPasswordPage /></Suspense>} />
+          <Route path="/reset-password" element={<Suspense fallback={<FullPageLoader />}><ResetPasswordPage /></Suspense>} />
+          <Route path="/verify-email" element={<Suspense fallback={<FullPageLoader />}><VerifyEmailPage /></Suspense>} />
           {DemoMailbox && (
             <Route path="/demo/mailbox" element={<Suspense fallback={<FullPageLoader />}><DemoMailbox /></Suspense>} />
           )}
           <Route path="/catalog" element={<CatalogPage />} />
-          <Route path="/books/:id" element={<BookDetailPage />} />
-          <Route path="/cart" element={<RequireAuth><CartPage /></RequireAuth>} />
-          <Route path="/my-requests" element={<RequireAuth><MyRequestsPage /></RequireAuth>} />
-          <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-          <Route path="/scan/:uuid" element={<RequireStaff><ScanLookupPage /></RequireStaff>} />
+          <Route path="/books/:id" element={<Suspense fallback={<FullPageLoader />}><BookDetailPage /></Suspense>} />
+          <Route path="/cart" element={<RequireAuth><Suspense fallback={<FullPageLoader />}><CartPage /></Suspense></RequireAuth>} />
+          <Route path="/my-requests" element={<RequireAuth><Suspense fallback={<FullPageLoader />}><MyRequestsPage /></Suspense></RequireAuth>} />
+          <Route path="/profile" element={<RequireAuth><Suspense fallback={<FullPageLoader />}><ProfilePage /></Suspense></RequireAuth>} />
+          <Route path="/scan/:uuid" element={<RequireStaff><Suspense fallback={<FullPageLoader />}><ScanLookupPage /></Suspense></RequireStaff>} />
           <Route path="/dashboard" element={<Navigate to="/staff" replace />} />
-          <Route path="/staff" element={<RequireStaff><StaffLayout /></RequireStaff>}>
-            <Route index element={<OverviewPage />} />
-            <Route path="approvals" element={<ApprovalsPage />} />
-            <Route path="pickups" element={<PickupsPage />} />
-            <Route path="loans" element={<LoansPage />} />
-            <Route path="inventory" element={<InventoryPage />} />
-            <Route path="inventory/import" element={<ImportBooksPage />} />
-            <Route path="reservations" element={<ReservationsPage />} />
-            <Route path="users" element={<UsersPage />} />
-            <Route path="users/:id" element={<UserDetailPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="activity" element={<ActivityPage />} />
+          <Route path="/staff" element={<RequireStaff><Suspense fallback={<FullPageLoader />}><StaffLayout /></Suspense></RequireStaff>}>
+            <Route index element={<Suspense fallback={<FullPageLoader />}><OverviewPage /></Suspense>} />
+            <Route path="approvals" element={<Suspense fallback={<FullPageLoader />}><ApprovalsPage /></Suspense>} />
+            <Route path="pickups" element={<Suspense fallback={<FullPageLoader />}><PickupsPage /></Suspense>} />
+            <Route path="loans" element={<Suspense fallback={<FullPageLoader />}><LoansPage /></Suspense>} />
+            <Route path="inventory" element={<Suspense fallback={<FullPageLoader />}><InventoryPage /></Suspense>} />
+            <Route path="inventory/import" element={<Suspense fallback={<FullPageLoader />}><ImportBooksPage /></Suspense>} />
+            <Route path="reservations" element={<Suspense fallback={<FullPageLoader />}><ReservationsPage /></Suspense>} />
+            <Route path="users" element={<Suspense fallback={<FullPageLoader />}><UsersPage /></Suspense>} />
+            <Route path="users/:id" element={<Suspense fallback={<FullPageLoader />}><UserDetailPage /></Suspense>} />
+            <Route path="analytics" element={<Suspense fallback={<FullPageLoader />}><AnalyticsPage /></Suspense>} />
+            <Route path="activity" element={<Suspense fallback={<FullPageLoader />}><ActivityPage /></Suspense>} />
           </Route>
           <Route path="*" element={<LandingPage />} />
         </Route>

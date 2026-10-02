@@ -43,11 +43,11 @@ Never switch models mid-WP: the prompt cache is per model.
 
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
-| 10 | Dead code: unused `src/components/ui/*`, unused Radix deps, `kimi-plugin-inspect-react`, `template-info.md`, package name `my-app` | Haiku | |
-| 11 | Route-level code splitting (`React.lazy`) for staff pages, charts, import; target < 250 KB gz for the student entry | Haiku | |
-| 12 | Replace `useApi` with TanStack Query: 2 pages to set the pattern (high), the rest (low) | Sonnet | |
-| 13 | Playwright E2E: request → approve → pickup → return, overdue block, queue handoff, Arabic RTL; axe checks | Sonnet · medium | |
-| 14 | Contract tests run against both Django and `demo.ts` | Opus designs, Sonnet builds | |
+| 10 | Dead code: unused `src/components/ui/*`, unused Radix deps, `kimi-plugin-inspect-react`, `template-info.md`, package name `my-app` ([spec](WP-10-11.md)) | Haiku | done: 38 components, 26 packages removed |
+| 11 | Route-level code splitting (`React.lazy`) for staff pages, charts, import; target < 250 KB gz for the student entry | Haiku | done: eager JS ≈ 188 KB gz (was ≈ 322); entry is now Radix + i18n dictionaries; lazy-loading FR/AR dictionaries is a possible later win |
+| 12 | Replace `useApi` with TanStack Query: 2 pages to set the pattern (high), the rest (low). Runs **after** WP-13 so the E2E suite guards it | Sonnet | |
+| 13 | Playwright E2E against both the demo and Django ([spec](WP-13.md)); axe checks | Sonnet · high | |
+| 14 | Contract tests run against both Django and `demo.ts` | merged into WP-13: the same E2E suite runs on both backends | |
 
 ## Sprint 4: Operations
 
