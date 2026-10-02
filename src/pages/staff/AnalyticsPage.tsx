@@ -2,8 +2,9 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
 import { apiMisc } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { PageHeader, Panel } from "@/components/Page";
 import { FullPageLoader } from "@/auth/guards";
@@ -27,9 +28,9 @@ const tooltip = {
 
 export default function AnalyticsPage() {
   const { t } = useI18n();
-  const { data, loading } = useApi(() => apiMisc.analytics(), [], 60_000);
+  const { data } = useQuery({ queryKey: qk.analytics, queryFn: apiMisc.analytics, refetchInterval: 60_000 });
 
-  if (loading || !data) return <FullPageLoader />;
+  if (!data) return <FullPageLoader />;
 
   const statusData = Object.entries(data.statusDistribution).map(([status, n]) => ({
     status, label: t(`status.${status}`), count: n, fill: STATUS_COLORS[status] ?? MUTED,

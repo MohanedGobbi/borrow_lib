@@ -3,8 +3,9 @@ import { Link, useNavigate } from "react-router";
 import { ArrowRight, Search } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
-import { useApi } from "@/hooks/useApi";
+import { useQuery } from "@tanstack/react-query";
 import { apiBooks } from "@/api";
+import { qk } from "@/api/queryKeys";
 import { BookCover } from "@/components/BookCover";
 import { Button } from "@/components/ui/button";
 
@@ -13,7 +14,8 @@ export default function LandingPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const { data: shelf } = useApi(() => apiBooks.list({ available: true, pageSize: 6 }), []);
+  const shelfParams = { available: true, pageSize: 6 };
+  const { data: shelf } = useQuery({ queryKey: qk.books.list(shelfParams), queryFn: () => apiBooks.list(shelfParams) });
   const onShelf = shelf?.results ?? [];
 
   const search = (e: FormEvent) => {

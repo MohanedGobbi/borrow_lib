@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import { Inbox, Mail } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { apiDemo } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { fmtDateTime } from "@/lib/time";
@@ -13,15 +14,18 @@ import { FullPageLoader } from "@/auth/guards";
 /** Demo builds only: the demo has no mail server, so the emails the app would send are listed here. */
 export default function MailboxPage() {
   const { t } = useI18n();
-  const { data: mails, error, loading, refetch } = useApi(() => apiDemo.mailbox(), [], 5_000);
+  // A live inbox: always show what is there now, then keep polling.
+  const { data: mails, error, isPending, refetch } = useQuery({
+    queryKey: qk.mailbox, queryFn: apiDemo.mailbox, staleTime: 0, refetchInterval: 5_000,
+  });
 
-  if (loading && !mails) return <FullPageLoader />;
+  if (isPending) return <FullPageLoader />;
 
   return (
     <Container className="max-w-4xl">
       <PageHeader title={t("mailbox.title")} description={t("mailbox.sub")} />
       <div className="mt-6 space-y-4">
-        {error && !mails && <ErrorState message={errorMessage(t, error)} onRetry={refetch} />}
+        {error && !mails && <ErrorState message={errorMessage(t, error)} onRetry={() => refetch()} />}
         {mails && mails.length === 0 && (
           <Panel><EmptyState icon={Inbox} title={t("mailbox.empty")} /></Panel>
         )}

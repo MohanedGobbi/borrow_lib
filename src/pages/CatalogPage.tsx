@@ -1,7 +1,8 @@
 import { Link, useSearchParams } from "react-router";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { SearchX, Search } from "lucide-react";
 import { apiBooks, apiCategories } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { qk } from "@/api/queryKeys";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { BookCover } from "@/components/BookCover";
@@ -29,14 +30,14 @@ export default function CatalogPage() {
   const pageSize = Number(params.get("pageSize")) || undefined;
   const debouncedSearch = useDebounced(search.trim(), 300);
 
-  const { data: categories } = useApi(() => apiCategories.list(), []);
-  const { data: result, loading, error, refetch } = useApi(
-    () => fetchPage(
-      (p) => apiBooks.list({ search: debouncedSearch, category, available: availableOnly, page: p, pageSize }),
-      page,
-    ),
-    [debouncedSearch, category, availableOnly, page, pageSize],
-  );
+  const { data: categories } = useQuery({ queryKey: qk.categories.all, queryFn: apiCategories.list });
+  // The debounced search is part of the key; the previous page stays on screen while the next one loads.
+  const listParams = { search: debouncedSearch, category, available: availableOnly, page, pageSize };
+  const { data: result, isPending, isError, refetch } = useQuery({
+    queryKey: qk.books.list(listParams),
+    queryFn: () => fetchPage((p) => apiBooks.list({ ...listParams, page: p }), page),
+    placeholderData: keepPreviousData,
+  });
 
   // A filter change is not a page change: go back to page 1.
   const setParam = (key: string, value: string) => {
@@ -123,10 +124,10 @@ export default function CatalogPage() {
 
         {/* results */}
         <div className="min-w-0">
-          {loading && !result && <FullPageLoader />}
-          {error && !loading && <ErrorState message={t("catalog.loadError")} onRetry={refetch} />}
+          {isPending && <FullPageLoader />}
+          {isError && <ErrorState message={t("catalog.loadError")} onRetry={() => refetch()} />}
 
-          {result && !error && result.results.length === 0 && (
+          {result && !isError && result.results.length === 0 && (
             <div className="rounded-md border">
               <EmptyState icon={SearchX} title={t("catalog.noMatch")}>
                 {hasFilters && (
@@ -164,7 +165,7 @@ export default function CatalogPage() {
                     </p>
                   </div>
                   <div className="col-start-2 sm:col-start-3 sm:self-center">
-                    <BookActions book={b} onChanged={refetch} className="w-full sm:w-44" />
+                    <BookActions book={b} className="w-full sm:w-44" />
                   </div>
                 </li>
               ))}

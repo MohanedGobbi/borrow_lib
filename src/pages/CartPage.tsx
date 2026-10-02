@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { ClipboardList, X } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiBooks } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useCart } from "@/cart/CartContext";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
@@ -17,23 +18,30 @@ import { FullPageLoader } from "@/auth/guards";
 export default function CartPage() {
   const { t } = useI18n();
   const cart = useCart();
-  const [busy, setBusy] = useState(false);
-  const { data: books, loading, refetch } = useApi(
-    () => (cart.bookIds.length ? apiBooks.list({ ids: cart.bookIds, pageSize: 100 }) : Promise.resolve(null)),
-    [],
-  );
+  const qc = useQueryClient();
+  // The books are looked up once for the list as it was when the page opened; removing one just hides it.
+  const [listed] = useState(cart.bookIds);
+  const listParams = { ids: listed, pageSize: 100 };
+  const { data: books, isPending } = useQuery({
+    queryKey: qk.books.list(listParams),
+    queryFn: () => apiBooks.list(listParams),
+    enabled: listed.length > 0,
+  });
   const items = (books?.results ?? []).filter((b) => cart.bookIds.includes(b.id));
 
-  if (loading) return <FullPageLoader />;
+  const send = useMutation({
+    mutationFn: () => cart.submitAll(),
+    onSuccess: ({ ok, failed }) => {
+      if (ok > 0) toast.success(t("toast.cartSent", { n: ok }));
+      failed.forEach((f) => toast.error(errorMessage(t, f)));
+      return invalidateCirculation(qc);
+    },
+  });
+  const busy = send.isPending;
 
-  const submit = async () => {
-    setBusy(true);
-    const { ok, failed } = await cart.submitAll();
-    if (ok > 0) toast.success(t("toast.cartSent", { n: ok }));
-    failed.forEach((f) => toast.error(errorMessage(t, f)));
-    setBusy(false);
-    refetch();
-  };
+  if (listed.length > 0 && isPending) return <FullPageLoader />;
+
+  const submit = () => send.mutate();
 
   return (
     <Container className="max-w-3xl">

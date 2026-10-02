@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { BookX, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { apiBooks, apiRecords, apiReservations } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { qk } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { BookCover } from "@/components/BookCover";
@@ -18,25 +19,28 @@ import { fmtDate } from "@/lib/time";
 import { tableCls } from "@/lib/table";
 
 export default function BookDetailPage() {
-  const { me } = useAuth();
+  const { me, loading: authLoading } = useAuth();
   const { t } = useI18n();
   const { id } = useParams();
   const [editOpen, setEditOpen] = useState(false);
-  const { data: book, loading, error, refetch } = useApi(() => apiBooks.get(id!), [id]);
+  const { data: book, isPending, isError } = useQuery({ queryKey: qk.books.detail(id!), queryFn: () => apiBooks.get(id!) });
   const isStaff = !!me && me.role !== "MEMBER";
 
-  const { data: copies, refetch: refetchCopies } = useApi(() => apiBooks.copies(id!), [id, me?.id]);
-  const { data: queue, refetch: refetchQueue } = useApi(
-    () => (isStaff ? apiReservations.forBook(Number(id)) : Promise.resolve([])),
-    [id, me?.id],
-  );
-  const { data: loans } = useApi(
-    () => (isStaff ? apiRecords.list({ book: Number(id), pageSize: 100 }).then((p) => p.results) : Promise.resolve([])),
-    [id, me?.id],
-  );
+  // Staff see borrower names in the copy list, so wait until the session is known before asking.
+  const { data: copies } = useQuery({
+    queryKey: qk.books.copies(id!), queryFn: () => apiBooks.copies(id!), enabled: !authLoading,
+  });
+  const { data: queue } = useQuery({
+    queryKey: qk.reservations.forBook(id!), queryFn: () => apiReservations.forBook(Number(id)), enabled: isStaff,
+  });
+  const loanParams = { book: Number(id), pageSize: 100 };
+  const { data: loanPage } = useQuery({
+    queryKey: qk.records.list(loanParams), queryFn: () => apiRecords.list(loanParams), enabled: isStaff,
+  });
+  const loans = loanPage?.results;
 
-  if (loading) return <FullPageLoader />;
-  if (error || !book) {
+  if (isPending) return <FullPageLoader />;
+  if (isError || !book) {
     return (
       <Container>
         <EmptyState icon={BookX} title={t("book.notFound")}>
@@ -112,7 +116,6 @@ export default function BookDetailPage() {
             book={book}
             size="default"
             className="mt-5 w-full"
-            onChanged={() => { refetch(); refetchQueue(); refetchCopies(); }}
             onEdit={isStaff ? () => setEditOpen(true) : undefined}
           />
           <p className="mt-4 border-t pt-4 text-sm leading-relaxed text-muted-foreground">{t("book.rules")}</p>
@@ -176,7 +179,7 @@ export default function BookDetailPage() {
         </div>
       )}
 
-      <BookEditDialog book={book} open={editOpen} onOpenChange={setEditOpen} onSaved={refetch} />
+      <BookEditDialog book={book} open={editOpen} onOpenChange={setEditOpen} />
     </Container>
   );
 }

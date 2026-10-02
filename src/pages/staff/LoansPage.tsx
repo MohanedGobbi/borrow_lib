@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { BookOpen } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRecords } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pager } from "@/components/Pager";
@@ -22,16 +23,16 @@ const PAGE_SIZE = 50;
 export default function LoansPage() {
   const { t } = useI18n();
   const [page, setPage] = useState(1);
-  const { data: result, loading, refetch } = useApi(
-    () => fetchPage(
-      (p) => apiRecords.list({ status: ["BORROWED", "OVERDUE"], ordering: "due_date", page: p, pageSize: PAGE_SIZE }),
-      page,
-    ),
-    [page], 45_000,
-  );
-  const { run, busyId } = useStaffAction(refetch);
+  const params = { status: ["BORROWED", "OVERDUE"], ordering: "due_date", pageSize: PAGE_SIZE };
+  const { data: result, isPending } = useQuery({
+    queryKey: qk.records.list({ ...params, page }),
+    queryFn: () => fetchPage((p) => apiRecords.list({ ...params, page: p }), page),
+    placeholderData: keepPreviousData,
+    refetchInterval: 45_000,
+  });
+  const { run, busyId } = useStaffAction(invalidateCirculation);
 
-  if (loading && !result) return <FullPageLoader />;
+  if (isPending) return <FullPageLoader />;
   const loans = result?.results ?? [];
 
   return (

@@ -1,8 +1,9 @@
-import { useState } from "react";
 import { Link } from "react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, ClipboardPlus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { apiRecords, apiReservations } from "@/api";
+import { invalidateCirculation } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
 import { useCart } from "@/cart/CartContext";
 import { useI18n } from "@/i18n";
@@ -16,28 +17,29 @@ import type { Book } from "@/types";
  * visitor → sign in; student → request / add to list, or join the waiting list; staff → edit.
  */
 export function BookActions({
-  book, onChanged, onEdit, size = "sm", className,
+  book, onEdit, size = "sm", className,
 }: {
-  book: Book; onChanged?: () => void; onEdit?: () => void; size?: "sm" | "default"; className?: string;
+  book: Book; onEdit?: () => void; size?: "sm" | "default"; className?: string;
 }) {
   const { me } = useAuth();
   const { t } = useI18n();
   const cart = useCart();
-  const [busy, setBusy] = useState(false);
+  const qc = useQueryClient();
   const out = book.freeCopies <= 0;
 
-  const run = async (fn: () => Promise<unknown>, ok: string) => {
-    setBusy(true);
-    try {
-      await fn();
+  // A request or reservation changes free copies, queues and the member's lists everywhere.
+  const action = useMutation({
+    mutationFn: ({ fn }: { fn: () => Promise<unknown>; ok: string }) => fn(),
+    onSuccess: (_data, { ok }) => {
       toast.success(ok);
-      onChanged?.();
-    } catch (e) {
+      return invalidateCirculation(qc);
+    },
+    onError: (e) => {
       toast.error(errorMessage(t, e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+  });
+  const busy = action.isPending;
+  const run = (fn: () => Promise<unknown>, ok: string) => action.mutate({ fn, ok });
 
   if (!me) {
     return (

@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { MailPlus, Search, UserX } from "lucide-react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiInvites, apiUsers } from "@/api";
+import { invalidateInvites, qk } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
-import { useApi } from "@/hooks/useApi";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
@@ -27,18 +28,18 @@ export default function UsersPage() {
   const { me } = useAuth();
   const isAdmin = me?.role === "ADMIN";
   const [inviting, setInviting] = useState(false);
-  const { data: invites, refetch: refetchInvites } = useApi(
-    () => (isAdmin ? apiInvites.list() : Promise.resolve([])), [isAdmin],
-  );
-  const revoke = async (id: number) => {
-    try {
-      await apiInvites.revoke(id);
+  const qc = useQueryClient();
+  const { data: invites } = useQuery({ queryKey: qk.invites, queryFn: apiInvites.list, enabled: isAdmin });
+  const revoke = useMutation({
+    mutationFn: (id: number) => apiInvites.revoke(id),
+    onSuccess: () => {
       toast.success(t("invite.revoked"));
-      refetchInvites();
-    } catch (e) {
+      return invalidateInvites(qc);
+    },
+    onError: (e) => {
       toast.error(errorMessage(t, e));
-    }
-  };
+    },
+  });
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
   const debouncedSearch = useDebounced(search.trim(), 300);
@@ -47,15 +48,15 @@ export default function UsersPage() {
   const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
   const page = pageState.key === filterKey ? pageState.page : 1;
   const setPage = (next: number) => setPageState({ key: filterKey, page: next });
-  const { data: result, loading } = useApi(
-    () => fetchPage(
-      (p) => apiUsers.list({ search: debouncedSearch, role: role === "all" ? undefined : role, page: p }),
-      page,
-    ),
-    [debouncedSearch, role, page], 60_000,
-  );
+  const listParams = { search: debouncedSearch, role: role === "all" ? undefined : role, page };
+  const { data: result, isPending } = useQuery({
+    queryKey: qk.users.list(listParams),
+    queryFn: () => fetchPage((p) => apiUsers.list({ ...listParams, page: p }), page),
+    placeholderData: keepPreviousData,
+    refetchInterval: 60_000,
+  });
 
-  if (loading && !result) return <FullPageLoader />;
+  if (isPending) return <FullPageLoader />;
   const filtered = result?.results ?? [];
 
   return (
@@ -68,7 +69,7 @@ export default function UsersPage() {
       />
       {isAdmin && (
         <>
-          <InviteStaffDialog open={inviting} onOpenChange={setInviting} onInvited={refetchInvites} />
+          <InviteStaffDialog open={inviting} onOpenChange={setInviting} />
           <Panel title={t("invite.pending")} count={(invites ?? []).length} flush>
             {(invites ?? []).length === 0 ? (
               <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t("invite.none")}</p>
@@ -92,7 +93,7 @@ export default function UsersPage() {
                         <td className={tableCls.td}>{i.createdBy ?? "—"}</td>
                         <td className={tableCls.td}><span className="tabular whitespace-nowrap">{fmtDate(i.expiresAt)}</span></td>
                         <td className={`${tableCls.td} text-end`}>
-                          <Button variant="outline" size="sm" onClick={() => revoke(i.id)}>{t("invite.revoke")}</Button>
+                          <Button variant="outline" size="sm" onClick={() => revoke.mutate(i.id)}>{t("invite.revoke")}</Button>
                         </td>
                       </tr>
                     ))}

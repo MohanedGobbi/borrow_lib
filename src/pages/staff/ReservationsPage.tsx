@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import { ListOrdered } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { apiReservations } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { fmtDate } from "@/lib/time";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
@@ -10,9 +11,11 @@ import type { Reservation } from "@/types";
 
 export default function ReservationsPage() {
   const { t } = useI18n();
-  const { data: reservations, loading } = useApi(() => apiReservations.all(), [], 45_000);
+  const { data: reservations, isPending } = useQuery({
+    queryKey: qk.reservations.list, queryFn: apiReservations.all, refetchInterval: 45_000,
+  });
 
-  if (loading) return <FullPageLoader />;
+  if (isPending) return <FullPageLoader />;
 
   const byBook = new Map<number, Reservation[]>();
   (reservations ?? []).forEach((q) => byBook.set(q.bookId, [...(byBook.get(q.bookId) ?? []), q]));

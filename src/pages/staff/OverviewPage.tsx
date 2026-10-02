@@ -1,8 +1,9 @@
 import { Link } from "react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCcw } from "lucide-react";
 import { apiMisc, apiRecords } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { Countdown } from "@/components/Countdown";
@@ -10,24 +11,41 @@ import { daysFrom, fmtDate, msLeft, timeAgo } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { FullPageLoader } from "@/auth/guards";
-import { useStaffContext } from "@/pages/staff/staffContext";
 import { cn } from "@/lib/utils";
 import { URGENT_PICKUP_MS } from "@/types";
 
 export default function OverviewPage() {
   const { t } = useI18n();
-  const { refreshCounts } = useStaffContext();
-  const { data: stats, loading, refetch } = useApi(() => apiMisc.stats(), [], 45_000);
-  const { data: activity, refetch: refetchActivity } = useApi(() => apiMisc.activity(), [], 45_000);
-  const { data: pending } = useApi(() => apiRecords.list({ status: "PENDING", pageSize: 1 }), [], 45_000);
-  const { data: ready } = useApi(
-    () => apiRecords.list({ status: "READY", ordering: "pickup_deadline", pageSize: 100 }), [], 45_000,
-  );
-  const { data: overdue } = useApi(
-    () => apiRecords.list({ status: "OVERDUE", ordering: "due_date", pageSize: 100 }), [], 45_000,
-  );
+  const qc = useQueryClient();
+  const poll = { refetchInterval: 45_000 };
+  const { data: stats, isPending } = useQuery({ queryKey: qk.stats, queryFn: apiMisc.stats, ...poll });
+  const { data: activity } = useQuery({ queryKey: qk.activity, queryFn: apiMisc.activity, ...poll });
+  const pendingParams = { status: "PENDING", pageSize: 1 };
+  const { data: pending } = useQuery({
+    queryKey: qk.records.list(pendingParams), queryFn: () => apiRecords.list(pendingParams), ...poll,
+  });
+  const readyParams = { status: "READY", ordering: "pickup_deadline", pageSize: 100 };
+  const { data: ready } = useQuery({
+    queryKey: qk.records.list(readyParams), queryFn: () => apiRecords.list(readyParams), ...poll,
+  });
+  const overdueParams = { status: "OVERDUE", ordering: "due_date", pageSize: 100 };
+  const { data: overdue } = useQuery({
+    queryKey: qk.records.list(overdueParams), queryFn: () => apiRecords.list(overdueParams), ...poll,
+  });
 
-  if (loading) return <FullPageLoader />;
+  const runJobs = useMutation({
+    mutationFn: apiMisc.runJobs,
+    onSuccess: (r) => {
+      if (r.cancelled + r.flaggedOverdue === 0) toast.info(t("dash.jobsNone"));
+      else toast.success(t("dash.jobsDone", { c: r.cancelled, o: r.flaggedOverdue }));
+      return invalidateCirculation(qc);
+    },
+    onError: (e) => {
+      toast.error(errorMessage(t, e));
+    },
+  });
+
+  if (isPending) return <FullPageLoader />;
 
   const vitals = [
     { label: t("dash.pending"), value: pending?.count, to: "/staff/approvals" },
@@ -41,25 +59,12 @@ export default function OverviewPage() {
   const urgent = (ready?.results ?? []).filter((r) => msLeft(r.pickupDeadline) < URGENT_PICKUP_MS);
   const late = overdue?.results ?? [];
 
-  const runJobs = async () => {
-    try {
-      const r = await apiMisc.runJobs();
-      if (r.cancelled + r.flaggedOverdue === 0) toast.info(t("dash.jobsNone"));
-      else toast.success(t("dash.jobsDone", { c: r.cancelled, o: r.flaggedOverdue }));
-      refetch();
-      refetchActivity();
-      refreshCounts();
-    } catch (e) {
-      toast.error(errorMessage(t, e));
-    }
-  };
-
   return (
     <div className="space-y-8">
       <PageHeader
         title={t("staff.overview")}
         actions={
-          <Button variant="outline" size="sm" onClick={runJobs}>
+          <Button variant="outline" size="sm" disabled={runJobs.isPending} onClick={() => runJobs.mutate()}>
             <RefreshCcw className="size-4" aria-hidden /> {t("dash.runJobs")}
           </Button>
         }

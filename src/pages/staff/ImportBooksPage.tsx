@@ -3,15 +3,16 @@ import { Link } from "react-router";
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, Download, FileSpreadsheet, Info, Upload,
 } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiBooks } from "@/api";
+import { invalidateCatalog } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { useStaffContext } from "@/pages/staff/staffContext";
 import {
   IMPORT_ACCEPT, IMPORT_MAX_ROWS, ImportFileError, TEMPLATE_HEADERS, TEMPLATE_ROWS,
   downloadText, readImportFile, toCsv, type ImportRowInput,
@@ -39,7 +40,13 @@ const STATUS_TONE: Record<ImportStatus, string> = {
 
 export default function ImportBooksPage() {
   const { t } = useI18n();
-  const { refreshCounts } = useStaffContext();
+  const qc = useQueryClient();
+  // The real import adds and updates books (and the stock counts), so the catalog and staff lists go stale.
+  const commit = useMutation({
+    mutationFn: (body: { rows: ImportRowInput[]; mode: Mode; filename: string }) =>
+      apiBooks.importRows({ ...body, dryRun: false }),
+    onSuccess: () => { void invalidateCatalog(qc); },
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [dragging, setDragging] = useState(false);
@@ -96,10 +103,9 @@ export default function ImportBooksPage() {
   const confirm = async () => {
     setPhase("importing");
     try {
-      const r = await apiBooks.importRows({ rows, mode, dryRun: false, filename: fileName });
+      const r = await commit.mutateAsync({ rows, mode, filename: fileName });
       setReport(r);
       setPhase("done");
-      refreshCounts();
       toast.success(t("import.doneBody", { c: r.summary.create, u: r.summary.update }));
     } catch (e) {
       toast.error(errorMessage(t, e));

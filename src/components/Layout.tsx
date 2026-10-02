@@ -5,8 +5,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/AuthContext";
 import { useCart } from "@/cart/CartContext";
 import { useI18n, type Lang } from "@/i18n";
-import { useApi } from "@/hooks/useApi";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiAuth, apiMisc } from "@/api";
+import { invalidateNotifications, qk } from "@/api/queryKeys";
 import { DEMO, resetDemo } from "@/api/client";
 import { notificationText } from "@/lib/errors";
 import { timeAgo } from "@/lib/time";
@@ -63,12 +64,15 @@ export function Layout() {
     { to: "/staff", label: t("nav.staff"), show: isStaff },
   ].filter((n) => n.show);
 
-  const { data: notifications, refetch } = useApi(
-    () => (me ? apiMisc.notifications() : Promise.resolve([])),
-    [me?.id],
-    me ? 30_000 : undefined,
-  );
+  const qc = useQueryClient();
+  const { data: notifications } = useQuery({
+    queryKey: qk.notifications, queryFn: apiMisc.notifications, enabled: !!me, refetchInterval: 30_000,
+  });
   const unread = (notifications ?? []).filter((n) => !n.read).length;
+  const markRead = useMutation({
+    mutationFn: apiMisc.markRead,
+    onSuccess: () => invalidateNotifications(qc),
+  });
 
   // The account remembers the language, because the emails the library sends use it.
   const changeLang = (code: Lang) => {
@@ -145,7 +149,7 @@ export function Layout() {
 
                 <DropdownMenu
                   onOpenChange={(open) => {
-                    if (open && unread > 0) apiMisc.markRead().then(() => refetch()).catch(() => {});
+                    if (open && unread > 0) markRead.mutate();
                   }}
                 >
                   <DropdownMenuTrigger className={iconBtn} aria-label={`${t("nav.notifications")} (${unread})`}>

@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import { Check, ClipboardCheck, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { apiRecords } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { ShowingNote } from "@/components/Pager";
@@ -16,12 +17,15 @@ import { cn } from "@/lib/utils";
 export default function ApprovalsPage() {
   const { t } = useI18n();
   // oldest first: first come, first served
-  const { data: result, loading, refetch } = useApi(
-    () => apiRecords.list({ status: "PENDING", ordering: "requested_at", pageSize: 100 }), [], 45_000,
-  );
-  const { run, busyId } = useStaffAction(refetch);
+  const params = { status: "PENDING", ordering: "requested_at", pageSize: 100 };
+  const { data: result, isPending } = useQuery({
+    queryKey: qk.records.list(params),
+    queryFn: () => apiRecords.list(params),
+    refetchInterval: 45_000,
+  });
+  const { run, busyId } = useStaffAction(invalidateCirculation);
 
-  if (loading) return <FullPageLoader />;
+  if (isPending) return <FullPageLoader />;
   const pending = result?.results ?? [];
 
   return (

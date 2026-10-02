@@ -1,11 +1,11 @@
 import { NavLink, Outlet } from "react-router";
-import type { StaffContext } from "@/pages/staff/staffContext";
 import {
   Activity, BarChart3, BookCopy, ClipboardCheck, LayoutDashboard, ListOrdered, PackageCheck, Undo2, Users,
   type LucideIcon,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { apiMisc, apiRecords } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -41,15 +41,19 @@ const GROUPS: { key: string; items: { to: string; key: string; icon: LucideIcon;
 /** Staff area shell: grouped side navigation with live queue counts. */
 export default function StaffLayout() {
   const { t } = useI18n();
-  const { data: stats, refetch: refetchStats } = useApi(() => apiMisc.stats(), [], 45_000);
-  const { data: pending, refetch: refetchPending } = useApi(() => apiRecords.list({ status: "PENDING", pageSize: 1 }), [], 45_000);
+  // Staff actions invalidate these keys, so the counts move at once instead of waiting for the poll.
+  const { data: stats } = useQuery({ queryKey: qk.stats, queryFn: apiMisc.stats, refetchInterval: 45_000 });
+  const { data: pending } = useQuery({
+    queryKey: qk.records.list({ status: "PENDING", pageSize: 1 }),
+    queryFn: () => apiRecords.list({ status: "PENDING", pageSize: 1 }),
+    refetchInterval: 45_000,
+  });
 
   const counts: Record<CountKey, number> = {
     pending: pending?.count ?? 0,
     ready: stats?.totalReady ?? 0,
     overdue: stats?.totalOverdue ?? 0,
   };
-  const refreshCounts = () => { refetchStats(); refetchPending(); };
 
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col lg:flex-row">
@@ -97,7 +101,7 @@ export default function StaffLayout() {
         </nav>
       </aside>
       <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10">
-        <Outlet context={{ refreshCounts } satisfies StaffContext} />
+        <Outlet />
       </div>
     </div>
   );

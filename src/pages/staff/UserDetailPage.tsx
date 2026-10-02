@@ -1,8 +1,9 @@
 import { Link, useNavigate, useParams } from "react-router";
 import { ArrowLeft, Trash2, UserX } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiUsers } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { invalidateUsers, qk } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
@@ -27,10 +28,24 @@ export default function UserDetailPage() {
   const { me } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { data, loading, error } = useApi(() => apiUsers.get(Number(id)), [id]);
+  const qc = useQueryClient();
+  const { data, isPending, isError } = useQuery({
+    queryKey: qk.users.detail(id!), queryFn: () => apiUsers.get(Number(id)),
+  });
+  const remove = useMutation({
+    mutationFn: (memberId: number) => apiUsers.remove(memberId),
+    onSuccess: () => {
+      toast.success(t("toast.userDeleted"));
+      navigate("/staff/users");
+      return invalidateUsers(qc);
+    },
+    onError: (e) => {
+      toast.error(errorMessage(t, e));
+    },
+  });
 
-  if (loading) return <FullPageLoader />;
-  if (error || !data) {
+  if (isPending) return <FullPageLoader />;
+  if (isError || !data) {
     return (
       <EmptyState icon={UserX} title={t("users.noUsers")}>
         <Button asChild variant="outline" size="sm"><Link to="/staff/users">{t("users.back")}</Link></Button>
@@ -40,15 +55,7 @@ export default function UserDetailPage() {
 
   const { member, records } = data;
 
-  const deleteAccount = async () => {
-    try {
-      await apiUsers.remove(member.id);
-      toast.success(t("toast.userDeleted"));
-      navigate("/staff/users");
-    } catch (e) {
-      toast.error(errorMessage(t, e));
-    }
-  };
+  const deleteAccount = () => remove.mutate(member.id);
 
   const details: [string, React.ReactNode][] = [
     [t("col.id"), <span dir="ltr" className="font-mono text-[14px]">{member.studentOrStaffId}</span>],

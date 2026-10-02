@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import { AlertTriangle, PackageCheck } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { apiRecords } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { Countdown } from "@/components/Countdown";
 import { fmtDateTime, msLeft } from "@/lib/time";
@@ -17,12 +18,15 @@ import { URGENT_PICKUP_MS } from "@/types";
 
 export default function PickupsPage() {
   const { t } = useI18n();
-  const { data: result, loading, refetch } = useApi(
-    () => apiRecords.list({ status: "READY", ordering: "pickup_deadline", pageSize: 100 }), [], 45_000,
-  );
-  const { run, busyId } = useStaffAction(refetch);
+  const params = { status: "READY", ordering: "pickup_deadline", pageSize: 100 };
+  const { data: result, isPending } = useQuery({
+    queryKey: qk.records.list(params),
+    queryFn: () => apiRecords.list(params),
+    refetchInterval: 45_000,
+  });
+  const { run, busyId } = useStaffAction(invalidateCirculation);
 
-  if (loading) return <FullPageLoader />;
+  if (isPending) return <FullPageLoader />;
   const ready = result?.results ?? [];
 
   return (

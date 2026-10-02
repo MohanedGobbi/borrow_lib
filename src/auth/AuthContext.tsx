@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { apiAuth } from "@/api";
 import { auth as authClient, ApiError } from "@/api/client";
+import { queryClient } from "@/lib/queryClient";
 import type { Profile } from "@/types";
 
 interface AuthState {
@@ -30,17 +31,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     await authClient.login(email, password);
+    queryClient.clear(); // nothing cached before sign-in belongs to this account
     setMe(await apiAuth.me());
   }, []);
 
   const register = useCallback(async (payload: Parameters<typeof apiAuth.register>[0]) => {
     await apiAuth.register(payload);
     await authClient.login(payload.email, payload.password);
+    queryClient.clear();
     setMe(await apiAuth.me());
   }, []);
 
   const logout = useCallback(async () => {
     await authClient.logout();
+    queryClient.clear(); // the next account must never see this one's data
     setMe(null);
   }, []);
 
@@ -52,7 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setMe(null);
       setLoading(false);
     });
-    const onLogout = () => setMe(null);
+    const onLogout = () => {
+      queryClient.clear();
+      setMe(null);
+    };
     window.addEventListener("lb:logout", onLogout);
     return () => window.removeEventListener("lb:logout", onLogout);
   }, [refresh]);

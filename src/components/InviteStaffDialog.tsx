@@ -1,7 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Check, Copy } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiInvites } from "@/api";
+import { invalidateInvites } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
@@ -15,37 +17,43 @@ import type { CreatedInvite } from "@/types";
 
 /** Admin dialog: email a single-use sign-up link, then show the link once in case the email bounces. */
 export function InviteStaffDialog({
-  open, onOpenChange, onInvited,
-}: { open: boolean; onOpenChange: (open: boolean) => void; onInvited: () => void }) {
+  open, onOpenChange,
+}: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n();
+  const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"STAFF" | "ADMIN">("STAFF");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedInvite | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    setEmail("");
-    setRole("STAFF");
-    setError(null);
-    setCreated(null);
-    setCopied(false);
-  }, [open]);
-
-  const send = async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      setCreated(await apiInvites.create({ email: email.trim(), role }));
-      onInvited();
-    } catch (err) {
-      setError(errorMessage(t, err, "invite.failed"));
-    } finally {
-      setBusy(false);
+  // Start empty each time the dialog opens (adjusted during render, not in an effect).
+  const [wasOpen, setWasOpen] = useState(false);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (open) {
+      setEmail("");
+      setRole("STAFF");
+      setError(null);
+      setCreated(null);
+      setCopied(false);
     }
+  }
+
+  const invite = useMutation({
+    mutationFn: () => apiInvites.create({ email: email.trim(), role }),
+    onSuccess: (result) => {
+      setCreated(result);
+      return invalidateInvites(qc);
+    },
+    onError: (err) => setError(errorMessage(t, err, "invite.failed")),
+  });
+  const busy = invite.isPending;
+
+  const send = (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    invite.mutate();
   };
 
   const copy = async () => {

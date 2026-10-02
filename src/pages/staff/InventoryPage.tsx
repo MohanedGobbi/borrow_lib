@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { apiBooks, apiCategories } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { invalidateCatalog, qk } from "@/api/queryKeys";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
@@ -27,14 +28,16 @@ export default function InventoryPage() {
   // The page belongs to one search: a new search starts again from page 1.
   const [pageState, setPageState] = useState({ key: search, page: 1 });
   const page = pageState.key === search ? pageState.page : 1;
-  const { data: result, loading, refetch } = useApi(
-    () => fetchPage((p) => apiBooks.list({ search, page: p }), page), [search, page],
-  );
-  const { run, busyId } = useStaffAction(refetch);
+  const { data: result, isPending } = useQuery({
+    queryKey: qk.books.list({ search, page }),
+    queryFn: () => fetchPage((p) => apiBooks.list({ search, page: p }), page),
+    placeholderData: keepPreviousData,
+  });
+  const { run, busyId } = useStaffAction(invalidateCatalog);
   const [editBook, setEditBook] = useState<Book | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  if (loading && !result) return <FullPageLoader />;
+  if (isPending) return <FullPageLoader />;
 
   const openEdit = (b: Book | null) => {
     setEditBook(b);
@@ -57,7 +60,7 @@ export default function InventoryPage() {
         }
       />
 
-      <CategoryManager onChanged={refetch} />
+      <CategoryManager />
 
       <Panel
         title={t("dash.books")}
@@ -135,28 +138,30 @@ export default function InventoryPage() {
         )}
       </Panel>
 
-      <BookEditDialog book={editBook} open={dialogOpen} onOpenChange={setDialogOpen} onSaved={refetch} />
+      <BookEditDialog book={editBook} open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
 
 /** Category manager: add categories, edit colors, delete empty ones. */
-function CategoryManager({ onChanged }: { onChanged: () => void }) {
+function CategoryManager() {
   const { t } = useI18n();
-  const { data: categories, refetch } = useApi(() => apiCategories.list(), []);
+  const qc = useQueryClient();
+  const { data: categories } = useQuery({ queryKey: qk.categories.all, queryFn: apiCategories.list });
   const [name, setName] = useState("");
   const [color, setColor] = useState("#1F6E43");
 
-  const act = async (fn: () => Promise<unknown>, ok: string) => {
-    try {
-      await fn();
+  const change = useMutation({
+    mutationFn: ({ fn }: { fn: () => Promise<unknown>; ok: string }) => fn(),
+    onSuccess: (_data, { ok }) => {
       toast.success(ok);
-      refetch();
-      onChanged();
-    } catch (e) {
+      return invalidateCatalog(qc);
+    },
+    onError: (e) => {
       toast.error(errorMessage(t, e));
-    }
-  };
+    },
+  });
+  const act = (fn: () => Promise<unknown>, ok: string) => change.mutate({ fn, ok });
 
   return (
     <Panel title={t("dash.categories")} count={(categories ?? []).length}>

@@ -1,8 +1,9 @@
 import { Link, useParams } from "react-router";
 import { UserX } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { apiAuth } from "@/api";
 import { ApiError } from "@/api/client";
-import { useApi } from "@/hooks/useApi";
+import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmtDate } from "@/lib/time";
@@ -17,9 +18,11 @@ import { tableCls } from "@/lib/table";
 export default function ScanLookupPage() {
   const { uuid } = useParams();
   const { t } = useI18n();
-  const { data, loading, error } = useApi(() => apiAuth.scan(uuid!), [uuid], 30_000);
+  const { data, isPending, error } = useQuery({
+    queryKey: qk.users.scan(uuid!), queryFn: () => apiAuth.scan(uuid!), refetchInterval: 30_000,
+  });
 
-  if (loading) return <FullPageLoader />;
+  if (isPending) return <FullPageLoader />;
   if (error || !data) {
     return (
       <Container>

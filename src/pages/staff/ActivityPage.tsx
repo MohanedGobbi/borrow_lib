@@ -1,5 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { apiMisc } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { fmtDateTime, timeAgo } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/Page";
@@ -15,9 +16,11 @@ function humanize(action: string) {
 
 export default function ActivityPage() {
   const { t } = useI18n();
-  const { data: activity, loading } = useApi(() => apiMisc.activity(), [], 45_000);
+  const { data: activity, isPending } = useQuery({
+    queryKey: qk.activity, queryFn: apiMisc.activity, refetchInterval: 45_000,
+  });
 
-  if (loading) return <FullPageLoader />;
+  if (isPending) return <FullPageLoader />;
 
   return (
     <div className="space-y-6">

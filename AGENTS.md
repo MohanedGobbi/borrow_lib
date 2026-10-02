@@ -37,6 +37,8 @@ npm run dev:demo     # frontend only, in-browser demo API
 npm run build        # tsc -b && vite build (real backend)
 npm run build:demo   # static demo build (used by vercel.json)
 npm run lint
+npm run e2e          # Playwright against the demo API and a fresh Django (e2e/, ~4 min)
+npm run e2e:demo     # demo project only (~1-2 min)
 ```
 
 Backend: see `README.md` (venv, `migrate`, `seed_demo`, `runserver 8000`, `python manage.py test library`).
@@ -67,6 +69,7 @@ src/components/ui/      shadcn/ui (generated; excluded from lint)
 - Pages are default exports; shared components and hooks are named exports. A `.tsx` file exports only components (react-refresh lint rule); put helpers in `src/lib/` or a `.ts` module.
 - All user-visible text goes through `t()` with keys in all three languages. Use logical properties (`ms-`, `pe-`, `start-`, `text-start`) so layouts mirror in Arabic; wrap Latin data (IDs, ISBNs, shelf marks, emails) in `dir="ltr"`.
 - `GET /books`, `/users` and `/borrow-records` are paginated: they return `Page<T>` (`{count, page, pageSize, results}`, 25 per page, `pageSize` up to 100) with server-side filters in `backend/library/filters.py`. Never fetch a whole list to filter it in the browser. `src/api/demo.ts` mirrors the same shape and filters.
+- Data loading uses TanStack Query (`src/lib/queryClient.ts`). Build query keys with `qk` from `src/api/queryKeys.ts`; after a write, call the matching `invalidate*` helper there so every page that shows the changed data refreshes. Don't add hand-rolled fetch hooks.
 - Timestamps are ISO strings from the API; format them with `src/lib/time.ts`, never with raw `toLocale*` calls.
 
 ## Design system

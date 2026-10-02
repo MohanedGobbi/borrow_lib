@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import { AlertTriangle, BookOpen } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { apiRecords, apiReservations } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { qk } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -21,10 +22,12 @@ const ACTIVE = ["OVERDUE", "READY", "BORROWED", "PENDING"];
 export default function MyRequestsPage() {
   const { me } = useAuth();
   const { t } = useI18n();
-  const { data: records, loading } = useApi(() => apiRecords.mine(), [], 30_000);
-  const { data: reservations } = useApi(() => apiReservations.mine(), []);
+  const { data: records, isPending } = useQuery({
+    queryKey: qk.records.mine, queryFn: apiRecords.mine, refetchInterval: 30_000,
+  });
+  const { data: reservations } = useQuery({ queryKey: qk.reservations.mine, queryFn: apiReservations.mine });
 
-  if (loading || !me) return <FullPageLoader />;
+  if (isPending || !me) return <FullPageLoader />;
 
   // most urgent first: overdue, ready for pickup, on loan, pending
   const active = (records ?? [])

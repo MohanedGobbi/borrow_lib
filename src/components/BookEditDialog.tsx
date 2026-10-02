@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiBooks, apiCategories } from "@/api";
-import { useApi } from "@/hooks/useApi";
+import { invalidateCatalog, qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
@@ -17,46 +18,48 @@ const BINDINGS = ["#1F4D3A", "#6E2A2A", "#2B3F52", "#4A4E45", "#5C4630", "#29463
 
 /** Book editor: every field, category and (for existing books) a cover image upload. */
 export function BookEditDialog({
-  book, open, onOpenChange, onSaved,
+  book, open, onOpenChange,
 }: {
   book: Book | null; // null → create mode
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onSaved: () => void;
 }) {
   const { t } = useI18n();
-  const { data: categories } = useApi(() => apiCategories.list(), []);
+  const qc = useQueryClient();
+  const { data: categories } = useQuery({ queryKey: qk.categories.all, queryFn: apiCategories.list });
   const [form, setForm] = useState({
     title: "", author: "", isbn: "", publisher: "", year: "",
     totalCopies: "1", shelfLocation: "", description: "", categoryId: "",
   });
   const [cover, setCover] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    setForm({
-      title: book?.title ?? "",
-      author: book?.author ?? "",
-      isbn: book?.isbn ?? "",
-      publisher: book?.publisher ?? "",
-      year: book?.year ? String(book.year) : "",
-      totalCopies: book ? String(book.totalCopies) : "1",
-      shelfLocation: book?.shelfLocation ?? "",
-      description: book?.description ?? "",
-      categoryId: book ? String(book.category.id) : "",
-    });
-    setCover(null);
-  }, [open, book]);
+  // Start from the book's current values each time the dialog opens (adjusted during render, not in an effect).
+  const [seen, setSeen] = useState<{ open: boolean; book: Book | null }>({ open: false, book: null });
+  if (seen.open !== open || seen.book !== book) {
+    setSeen({ open, book });
+    if (open) {
+      setForm({
+        title: book?.title ?? "",
+        author: book?.author ?? "",
+        isbn: book?.isbn ?? "",
+        publisher: book?.publisher ?? "",
+        year: book?.year ? String(book.year) : "",
+        totalCopies: book ? String(book.totalCopies) : "1",
+        shelfLocation: book?.shelfLocation ?? "",
+        description: book?.description ?? "",
+        categoryId: book ? String(book.category.id) : "",
+      });
+      setCover(null);
+    }
+  }
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const valid = form.title.trim() && form.author.trim() && form.isbn.trim() && form.categoryId;
 
-  const save = async () => {
-    setBusy(true);
-    try {
+  const save = useMutation({
+    mutationFn: async () => {
       const payload = {
         title: form.title.trim(), author: form.author.trim(), isbn: form.isbn.trim(),
         publisher: form.publisher.trim(), year: form.year ? parseInt(form.year) : null,
@@ -75,15 +78,16 @@ export function BookEditDialog({
       } else {
         await apiBooks.create({ ...payload, coverColor: BINDINGS[Math.floor(Math.random() * BINDINGS.length)] });
       }
+    },
+    onSuccess: () => {
       toast.success(book ? t("toast.bookSaved") : t("toast.bookAdded"));
       onOpenChange(false);
-      onSaved();
-    } catch (e) {
+      return invalidateCatalog(qc);
+    },
+    onError: (e) => {
       toast.error(errorMessage(t, e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+  });
 
   const req = <span className="text-danger" aria-hidden>*</span>;
 
@@ -95,7 +99,7 @@ export function BookEditDialog({
         </DialogHeader>
         <form
           className="grid grid-cols-2 gap-4"
-          onSubmit={(e) => { e.preventDefault(); if (valid) save(); }}
+          onSubmit={(e) => { e.preventDefault(); if (valid) save.mutate(); }}
         >
           <div className="col-span-2 space-y-1.5">
             <Label htmlFor="bk-title">{t("field.title")} {req}</Label>
@@ -154,8 +158,8 @@ export function BookEditDialog({
           )}
           <div className="col-span-2 flex justify-end gap-2 border-t pt-4">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-            <Button type="submit" disabled={busy || !valid}>
-              {busy ? t("edit.saving") : book ? t("edit.save") : t("edit.create")}
+            <Button type="submit" disabled={save.isPending || !valid}>
+              {save.isPending ? t("edit.saving") : book ? t("edit.save") : t("edit.create")}
             </Button>
           </div>
         </form>
