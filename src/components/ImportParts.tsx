@@ -40,7 +40,7 @@ export function ImportDropZone({
         <>
           <FileSpreadsheet className="size-8 text-muted-foreground" aria-hidden />
           {fileName && phase === "preview" ? (
-            <p className="mt-3 font-medium text-ink" dir="auto">{fileName}</p>
+            <p className="mt-3 font-medium text-ink"><bdi>{fileName}</bdi></p>
           ) : (
             <p className="mt-3 text-[15px] text-ink">
               {t("import.drop")}{" "}

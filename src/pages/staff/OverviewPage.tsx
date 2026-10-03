@@ -8,6 +8,7 @@ import { useI18n } from "@/i18n";
 import { activityText, actorLabel, errorMessage } from "@/lib/errors";
 import { Countdown } from "@/components/Countdown";
 import { DeferredRowAction } from "@/components/DeferredRowAction";
+import { RecordStanding } from "@/components/MemberStanding";
 import { useDeferredAction } from "@/hooks/useDeferredAction";
 import { daysFrom, fmtDate, msLeft, timeAgo } from "@/lib/time";
 import { Figures, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
@@ -87,7 +88,7 @@ export default function OverviewPage() {
                 <li key={`o${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
                   <AlertTriangle className="size-4 shrink-0 text-danger" aria-hidden />
                   <div className="min-w-0 flex-1 basis-48">
-                    <p dir="auto" className="line-clamp-2 break-words text-sm font-medium">{r.bookTitle}</p>
+                    <p className="line-clamp-2 break-words text-sm font-medium"><bdi>{r.bookTitle}</bdi></p>
                     <p className="text-sm text-muted-foreground">
                       <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="hover:text-ink hover:underline">{r.userName}</Link>
                       {" · "}{t("req.due")} {fmtDate(r.dueDate)}
@@ -101,11 +102,12 @@ export default function OverviewPage() {
                 <li key={`r${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
                   <Clock className="size-4 shrink-0 text-ink" aria-hidden />
                   <div className="min-w-0 flex-1 basis-48">
-                    <p dir="auto" className="line-clamp-2 break-words text-sm font-medium">{r.bookTitle}</p>
+                    <p className="line-clamp-2 break-words text-sm font-medium"><bdi>{r.bookTitle}</bdi></p>
                     <p className="text-sm text-muted-foreground">
                       <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="hover:text-ink hover:underline">{r.userName}</Link>
                       {" · "}{t("dash.closesSoon")}
                     </p>
+                    <RecordStanding record={r} pickup />
                   </div>
                   <Countdown deadline={r.pickupDeadline!} className="tabular text-sm font-semibold text-ink" />
                   <DeferredRowAction kind="pickup" record={r} deferred={deferred} />
@@ -123,7 +125,7 @@ export default function OverviewPage() {
           <ol className="divide-y">
             {(activity ?? []).slice(0, 7).map((a) => (
               <li key={a.id} className="px-4 py-3">
-                <p dir="auto" className="text-sm leading-snug text-ink/90">{activityText(t, a)}</p>
+                <p className="text-sm leading-snug text-ink/90">{activityText(t, a)}</p>
                 <p className="mt-1 text-xs text-muted-foreground"><span dir="auto">{actorLabel(t, a.actorName)}</span> · {timeAgo(a.at)}</p>
               </li>
             ))}

@@ -13,6 +13,21 @@ import type { BorrowRecord } from "@/types";
 export function RequestDocButton({ record }: { record: BorrowRecord }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-ink" onClick={() => setOpen(true)}>
+        <FileText className="size-4" aria-hidden /> {t("receipt.button")}
+      </Button>
+      <RequestDocDialog record={record} open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
+
+/** The receipt summary and its PDF download, controlled, so a menu item can open it. */
+export function RequestDocDialog({
+  record, open, onOpenChange,
+}: { record: BorrowRecord; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const ref = `REQ-${String(record.id).padStart(3, "0")}`;
 
@@ -41,32 +56,27 @@ export function RequestDocButton({ record }: { record: BorrowRecord }) {
   ];
 
   return (
-    <>
-      <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-ink" onClick={() => setOpen(true)}>
-        <FileText className="size-4" aria-hidden /> {t("receipt.button")}
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md bg-white">
-          <DialogHeader>
-            <DialogTitle className="flex flex-wrap items-center justify-between gap-3 pe-6">
-              <span>{t("receipt.title")} <span dir="ltr" className="font-mono text-base font-medium text-muted-foreground">{ref}</span></span>
-              <StatusBadge status={record.status} />
-            </DialogTitle>
-          </DialogHeader>
-          <dl className="divide-y rounded-md border text-sm">
-            {rows.map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-4 px-3 py-2">
-                <dt className="text-muted-foreground">{k}</dt>
-                <dd className="text-end font-medium">{v}</dd>
-              </div>
-            ))}
-          </dl>
-          <Button onClick={download} disabled={busy} className="w-full">
-            <Download className="size-4" aria-hidden />
-            {busy ? t("common.loading") : t("receipt.download")}
-          </Button>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md bg-white">
+        <DialogHeader>
+          <DialogTitle className="flex flex-wrap items-center justify-between gap-3 pe-6">
+            <span>{t("receipt.title")} <span dir="ltr" className="font-mono text-base font-medium text-muted-foreground">{ref}</span></span>
+            <StatusBadge status={record.status} />
+          </DialogTitle>
+        </DialogHeader>
+        <dl className="divide-y rounded-md border text-sm">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex justify-between gap-4 px-3 py-2">
+              <dt className="text-muted-foreground">{k}</dt>
+              <dd className="text-end font-medium">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <Button onClick={download} disabled={busy} className="w-full">
+          <Download className="size-4" aria-hidden />
+          {busy ? t("common.loading") : t("receipt.download")}
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }

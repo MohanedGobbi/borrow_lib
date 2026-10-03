@@ -5,6 +5,8 @@ import { BookOpen, Loader2, ScanLine, User } from "lucide-react";
 import { apiBooks, apiUsers } from "@/api";
 import { qk } from "@/api/queryKeys";
 import { useDebounced } from "@/hooks/useDebounced";
+import { useDeferredAction } from "@/hooks/useDeferredAction";
+import { DeferredRowAction } from "@/components/DeferredRowAction";
 import { useI18n } from "@/i18n";
 import { scannedMemberId } from "@/lib/scan";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,7 @@ const isEditable = (el: EventTarget | null) =>
 export function DeskSearch({ className }: { className?: string }) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const deferred = useDeferredAction();
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
@@ -62,7 +65,7 @@ export function DeskSearch({ className }: { className?: string }) {
     enabled: searching, placeholderData: keepPreviousData,
   });
   const books = useQuery({
-    queryKey: qk.books.list(bookParams), queryFn: () => apiBooks.list(bookParams),
+    queryKey: qk.books.list(bookParams), queryFn: () => apiBooks.list(bookParams, { auth: true }),
     enabled: searching, placeholderData: keepPreviousData,
   });
 
@@ -141,6 +144,20 @@ export function DeskSearch({ className }: { className?: string }) {
               <span dir="auto" className="block truncate text-xs text-muted-foreground">{option.book.author}</span>
             </span>
             <span dir="ltr" className="shrink-0 font-mono text-xs text-muted-foreground">{option.book.shelfLocation || option.book.isbn}</span>
+            {option.book.activeLoanId != null && (
+              // One loan is out: Return from the result, with the same 8-second Undo. It must neither
+              // take the focus from the search box nor open the book.
+              <span
+                className="shrink-0"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DeferredRowAction
+                  kind="return" deferred={deferred} focusUndo={false} short
+                  record={{ id: option.book.activeLoanId, bookTitle: option.book.title, userName: option.book.activeLoanMember ?? "" }}
+                />
+              </span>
+            )}
           </>
         )}
       </li>

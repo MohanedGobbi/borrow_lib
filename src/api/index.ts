@@ -42,9 +42,10 @@ function query(params: Record<string, string | number | boolean | undefined | nu
 export const apiBooks = {
   list: (params: PageParams & {
     search?: string; category?: string; author?: string; isbn?: string; available?: boolean; ids?: number[];
-  } = {}) => {
+  } = {}, opts: { auth?: boolean } = {}) => {
     const { ids, ...rest } = params;
-    return api<Page<Book>>(`/books${query({ ...rest, ids: ids?.join(",") })}`, { auth: false });
+    // Public by default. Staff pass `auth` to also get `activeLoanId` (the loan to return) on each book.
+    return api<Page<Book>>(`/books${query({ ...rest, ids: ids?.join(",") })}`, { auth: opts.auth ?? false });
   },
   get: (id: number | string) => api<Book>(`/books/${id}`, { auth: false }),
   /** Bulk import (staff). A dry run returns the preview without saving anything. */
@@ -104,17 +105,18 @@ type SendOptions = { keepalive?: boolean };
 
 export const apiRecords = {
   mine: () => api<BorrowRecord[]>("/borrow-records/mine"),
-  list: (params: PageParams & { status?: string | string[]; book?: number; user?: number; search?: string } = {}) => {
-    const { status, ...rest } = params;
+  list: (params: PageParams & { status?: string | string[]; book?: number; user?: number; search?: string; dueBefore?: string } = {}) => {
+    const { status, dueBefore, ...rest } = params;
     return api<Page<BorrowRecord>>(
-      `/borrow-records${query({ ...rest, status: Array.isArray(status) ? status.join(",") : status })}`,
+      `/borrow-records${query({ ...rest, status: Array.isArray(status) ? status.join(",") : status, due_before: dueBefore })}`,
     );
   },
   create: (bookId: number) =>
     api<BorrowRecord>("/borrow-records", { method: "POST", body: { bookId } }),
   /** The student takes back their own pending request or ready hold. */
   withdraw: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/withdraw`, { method: "POST" }),
-  approve: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/approve`, { method: "POST" }),
+  approve: (id: number, opts: SendOptions = {}) =>
+    api<BorrowRecord>(`/borrow-records/${id}/approve`, { method: "POST", ...opts }),
   /** The reason (up to 300 characters) is optional and is shown to the student. */
   reject: (id: number, reason = "") =>
     api<BorrowRecord>(`/borrow-records/${id}/reject`, { method: "POST", body: { reason } }),

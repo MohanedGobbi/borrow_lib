@@ -47,6 +47,9 @@ class BookSerializer(serializers.ModelSerializer):
     shelfLocation = serializers.CharField(source="shelf_location", required=False, allow_blank=True)
     coverColor = serializers.CharField(source="cover_color", required=False)
     coverImage = serializers.ImageField(source="cover_image", required=False, allow_null=True)
+    # Staff only: the one loan to return from the desk search, when the book has exactly one active loan.
+    activeLoanId = serializers.SerializerMethodField()
+    activeLoanMember = serializers.SerializerMethodField()
     category = CategorySerializer(read_only=True)
     categoryId = serializers.PrimaryKeyRelatedField(
         source="category", queryset=Category.objects.all(), write_only=True
@@ -56,7 +59,26 @@ class BookSerializer(serializers.ModelSerializer):
         model = Book
         fields = ["id", "title", "author", "isbn", "category", "categoryId", "publisher", "year",
                   "totalCopies", "availableCopies", "freeCopies", "shelfLocation", "coverColor", "coverImage",
-                  "description"]
+                  "description", "activeLoanId", "activeLoanMember"]
+
+    def _single_loan(self, obj):
+        from .permissions import role_of
+        request = self.context.get("request")
+        if request is None or role_of(request.user) not in (Role.STAFF, Role.ADMIN):
+            return None
+        if getattr(obj, "active_loan_n", None) != 1:  # the views annotate it; bare instances have no answer
+            return None
+        return obj
+
+    def get_activeLoanId(self, obj):
+        loan = self._single_loan(obj)
+        return loan.first_loan_id if loan else None
+
+    def get_activeLoanMember(self, obj):
+        loan = self._single_loan(obj)
+        if not loan:
+            return None
+        return f"{loan.first_loan_first} {loan.first_loan_last}".strip() or loan.first_loan_username
 
     def get_freeCopies(self, obj):
         # Views annotate ready_count to avoid a query per book; fall back for bare instances.
@@ -131,6 +153,7 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
     cancelledByMember = serializers.BooleanField(source="cancelled_by_member", read_only=True)
     bookFreeCopies = serializers.SerializerMethodField()
     memberHasOverdue = serializers.SerializerMethodField()
+    memberOverdueTitle = serializers.SerializerMethodField()
     memberActiveLoans = serializers.SerializerMethodField()
     memberMaxBorrowLimit = serializers.SerializerMethodField()
     renewalCount = serializers.IntegerField(source="renewal_count", read_only=True)
@@ -141,7 +164,7 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
         fields = ["id", "userId", "userProfileId", "bookId", "userName", "userIdNumber", "bookTitle", "bookShelf",
                   "requestedAt", "approvedAt", "pickupDeadline", "borrowedAt", "dueDate",
                   "returnedAt", "status", "rejectionReason", "cancelledByMember", "bookFreeCopies", "memberHasOverdue",
-                  "memberActiveLoans", "memberMaxBorrowLimit", "renewalCount", "bookHasQueue"]
+                  "memberOverdueTitle", "memberActiveLoans", "memberMaxBorrowLimit", "renewalCount", "bookHasQueue"]
 
     # The desk lists annotate these (views.with_desk_annotations); other callers fall back to a query.
     def get_bookFreeCopies(self, obj):
@@ -156,6 +179,13 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
             from .services import has_overdue
             flag = has_overdue(obj.user)
         return flag
+
+    def get_memberOverdueTitle(self, obj):
+        # Only the title of the book to return first; null when the member has no overdue loan.
+        if hasattr(obj, "member_overdue_title"):
+            return obj.member_overdue_title
+        from .services import overdue_title
+        return overdue_title(obj.user)
 
     def get_memberActiveLoans(self, obj):
         count = getattr(obj, "member_active_loans", None)

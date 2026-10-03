@@ -1,17 +1,22 @@
 import { useState } from "react";
-import { Link } from "react-router";
-import { Ban, Check, ClipboardCheck, SearchX, X } from "lucide-react";
+import { Link, useNavigate } from "react-router";
+import { Ban, ClipboardCheck, SearchX, X } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { apiRecords } from "@/api";
 import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useDebounced } from "@/hooks/useDebounced";
+import { useDeferredAction } from "@/hooks/useDeferredAction";
+import { useQueueKeys } from "@/hooks/useQueueKeys";
+import { blockReason, scheduleRowAction } from "@/lib/rowActions";
 import { useI18n } from "@/i18n";
 import { useRuleVars } from "@/hooks/useLibrarySettings";
-import { GuardedButton } from "@/components/GuardedButton";
+import { DeferredRowAction } from "@/components/DeferredRowAction";
+import { KeyHint } from "@/components/KeyHint";
 import { RecordStanding } from "@/components/MemberStanding";
 import { QueueFilter } from "@/components/QueueFilter";
 import { RejectDialog } from "@/components/RejectDialog";
-import { RequestDocButton } from "@/components/RequestDocButton";
+import { RowMenu } from "@/components/RowMenu";
 import { ShowingNote } from "@/components/Pager";
 import { fmtDateTimeAgo } from "@/lib/time";
 import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
@@ -24,6 +29,8 @@ import type { BorrowRecord } from "@/types";
 export default function ApprovalsPage() {
   const { t } = useI18n();
   const ruleVars = useRuleVars();
+  const navigate = useNavigate();
+  const deferred = useDeferredAction();
   const [filter, setFilter] = useState("");
   const search = useDebounced(filter.trim(), 300);
   // oldest first: first come, first served
@@ -39,11 +46,28 @@ export default function ApprovalsPage() {
 
   const pending = result?.results ?? [];
 
+  const keys = useQueueKeys({
+    rows: pending,
+    onOpen: (r) => navigate(`/staff/users/${r.userProfileId}`),
+    onKey: (key, r) => {
+      if (key === "r") {
+        setRejecting(r);
+        return true;
+      }
+      if (key !== "a") return false;
+      if (deferred.phaseOf(r.id)) return true; // already approved, in its Undo window
+      const reason = blockReason(t, "approve", r);
+      if (reason) toast.error(reason);
+      else scheduleRowAction("approve", r, deferred, t, ruleVars);
+      return true;
+    },
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader title={t("staff.approvals")} />
       <Panel
-        title={t("desk.awaitingDecision")} count={result?.count ?? 0} flush
+        title={t("desk.awaitingDecision")} count={result?.count ?? 0} flush headingRef={keys.headingRef}
         actions={<QueueFilter value={filter} onChange={setFilter} />}
       >
         {isPending ? <RowsSkeleton /> : pending.length === 0 ? (
@@ -61,12 +85,12 @@ export default function ApprovalsPage() {
                   <th className={tableCls.th}><span className="sr-only">{t("col.actions")}</span></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody {...keys.bodyProps}>
                 {pending.map((r) => {
                   const noCopy = r.bookFreeCopies <= 0;
                   const vars = { title: r.bookTitle, member: r.userName };
                   return (
-                    <tr key={r.id} className={cn(tableCls.row, stackCls.row)}>
+                    <tr key={r.id} {...keys.rowProps(r.id)} className={cn(tableCls.row, stackCls.row, tableCls.keyRow)}>
                       <td className={cn(tableCls.td, stackCls.cell)}>
                         <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="font-medium hover:text-brand-dark hover:underline">{r.userName}</Link>
                         <div dir="ltr" className="whitespace-nowrap font-mono text-xs text-muted-foreground rtl:text-end">{r.userIdNumber}</div>
@@ -88,24 +112,17 @@ export default function ApprovalsPage() {
                       </td>
                       <td className={cn(tableCls.td, stackCls.cell, "whitespace-nowrap text-muted-foreground")}>{fmtDateTimeAgo(r.requestedAt)}</td>
                       <td className={cn(tableCls.td, stackCls.cell)}>
-                        <div className={cn("flex flex-wrap justify-end gap-2", stackCls.actions)}>
-                          <RequestDocButton record={r} />
+                        <div className={cn("flex items-center justify-end gap-2 max-sm:flex-wrap", stackCls.actions)}>
                           <Button
-                            size="sm" variant="outline" disabled={busyId === r.id}
+                            size="sm" variant="outline" disabled={busyId === r.id || deferred.phaseOf(r.id) !== null}
                             aria-label={t("aria.reject", vars)}
                             className="text-danger hover:border-danger/40 hover:bg-danger-soft hover:text-danger"
                             onClick={() => setRejecting(r)}
                           >
                             <X className="size-4" aria-hidden /> {t("dash.reject")}
                           </Button>
-                          <GuardedButton
-                            size="sm" disabled={busyId === r.id}
-                            aria-label={t("aria.approve", vars)}
-                            reason={noCopy ? t("desk.approveBlocked") : undefined}
-                            onClick={() => run(r.id, () => apiRecords.approve(r.id), t("toast.approved", ruleVars))}
-                          >
-                            <Check className="size-4" aria-hidden /> {t("dash.approve")}
-                          </GuardedButton>
+                          <DeferredRowAction kind="approve" record={r} deferred={deferred} />
+                          <RowMenu record={r} />
                         </div>
                       </td>
                     </tr>
@@ -117,6 +134,7 @@ export default function ApprovalsPage() {
         )}
         <ShowingNote shown={pending.length} count={result?.count ?? 0} />
       </Panel>
+      <KeyHint text={t("keys.approvals")} />
 
       <RejectDialog
         record={rejecting}

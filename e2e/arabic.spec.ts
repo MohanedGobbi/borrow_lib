@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { expectToast, signIn } from "./fixtures";
+import { signIn } from "./fixtures";
 
 async function switchToArabic(page: Page) {
   await page.getByRole("button", { name: "Language" }).click();
@@ -20,12 +20,14 @@ test.describe("arabic", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "ar");
   });
 
-  test("the overdue block is explained in Arabic", async ({ page }) => {
+  test("the overdue block is explained in Arabic, before the click", async ({ page }) => {
     await signIn(page, "daniel@example.com");
     await switchToArabic(page);
 
     await page.goto("/catalog");
-    await page.getByRole("button", { name: "طلب", exact: true }).first().click();
-    await expectToast(page, "لديك إعارة متأخرة. أعدها قبل طلب كتب جديدة.");
+    const request = page.getByRole("button", { name: "طلب", exact: true }).first();
+    await expect(request).toHaveAttribute("aria-disabled", "true");
+    await expect(request).toHaveAccessibleDescription("أعد «The Name of the Wind» لتتمكن من الطلب مجددًا");
+    await expect(page.getByRole("alert").filter({ hasText: "لديك إعارة متأخرة" })).toBeVisible();
   });
 });

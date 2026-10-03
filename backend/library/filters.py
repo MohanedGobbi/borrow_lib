@@ -51,6 +51,8 @@ class BorrowRecordFilter(StableOrderingMixin, df.FilterSet):
     status = CharInFilter(field_name="status", lookup_expr="in")
     book = df.NumberFilter(field_name="book_id")
     user = df.NumberFilter(field_name="user_id")
+    # Loans due on or before this moment (ISO 8601); records with no due date never match.
+    due_before = df.IsoDateTimeFilter(field_name="due_date", lookup_expr="lte")
     ordering = df.OrderingFilter(fields=(
         ("requested_at", "requested_at"), ("due_date", "due_date"), ("pickup_deadline", "pickup_deadline"),
     ))

@@ -8,7 +8,9 @@ import { useAuth } from "@/auth/AuthContext";
 import { useCart } from "@/cart/CartContext";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
+import { GuardedButton } from "@/components/GuardedButton";
 import { Button } from "@/components/ui/button";
+import { useRequestGuard } from "@/hooks/useRequestGuard";
 import { cn } from "@/lib/utils";
 import type { Book } from "@/types";
 
@@ -29,6 +31,8 @@ export function BookActions({
   const cart = useCart();
   const qc = useQueryClient();
   const out = book.freeCopies <= 0;
+  // Overdue or at the limit: the server would refuse, so say so before the click instead of after.
+  const { reason: blocked } = useRequestGuard();
 
   // A request or reservation changes free copies, queues and the member's lists everywhere.
   const action = useMutation({
@@ -76,24 +80,24 @@ export function BookActions({
 
   if (out) {
     return (
-      <Button
-        size={size} variant="outline" disabled={busy} className={className}
+      <GuardedButton
+        size={size} variant="outline" disabled={busy} className={className} reason={blocked}
         onClick={() => action.mutate("reserve")}
       >
         {t("catalog.reserve")}
-      </Button>
+      </GuardedButton>
     );
   }
 
   const inList = cart.has(book.id);
   return (
     <div className={cn("flex gap-2", size === "default" && "flex-col", className)}>
-      <Button
-        size={size} disabled={busy} className="flex-1"
+      <GuardedButton
+        size={size} disabled={busy} className="flex-1" reason={blocked}
         onClick={() => action.mutate("request")}
       >
         {size === "default" ? t("book.request") : t("catalog.request")}
-      </Button>
+      </GuardedButton>
       <Button
         size={size} variant="outline" disabled={inList}
         aria-label={inList ? t("catalog.inList") : t("catalog.addList")}

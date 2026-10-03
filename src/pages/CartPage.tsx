@@ -10,9 +10,12 @@ import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { BookCover } from "@/components/BookCover";
 import { Availability } from "@/components/BookActions";
+import { BorrowNotice } from "@/components/BorrowNotice";
 import { Container } from "@/components/Layout";
 import { EmptyState, PageHeader } from "@/components/Page";
+import { GuardedButton } from "@/components/GuardedButton";
 import { Button } from "@/components/ui/button";
+import { useRequestGuard } from "@/hooks/useRequestGuard";
 import { FullPageLoader } from "@/auth/guards";
 
 export default function CartPage() {
@@ -38,6 +41,7 @@ export default function CartPage() {
     },
   });
   const busy = send.isPending;
+  const { reason: blocked } = useRequestGuard();
 
   if (listed.length > 0 && isPending) return <FullPageLoader />;
 
@@ -46,6 +50,7 @@ export default function CartPage() {
   return (
     <Container className="max-w-3xl">
       <PageHeader title={t("cart.title")} description={t("cart.sub")} />
+      <BorrowNotice className="mt-6" />
 
       {items.length === 0 ? (
         <div className="mt-8 rounded-md border bg-white">
@@ -60,8 +65,8 @@ export default function CartPage() {
               <li key={b.id} className="flex items-center gap-5 p-4 sm:p-5">
                 <div className="w-14 shrink-0"><BookCover book={b} size="sm" /></div>
                 <div className="min-w-0 flex-1">
-                  <Link dir="auto" to={`/books/${b.id}`} className="type-heading text-ink hover:text-brand-dark hover:underline">{b.title}</Link>
-                  <p dir="auto" className="mt-0.5 text-[15px] text-muted-foreground">{b.author}</p>
+                  <Link to={`/books/${b.id}`} className="type-heading text-ink hover:text-brand-dark hover:underline"><bdi>{b.title}</bdi></Link>
+                  <p className="mt-0.5 text-[15px] text-muted-foreground"><bdi>{b.author}</bdi></p>
                   <Availability book={b} className="mt-2" />
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => cart.remove(b.id)} className="text-muted-foreground hover:text-danger">
@@ -72,9 +77,9 @@ export default function CartPage() {
           </ul>
           <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
             <Button asChild variant="ghost"><Link to="/catalog">{t("cart.browse")}</Link></Button>
-            <Button size="lg" disabled={busy} onClick={submit}>
+            <GuardedButton size="lg" disabled={busy} reason={blocked} onClick={submit}>
               {busy ? t("cart.submitting") : <>{t("cart.submit")} <span className="tabular">({items.length})</span></>}
-            </Button>
+            </GuardedButton>
           </div>
         </>
       )}

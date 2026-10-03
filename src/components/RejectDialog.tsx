@@ -52,7 +52,7 @@ function RejectBody({ record, onConfirm }: { record: BorrowRecord; onConfirm: (r
         />
         <p id="reject-reason-help" className="flex justify-between gap-4 text-xs text-muted-foreground">
           <span>{t("reject.reasonHelp")}</span>
-          <span dir="ltr" className="tabular shrink-0">{reason.length} / {REJECTION_REASON_MAX}</span>
+          <bdi dir="ltr" className="tabular shrink-0">{reason.length} / {REJECTION_REASON_MAX}</bdi>
         </p>
       </div>
       <AlertDialogFooter>

@@ -75,10 +75,12 @@ Owner decisions recorded with it:
 
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
-| R0 | Direction exploration: 2-3 visual directions as comps; owner picks | Opus | |
-| R1 | New identity: logo, DESIGN.md rewrite for the chosen direction | Opus | |
-| R2 | Rebuild shell + landing + key screens in the new direction | Sonnet · high, Opus review | |
-| R3 | Remaining screens + P1/P2 issues from the 27/40 critique | Sonnet · high | |
+| R0 | Direction exploration: 2-3 visual directions as comps; owner picks | Opus | done: owner chose the category standard at Apple / university / library-site polish; wordmark only |
+| R1 | New identity + public side ([spec](R1.md)) | Opus | done; owner: "right direction, keep going". DESIGN.md rewrite moves to the finish (documenter) |
+| R2 | Student and staff screens in the new language ([spec](R2.md)) | Sonnet · high, Opus review | done |
+| R3 | P1/P2 issues from the 27/40 critique + overdue blocks pickup ([spec](R3.md)) | Sonnet · high | done, Opus-reviewed: also enforced overdue block on waiting lists server-side |
+| R4 | Admin-editable site photos | Sonnet · medium | |
+| R5 | Finish review (impeccable-finish-reviewer) + DESIGN.md (impeccable-documenter) | Opus agents | |
 
 ## Sprint 5: Operations
 

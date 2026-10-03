@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { AlertCircle, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,15 +22,20 @@ export function PageHeader({
 
 /** Bordered white panel with a header row. `flush` drops body padding for tables and lists. */
 export function Panel({
-  title, count, actions, children, flush, className,
+  title, count, actions, children, flush, className, headingRef,
 }: {
   title?: ReactNode; count?: number; actions?: ReactNode; children: ReactNode; flush?: boolean; className?: string;
+  /** Makes the heading focusable by script (not by Tab), for moving focus here when a list empties. */
+  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   return (
     <section className={cn("overflow-hidden rounded-md border bg-card", className)}>
       {(title || actions) && (
         <header className="flex min-h-[3.25rem] flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5">
-          <h2 className="flex items-baseline gap-2 text-[15px] font-semibold text-ink">
+          <h2
+            ref={headingRef} tabIndex={headingRef ? -1 : undefined}
+            className="flex items-baseline gap-2 text-[15px] font-semibold text-ink"
+          >
             {title}
             {count !== undefined && (
               <span className="tabular text-[13px] font-normal text-muted-foreground">{count}</span>

@@ -65,7 +65,7 @@ export default function UserDetailPage() {
     [t("profile.since"), fmtDate(member.membershipStartDate)],
     ...(member.role === "MEMBER"
       ? [
-        [t("profile.limit"), <span><span className="tabular">{member.activeLoans} / {member.maxBorrowLimit}</span> {t("profile.inuse")}</span>],
+        [t("profile.limit"), <span><bdi dir="ltr" className="tabular">{member.activeLoans} / {member.maxBorrowLimit}</bdi> {t("profile.inuse")}</span>],
         [t("profile.borrowLimit"), <span><span className="tabular">{member.maxBorrowLimit}</span> ({t(member.borrowLimitIsDefault ? "profile.limitDefault" : "profile.limitPersonal")})</span>],
       ] as [string, React.ReactNode][]
       : []), // staff and admins cannot borrow

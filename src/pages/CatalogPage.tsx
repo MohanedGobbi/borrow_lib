@@ -6,6 +6,7 @@ import { qk } from "@/api/queryKeys";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { BookCover } from "@/components/BookCover";
+import { BorrowNotice } from "@/components/BorrowNotice";
 import { Availability, BookActions } from "@/components/BookActions";
 import { Container } from "@/components/Layout";
 import { Pager } from "@/components/Pager";
@@ -70,6 +71,8 @@ export default function CatalogPage() {
         title={t("catalog.title")}
         description={result ? <span className="tabular">{result.count} {t("catalog.titles")}</span> : null}
       />
+
+      <BorrowNotice className="mt-6" />
 
       {/* Search first: one wide field, the way the landing page asks for it. */}
       <div className="relative mt-8">
@@ -163,11 +166,11 @@ export default function CatalogPage() {
                     <BookCover book={b} size="sm" />
                   </Link>
                   <div className="min-w-0 self-center">
-                    <Link dir="auto" to={`/books/${b.id}`} className="type-heading text-ink decoration-ink/30 after:absolute after:inset-0 hover:underline sm:after:hidden">
-                      {b.title}
+                    <Link to={`/books/${b.id}`} className="type-heading text-ink decoration-ink/30 after:absolute after:inset-0 hover:underline sm:after:hidden">
+                      <bdi>{b.title}</bdi>
                     </Link>
-                    <p dir="auto" className="mt-1 text-[15px] text-muted-foreground">
-                      {b.author}{b.year ? ` · ${b.year}` : ""}{b.publisher ? ` · ${b.publisher}` : ""}
+                    <p className="mt-1 text-[15px] text-muted-foreground">
+                      <bdi>{b.author}</bdi>{b.year ? ` · ${b.year}` : ""}{b.publisher ? <> · <bdi>{b.publisher}</bdi></> : ""}
                     </p>
                     <p className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
                       <Availability book={b} />

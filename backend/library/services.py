@@ -62,6 +62,12 @@ def has_overdue(user: User) -> bool:
     return user.borrow_records.filter(status=Status.OVERDUE).exists()
 
 
+def overdue_title(user: User) -> str | None:
+    """Title of the member's longest-overdue loan (what they must return first), or None."""
+    return (user.borrow_records.filter(status=Status.OVERDUE).order_by("due_date", "pk")
+            .values_list("book__title", flat=True).first())
+
+
 def active_loan_count(user: User) -> int:
     return user.borrow_records.filter(status__in=ACTIVE_STATUSES).count()
 
@@ -205,6 +211,13 @@ def reject(staff: User, record: BorrowRecord, reason: str = "") -> BorrowRecord:
 def confirm_pickup(staff: User, record: BorrowRecord) -> BorrowRecord:
     """READY -> BORROWED. The ONLY place stock is decremented."""
     _assert_transition("pickup", record)
+    # The hold keeps its deadline: it can still expire and pass to the queue while the member is blocked.
+    blocking = overdue_title(record.user)
+    if blocking:
+        raise BusinessRuleError(
+            "pickup_blocked_overdue",
+            f"The member has an overdue loan (“{blocking}”). It must be returned before this hold can be picked up.",
+            title=blocking)
     book = Book.objects.select_for_update().get(pk=record.book_id)
     if book.available_copies <= 0:
         raise BusinessRuleError("pickup_no_copy", "No physical copy on the shelf to hand out.")
@@ -248,6 +261,8 @@ def create_reservation(user: User, book: Book) -> Reservation:
         raise BusinessRuleError("account_inactive", "Your account is deactivated.")
     if not user.profile.email_verified:
         raise BusinessRuleError("email_unverified", UNVERIFIED_MESSAGE)
+    if has_overdue(user):
+        raise BusinessRuleError("overdue_block", "You have an overdue loan. Resolve it before requesting new books.")
     if free_copies(book) > 0:
         raise BusinessRuleError("copies_available", "Copies are available — submit a borrow request instead.")
     if queue_for_book(book).filter(user=user).exists():

@@ -23,7 +23,8 @@ test.describe("circulation", () => {
     await page.goto("/staff/approvals");
     await rowWith(page, "Hana Yoshida", BOOK).getByRole("button", { name: "Approve" }).click();
     await expectToast(page, "Approved");
-    await expect(rowWith(page, "Hana Yoshida", BOOK)).toHaveCount(0);
+    // Approving has the 8-second Undo window like pickup and return: the row leaves the list once it is sent.
+    await expect(rowWith(page, "Hana Yoshida", BOOK)).toHaveCount(0, { timeout: 20_000 });
 
     await page.goto("/staff/pickups");
     await rowWith(page, "Hana Yoshida", BOOK).getByRole("button", { name: "Confirm pickup" }).click();

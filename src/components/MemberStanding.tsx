@@ -26,8 +26,11 @@ export function MemberStanding({ member }: { member: Profile }) {
   );
 }
 
-/** The member's standing as the approvals queue sees it: a flag only when something blocks or limits them. */
-export function RecordStanding({ record }: { record: BorrowRecord }) {
+/**
+ * The member's standing as a desk queue sees it: a flag only when something blocks or limits them.
+ * `pickup` is for a hold that is already approved: only an overdue loan matters there (the hold counts toward the limit).
+ */
+export function RecordStanding({ record, pickup }: { record: BorrowRecord; pickup?: boolean }) {
   const { t } = useI18n();
   if (record.memberHasOverdue) {
     return (
@@ -36,11 +39,11 @@ export function RecordStanding({ record }: { record: BorrowRecord }) {
       </span>
     );
   }
-  if (record.memberActiveLoans >= record.memberMaxBorrowLimit) {
+  if (!pickup && record.memberActiveLoans >= record.memberMaxBorrowLimit) {
     return (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-ink/80">
         <CircleSlash className="size-3.5" aria-hidden /> {t("desk.atLimit")}
-        <span dir="ltr" className="tabular font-normal text-muted-foreground">{record.memberActiveLoans} / {record.memberMaxBorrowLimit}</span>
+        <bdi dir="ltr" className="tabular font-normal text-muted-foreground">{record.memberActiveLoans} / {record.memberMaxBorrowLimit}</bdi>
       </span>
     );
   }

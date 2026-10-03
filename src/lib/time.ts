@@ -80,3 +80,12 @@ export function daysFrom(ts: string | number | null): number {
   const days = left / 86_400_000;
   return days >= 0 ? Math.ceil(days) : Math.trunc(days);
 }
+
+/**
+ * An ISO timestamp `aheadMs` from now, rounded up to the next full hour. Used as a server filter ("due within
+ * 3 days") so the query key changes once an hour instead of on every render.
+ */
+export function hourCutoff(aheadMs: number): string {
+  const hour = 3_600_000;
+  return new Date(Math.ceil(Date.now() / hour) * hour + aheadMs).toISOString();
+}

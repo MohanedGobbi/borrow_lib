@@ -117,6 +117,9 @@ const BOOKS: SeedBook[] = [
   ["The Art of Computer Programming, Vol. 1", "Donald E. Knuth", "978-0201896831", "Technology", "Addison-Wesley", 1997, 1, 1, "TEC-C-15", "#3D3A4F", "Fundamental algorithms — the bible of computer science."],
   ["Meditations", "Marcus Aurelius", "978-0812968255", "Non-Fiction", "Modern Library", 2002, 3, 3, "NON-E-13", "#6E2A2A", "Timeless Stoic wisdom on duty and mortality."],
   ["Project Hail Mary", "Andy Weir", "978-0593135228", "Fiction", "Ballantine", 2021, 4, 0, "FIC-A-20", "#29463F", "A lone astronaut with the fate of humanity on his shoulders."],
+  ["ثلاثية غرناطة", "رضوى عاشور", "978-9770930212", "Fiction", "دار الشروق", 1994, 3, 3, "FIC-A-22", "#2E4A3C", "رواية تاريخية تتبع عائلة أندلسية عبر سقوط غرناطة وما تلاه من محنة وصمود."],
+  ["مقدمة ابن خلدون", "عبد الرحمن بن خلدون", "978-9770915103", "History", "دار الفكر", 2004, 2, 2, "HIS-B-18", "#5C4630", "العمل الذي أسّس علم العمران، يدرس قيام الدول وسقوطها وتحوّلات المجتمعات."],
+  ["L'Étranger", "Albert Camus", "978-2070360024", "Fiction", "Gallimard", 1972, 3, 3, "FIC-A-23", "#4A4E45", "Le roman de Meursault, un homme en marge, devant le soleil d'Alger et devant la justice."],
 ];
 
 /** Interface language per seeded account; everyone else uses English. */
@@ -309,6 +312,13 @@ const bookById = (id: number) => state.books.find((b) => b.id === id);
 const nextId = () => ++state.seq;
 
 const hasOverdue = (userId: number) => state.records.some((r) => r.userId === userId && r.status === "OVERDUE");
+/** Title of the member's longest-overdue loan, what they must return first (services.overdue_title). */
+const overdueTitle = (userId: number): string | null => {
+  const first = state.records
+    .filter((r) => r.userId === userId && r.status === "OVERDUE")
+    .sort((a, b) => (a.dueDate ?? 0) - (b.dueDate ?? 0) || a.id - b.id)[0];
+  return first ? bookById(first.bookId)!.title : null;
+};
 const activeLoans = (userId: number) => state.records.filter((r) => r.userId === userId && ACTIVE.includes(r.status)).length;
 const queueFor = (bookId: number) =>
   state.reservations.filter((r) => r.bookId === bookId && r.isActive).sort((a, b) => a.reservedAt - b.reservedAt);
@@ -349,9 +359,15 @@ function sCategory(c: DCategory) {
 const freeCopies = (b: DBook) =>
   Math.max(0, b.availableCopies - state.records.filter((r) => r.bookId === b.id && r.status === "READY").length);
 
-function sBook(b: DBook) {
+/** `viewer` is the signed-in user: staff also get the one active loan of the book, for Return in the desk search. */
+function sBook(b: DBook, viewer: DUser | null = null) {
   const { categoryId, ...rest } = b;
-  return { ...rest, freeCopies: freeCopies(b), category: sCategory(state.categories.find((c) => c.id === categoryId)!) };
+  const out = state.records.filter((r) => r.bookId === b.id && (r.status === "BORROWED" || r.status === "OVERDUE"));
+  const single = viewer && viewer.role !== "MEMBER" && out.length === 1 ? out[0] : null;
+  return {
+    ...rest, freeCopies: freeCopies(b), category: sCategory(state.categories.find((c) => c.id === categoryId)!),
+    activeLoanId: single ? single.id : null, activeLoanMember: single ? userById(single.userId)!.name : null,
+  };
 }
 
 function sProfile(u: DUser) {
@@ -373,7 +389,7 @@ function sRecord(r: DRecord) {
     pickupDeadline: iso(r.pickupDeadline), borrowedAt: iso(r.borrowedAt), dueDate: iso(r.dueDate),
     returnedAt: iso(r.returnedAt), status: r.status, rejectionReason: r.rejectionReason ?? "",
     cancelledByMember: r.cancelledByMember ?? false,
-    bookFreeCopies: freeCopies(b), memberHasOverdue: hasOverdue(u.id), memberActiveLoans: activeLoans(u.id),
+    bookFreeCopies: freeCopies(b), memberHasOverdue: hasOverdue(u.id), memberOverdueTitle: overdueTitle(u.id), memberActiveLoans: activeLoans(u.id),
     memberMaxBorrowLimit: effectiveLimit(u), renewalCount: r.renewalCount ?? 0, bookHasQueue: hasWaitingList(b.id),
   };
 }
@@ -758,6 +774,13 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
       }
     } else if (op === "pickup") {
       transition("pickup", r, ["READY"]);
+      // The hold keeps its deadline: it can still expire and pass to the queue while the member is blocked.
+      const blocking = overdueTitle(user.id);
+      if (blocking) {
+        throw bad("pickup_blocked_overdue",
+          `The member has an overdue loan (“${blocking}”). It must be returned before this hold can be picked up.`,
+          { title: blocking });
+      }
       if (book.availableCopies <= 0) throw bad("pickup_no_copy", "No physical copy on the shelf to hand out.");
       const days = state.settings.loanDays;
       Object.assign(r, { status: "BORROWED", borrowedAt: now, dueDate: now + days * D });
@@ -1500,7 +1523,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["GET", /^\/books$/, (ctx) => {
     const matches = filterBooks(ctx);
     const sorted = orderBy(matches, ctx, { title: (b) => b.title, year: (b) => b.year, author: (b) => b.author }, "title");
-    return paginate(sorted, ctx, sBook);
+    return paginate(sorted, ctx, (b) => sBook(b, ctx.user));
   }],
   ["POST", /^\/books$/, (ctx) => {
     const staff = requireStaff(ctx);
@@ -1526,7 +1549,7 @@ const ROUTES: [string, RegExp, Handler][] = [
       { title: book.title, copies: book.totalCopies });
     return new Reply(201, sBook(book));
   }],
-  ["GET", /^\/books\/(\d+)$/, (_ctx, [id]) => sBook(findBook(id))],
+  ["GET", /^\/books\/(\d+)$/, (ctx, [id]) => sBook(findBook(id), ctx.user)],
   ["PATCH", /^\/books\/(\d+)$/, (ctx, [id]) => updateBook(ctx, findBook(id), requireStaff(ctx))],
   ["DELETE", /^\/books\/(\d+)$/, (ctx, [id]) => {
     const staff = requireStaff(ctx);
@@ -1641,6 +1664,10 @@ const ROUTES: [string, RegExp, Handler][] = [
     const statuses = (ctx.query.get("status") ?? "").split(",").map((v) => v.trim()).filter(Boolean);
     const book = ctx.query.get("book");
     const user = ctx.query.get("user");
+    // Loans due on or before this moment (ISO 8601); records with no due date never match.
+    const dueBeforeRaw = ctx.query.get("due_before");
+    const dueBefore = dueBeforeRaw ? Date.parse(dueBeforeRaw) : null;
+    if (dueBeforeRaw && Number.isNaN(dueBefore)) throw invalid(["due_before", "Enter a valid date/time.", "invalid"]);
     // Every word must match somewhere (member name or ID, book title, ISBN or shelf mark), like BorrowRecordFilter.
     const words = (ctx.query.get("search") ?? "").toLowerCase().split(/\s+/).filter(Boolean);
     const haystack = (r: DRecord) => {
@@ -1650,7 +1677,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     };
     const matches = state.records.filter((r) =>
       (!statuses.length || statuses.includes(r.status)) && (!book || r.bookId === Number(book)) && (!user || r.userId === Number(user))
-      && words.every((w) => haystack(r).includes(w)),
+      && (dueBefore === null || (r.dueDate !== null && r.dueDate <= dueBefore)) && words.every((w) => haystack(r).includes(w)),
     );
     const sorted = orderBy(matches, ctx, {
       requested_at: (r) => r.requestedAt, due_date: (r) => r.dueDate, pickup_deadline: (r) => r.pickupDeadline,
@@ -1754,6 +1781,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     const book = findBook(ctx.body.bookId);
     if (!u.active) throw bad("account_inactive", "Your account is deactivated.");
     if (!u.emailVerified) throw bad("email_unverified", UNVERIFIED);
+    if (hasOverdue(u.id)) throw bad("overdue_block", "You have an overdue loan. Resolve it before requesting new books.");
     if (freeCopies(book) > 0) throw bad("copies_available", "Copies are available — submit a borrow request instead.");
     if (queueFor(book.id).some((r) => r.userId === u.id)) {
       throw bad("already_queued", "You are already in the reservation queue for this book.");

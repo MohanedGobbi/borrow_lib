@@ -34,6 +34,9 @@ export interface Book {
   coverColor: string;
   coverImage: string | null;
   description: string;
+  /** Staff only: the loan to return when the book has exactly one active loan, and who has it. */
+  activeLoanId?: number | null;
+  activeLoanMember?: string | null;
 }
 
 /** One physical copy of a book and where it is right now. */
@@ -171,6 +174,8 @@ export interface BorrowRecord {
   /** Free copies of the book right now (on the shelf and not held for another pickup). */
   bookFreeCopies: number;
   memberHasOverdue: boolean;
+  /** Title of the member's longest-overdue loan (what to return first); null without one. */
+  memberOverdueTitle: string | null;
   memberActiveLoans: number;
   memberMaxBorrowLimit: number;
   /** How many times this loan has been renewed. */
@@ -266,4 +271,5 @@ export type SettingsPatch = Partial<Pick<
 >>;
 
 export const URGENT_PICKUP_MS = 6 * 60 * 60 * 1000;
-export const DUE_SOON_MS = 3 * 24 * 60 * 60 * 1000;
+export const DUE_SOON_DAYS = 3;
+export const DUE_SOON_MS = DUE_SOON_DAYS * 24 * 60 * 60 * 1000;

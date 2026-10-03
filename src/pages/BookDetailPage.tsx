@@ -7,7 +7,10 @@ import { qk } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { useRuleVars } from "@/hooks/useLibrarySettings";
+import { useDeferredAction } from "@/hooks/useDeferredAction";
+import { DeferredRowAction } from "@/components/DeferredRowAction";
 import { BookCover } from "@/components/BookCover";
+import { BorrowNotice } from "@/components/BorrowNotice";
 import { Availability, BookActions, type BookActionResult } from "@/components/BookActions";
 import { BookEditDialog } from "@/components/BookEditDialog";
 import { BookCopies } from "@/components/BookCopies";
@@ -18,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { FullPageLoader } from "@/auth/guards";
 import { fmtDate } from "@/lib/time";
 import { tableCls } from "@/lib/table";
+import { cn } from "@/lib/utils";
 
 export default function BookDetailPage() {
   const { me, loading: authLoading } = useAuth();
@@ -41,6 +45,7 @@ export default function BookDetailPage() {
     queryKey: qk.records.list(loanParams), queryFn: () => apiRecords.list(loanParams), enabled: isStaff,
   });
   const loans = loanPage?.results;
+  const deferred = useDeferredAction();
 
   if (isPending) return <FullPageLoader />;
   if (isError || !book) {
@@ -71,6 +76,7 @@ export default function BookDetailPage() {
 
   return (
     <Container>
+      <BorrowNotice className="mb-6" />
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Link to="/catalog" className="hover:text-ink hover:underline">{t("book.back")}</Link>
         <ChevronRight className="size-3.5 rtl:rotate-180" aria-hidden />
@@ -87,8 +93,8 @@ export default function BookDetailPage() {
         </div>
 
         <div className="col-start-2 row-start-1 min-w-0">
-          <h1 dir="auto" className="type-display text-[1.75rem] text-ink sm:text-[2.25rem] lg:text-[2.875rem]">{book.title}</h1>
-          <p className="mt-3 text-lead text-muted-foreground md:mt-4 md:text-lg">{t("book.by")} <span dir="auto" className="text-ink">{book.author}</span></p>
+          <h1 className="type-display text-[1.75rem] text-ink sm:text-[2.25rem] lg:text-[2.875rem]"><bdi>{book.title}</bdi></h1>
+          <p className="mt-3 text-lead text-muted-foreground md:mt-4 md:text-lg">{t("book.by")} <bdi className="text-ink">{book.author}</bdi></p>
         </div>
 
         <aside className="col-span-2 row-start-2 mt-8 h-fit rounded-lg border bg-white p-6 shadow-[0_1px_2px_rgb(16_24_20/0.04),0_8px_24px_-16px_rgb(16_24_20/0.18)] md:col-start-1 md:row-start-3 md:mt-10 lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:mt-0">
@@ -127,7 +133,7 @@ export default function BookDetailPage() {
 
         <div className="col-span-full row-start-4 min-w-0 md:col-span-1 md:col-start-2 md:row-start-2 lg:row-start-2">
           {book.description && (
-            <p dir="auto" className="mt-8 max-w-[62ch] text-base leading-[1.7] text-ink/90 md:text-[17px]">{book.description}</p>
+            <p className="mt-8 max-w-[62ch] text-base leading-[1.7] text-ink/90 md:text-[17px]"><bdi>{book.description}</bdi></p>
           )}
 
           <h2 className="mt-10 text-[13px] font-semibold text-muted-foreground">{t("book.details")}</h2>
@@ -156,6 +162,7 @@ export default function BookDetailPage() {
                       <th className={tableCls.th}>{t("col.requested")}</th>
                       <th className={tableCls.th}>{t("col.due")}</th>
                       <th className={tableCls.th}>{t("col.status")}</th>
+                      <th className={tableCls.th}><span className="sr-only">{t("col.actions")}</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -167,6 +174,11 @@ export default function BookDetailPage() {
                         <td className={tableCls.td}>{fmtDate(r.requestedAt)}</td>
                         <td className={tableCls.td}>{fmtDate(r.dueDate)}</td>
                         <td className={tableCls.td}><StatusBadge status={r.status} /></td>
+                        <td className={cn(tableCls.td, "text-end")}>
+                          {(r.status === "BORROWED" || r.status === "OVERDUE") && (
+                            <DeferredRowAction kind="return" record={r} deferred={deferred} />
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

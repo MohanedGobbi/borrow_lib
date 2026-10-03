@@ -57,6 +57,9 @@ BOOKS = [
     ("The Art of Computer Programming, Vol. 1", "Donald E. Knuth", "978-0201896831", "Technology", "Addison-Wesley", 1997, 1, 1, "TEC-C-15", "#3D3A4F", "Fundamental algorithms — the bible of computer science."),
     ("Meditations", "Marcus Aurelius", "978-0812968255", "Non-Fiction", "Modern Library", 2002, 3, 3, "NON-E-13", "#6E2A2A", "Timeless Stoic wisdom on duty and mortality."),
     ("Project Hail Mary", "Andy Weir", "978-0593135228", "Fiction", "Ballantine", 2021, 4, 0, "FIC-A-20", "#29463F", "A lone astronaut with the fate of humanity on his shoulders."),
+    ("ثلاثية غرناطة", "رضوى عاشور", "978-9770930212", "Fiction", "دار الشروق", 1994, 3, 3, "FIC-A-22", "#2E4A3C", "رواية تاريخية تتبع عائلة أندلسية عبر سقوط غرناطة وما تلاه من محنة وصمود."),
+    ("مقدمة ابن خلدون", "عبد الرحمن بن خلدون", "978-9770915103", "History", "دار الفكر", 2004, 2, 2, "HIS-B-18", "#5C4630", "العمل الذي أسّس علم العمران، يدرس قيام الدول وسقوطها وتحوّلات المجتمعات."),
+    ("L'Étranger", "Albert Camus", "978-2070360024", "Fiction", "Gallimard", 1972, 3, 3, "FIC-A-23", "#4A4E45", "Le roman de Meursault, un homme en marge, devant le soleil d'Alger et devant la justice."),
 ]
 
 USERS = [
@@ -208,7 +211,7 @@ class Command(BaseCommand):
         Reservation.objects.create(user=daniel, book=B("Project Hail Mary"))
         Reservation.objects.create(user=tomas, book=B("Project Hail Mary"))
 
-        ActivityLog.objects.create(actor_name="System", action="SEED", detail="Demo dataset loaded (18 books, 8 users, 17 records, 5 reservations).")
+        ActivityLog.objects.create(actor_name="System", action="SEED", detail="Demo dataset loaded (21 books, 8 users, 17 records, 5 reservations).")
         Notification.objects.create(user=daniel, message="Your pickup window for “Thinking, Fast and Slow” closes soon.")
 
         self.stdout.write(self.style.SUCCESS(

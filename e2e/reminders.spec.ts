@@ -13,6 +13,8 @@ test.describe("email reminders", () => {
     await page.goto("/staff/approvals");
     await rowWith(page, MEMBER_NAME, BOOK).getByRole("button", { name: "Approve" }).click();
     await expectToast(page, "Approved");
+    // The approval is sent when the 8-second Undo window ends; the email goes out with it.
+    await expect(rowWith(page, MEMBER_NAME, BOOK)).toHaveCount(0, { timeout: 20_000 });
 
     const { subject, body } = await latestEmail(page, testInfo.project.name, MEMBER);
     // In the member's language (French), with the title and the way to My loans.

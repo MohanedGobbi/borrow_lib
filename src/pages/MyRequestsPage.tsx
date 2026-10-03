@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { AlertTriangle, BookOpen, QrCode } from "lucide-react";
+import { AlertTriangle, ArrowRight, BookOpen, QrCode } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiRecords, apiReservations } from "@/api";
@@ -71,7 +71,7 @@ export default function MyRequestsPage() {
         title={t("req.title")}
         description={
           <span>
-            <span className="tabular font-medium text-ink">{me.activeLoans} / {me.maxBorrowLimit}</span> {t("req.slots")}
+            <bdi dir="ltr" className="tabular font-medium text-ink">{me.activeLoans} / {me.maxBorrowLimit}</bdi> {t("req.slots")}
           </span>
         }
       />
@@ -138,7 +138,15 @@ export default function MyRequestsPage() {
                 <Link to={`/books/${r.bookId}`} dir="auto" className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
                   <StatusBadge status={r.status} />
-                  <span>{fmtDate(r.requestedAt)}{r.returnedAt ? ` → ${fmtDate(r.returnedAt)}` : ""}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    {fmtDate(r.requestedAt)}
+                    {r.returnedAt && (
+                      <>
+                        <ArrowRight className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
+                        {fmtDate(r.returnedAt)}
+                      </>
+                    )}
+                  </span>
                 </div>
                 <RejectionReason record={r} />
                 <CancelledNote record={r} />
@@ -227,6 +235,13 @@ function ActiveRow({ r, lead, onWithdraw }: { r: BorrowRecord; lead: boolean; on
           <StatusBadge status={r.status} />
           <span>{t("field.shelf")} <span dir="ltr" className="font-mono text-[13px] text-ink/80">{r.bookShelf || "—"}</span></span>
         </div>
+        {r.status === "READY" && r.memberHasOverdue && (
+          // An overdue loan also blocks the pickup: say so under the hold, before they come to the desk.
+          <p className="mt-2.5 flex items-start gap-1.5 text-sm font-medium text-danger">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>{r.memberOverdueTitle ? t("req.holdBlocked", { title: r.memberOverdueTitle }) : t("req.holdBlockedPlain")}</span>
+          </p>
+        )}
       </div>
       <div>
         <div>{keyValue}</div>

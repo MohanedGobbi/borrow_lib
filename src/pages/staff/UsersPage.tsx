@@ -154,7 +154,7 @@ export default function UsersPage() {
                     <td className={tableCls.td}>{t(`role.${u.role}`)}</td>
                     <td className={tableCls.td}>
                       {u.role === "MEMBER"
-                        ? <span dir="ltr" className="tabular inline-block">{u.activeLoans} / {u.maxBorrowLimit}</span>
+                        ? <bdi dir="ltr" className="tabular inline-block">{u.activeLoans} / {u.maxBorrowLimit}</bdi>
                         : <span className="text-muted-foreground"><span aria-hidden>—</span><span className="sr-only">{t("users.noLimit")}</span></span>}
                     </td>
                     <td className={tableCls.td}><MemberStanding member={u} /></td>

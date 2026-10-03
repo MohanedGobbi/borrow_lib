@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Count, Exists, IntegerField, OuterRef, Prefetch, Q, Subquery
+from django.db.models import CharField, Count, Exists, IntegerField, OuterRef, Prefetch, Q, Subquery
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -127,6 +127,19 @@ def with_ready_count(qs):
     return qs.annotate(ready_count=Count("borrow_records", filter=Q(borrow_records__status=Status.READY)))
 
 
+def with_loan_flags(qs):
+    """Annotate books with their active loans (BORROWED / OVERDUE): how many, and the one loan's id and
+    borrower when there is exactly one, so the desk search can offer Return without a query per book."""
+    out = BorrowRecord.objects.filter(book=OuterRef("pk"), status__in=[Status.BORROWED, Status.OVERDUE]).order_by("pk")
+    return qs.annotate(
+        active_loan_n=Count("borrow_records", filter=Q(borrow_records__status__in=[Status.BORROWED, Status.OVERDUE])),
+        first_loan_id=Subquery(out.values("pk")[:1], output_field=IntegerField()),
+        first_loan_first=Subquery(out.values("user__first_name")[:1], output_field=CharField()),
+        first_loan_last=Subquery(out.values("user__last_name")[:1], output_field=CharField()),
+        first_loan_username=Subquery(out.values("user__username")[:1], output_field=CharField()),
+    )
+
+
 def with_queue_flag(qs):
     """Annotate borrow records with whether anyone is waiting for the book (bookHasQueue), which
     decides whether a loan can be renewed."""
@@ -141,7 +154,10 @@ def with_desk_annotations(qs):
                       .order_by().values("book").annotate(n=Count("pk")).values("n"))
     active_for_user = (BorrowRecord.objects.filter(user=OuterRef("user_id"), status__in=services.ACTIVE_STATUSES)
                        .order_by().values("user").annotate(n=Count("pk")).values("n"))
+    overdue_first = (BorrowRecord.objects.filter(user=OuterRef("user_id"), status=Status.OVERDUE)
+                     .order_by("due_date", "pk").values("book__title")[:1])
     return with_queue_flag(qs).annotate(
+        member_overdue_title=Subquery(overdue_first, output_field=CharField()),
         book_ready_count=Coalesce(Subquery(ready_for_book, output_field=IntegerField()), 0),
         member_active_loans=Coalesce(Subquery(active_for_user, output_field=IntegerField()), 0),
         member_overdue_flag=Exists(BorrowRecord.objects.filter(user=OuterRef("user_id"), status=Status.OVERDUE)),
@@ -161,7 +177,7 @@ class BookListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         categories = Category.objects.annotate(book_count=Count("books"))
-        return (with_ready_count(Book.objects.all())
+        return (with_loan_flags(with_ready_count(Book.objects.all()))
                 .prefetch_related(Prefetch("category", queryset=categories)).order_by("title"))
 
     def perform_create(self, serializer):
@@ -173,7 +189,7 @@ class BookListCreateView(generics.ListCreateAPIView):
 
 class BookDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BookSerializer
-    queryset = with_ready_count(Book.objects.all())
+    queryset = with_loan_flags(with_ready_count(Book.objects.all()))
 
     def get_permissions(self):
         if self.request.method == "GET":
@@ -255,7 +271,7 @@ class MyBorrowRecordsView(generics.ListAPIView):
     serializer_class = BorrowRecordSerializer
 
     def get_queryset(self):
-        return with_queue_flag(self.request.user.borrow_records.select_related("book"))
+        return with_desk_annotations(self.request.user.borrow_records.select_related("user__profile", "book"))
 
 
 class _TransitionView(APIView):

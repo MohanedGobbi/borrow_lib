@@ -149,7 +149,7 @@ export default function ImportBooksPage() {
                   cell: (r) => (
                     <>
                       <span className="font-medium" dir="auto">{r.title || "—"}</span>
-                      {r.author && <div className="text-xs text-muted-foreground" dir="auto">{r.author}</div>}
+                      {r.author && <div className="text-xs text-muted-foreground"><bdi>{r.author}</bdi></div>}
                     </>
                   ),
                 },

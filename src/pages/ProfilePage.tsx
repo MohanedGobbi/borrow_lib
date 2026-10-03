@@ -65,7 +65,7 @@ export default function ProfilePage() {
     [t("profile.role"), t(`role.${me.role}`)],
     [t("profile.since"), fmtDate(me.membershipStartDate)],
     ...(me.role === "MEMBER"
-      ? [[t("profile.limit"), <span><span className="tabular">{me.activeLoans} / {me.maxBorrowLimit}</span> {t("profile.inuse")}</span>] as [string, React.ReactNode]]
+      ? [[t("profile.limit"), <span><bdi dir="ltr" className="tabular">{me.activeLoans} / {me.maxBorrowLimit}</bdi> {t("profile.inuse")}</span>] as [string, React.ReactNode]]
       : []), // staff and admins cannot borrow, so a loan limit means nothing to them
   ];
 
@@ -122,7 +122,7 @@ export default function ProfilePage() {
               </div>
               <div className="mt-auto flex items-end justify-between gap-5 pt-8">
                 <div className="min-w-0">
-                  <p dir="auto" className="line-clamp-2 break-words font-display text-[1.625rem] font-semibold leading-[1.15] tracking-[-0.012em] text-ink">{me.name}</p>
+                  <p className="line-clamp-2 break-words font-display text-[1.625rem] font-semibold leading-[1.15] tracking-[-0.012em] text-ink"><bdi>{me.name}</bdi></p>
                   <p dir="ltr" className="mt-2 font-mono text-[13.5px] text-ink/80 rtl:text-end">{me.studentOrStaffId}</p>
                   <p className="mt-4 text-xs text-muted-foreground">{t("profile.since")} {fmtDate(me.membershipStartDate)}</p>
                 </div>

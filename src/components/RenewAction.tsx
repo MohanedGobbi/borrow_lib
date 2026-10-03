@@ -19,8 +19,12 @@ import type { BorrowRecord } from "@/types";
  * A success replaces the button with the new due date.
  */
 export function RenewAction({
-  record, audience, className,
-}: { record: BorrowRecord; audience: "member" | "staff"; className?: string }) {
+  record, audience, className, quiet,
+}: {
+  record: BorrowRecord; audience: "member" | "staff"; className?: string;
+  /** In a long list: show nothing unless a renewal is possible (the reason is on the member's workstation). */
+  quiet?: boolean;
+}) {
   const { t } = useI18n();
   const { rules, ready } = useLibrarySettings();
   const qc = useQueryClient();
@@ -46,6 +50,7 @@ export function RenewAction({
   }
 
   const state = renewalState(record, rules, audience);
+  if (quiet && (!ready || !state.ok)) return null;
   const reasonId = `renew-reason-${record.id}`;
   const title = audience === "staff" ? `${record.bookTitle} · ${record.userName}` : record.bookTitle;
   return (

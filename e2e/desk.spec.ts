@@ -30,11 +30,12 @@ test.describe("circulation desk", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Hana Yoshida" })).toBeVisible();
   });
 
-  // Read-only: Tomás Rivera's pickup of The Silk Roads is confirmed and taken back; nothing is sent.
+  // Read-only: Priya Sharma's pickup of Sapiens is confirmed and taken back; nothing is sent.
+  // (Tomás and Daniel have overdue loans, so their pickups are blocked: see pickup-block.spec.ts.)
   test("Undo takes back a confirmed pickup before anything is sent", async ({ page }) => {
     await signIn(page, STAFF);
     await page.goto("/staff/pickups");
-    const row = rowWith(page, "Tomás Rivera", "The Silk Roads");
+    const row = rowWith(page, "Priya Sharma", "Sapiens");
     await row.getByRole("button", { name: "Confirm pickup" }).click();
     await expect(row).toContainText("Pickup confirmed");
     await row.getByRole("button", { name: "Undo" }).click();
@@ -42,7 +43,7 @@ test.describe("circulation desk", () => {
 
     await page.waitForTimeout(9_000); // longer than the undo window
     await page.reload();
-    await expect(rowWith(page, "Tomás Rivera", "The Silk Roads").getByRole("button", { name: "Confirm pickup" })).toBeVisible();
+    await expect(rowWith(page, "Priya Sharma", "Sapiens").getByRole("button", { name: "Confirm pickup" })).toBeVisible();
   });
 
   // Omar requests Atomic Habits; staff reject it with a reason. Used by this spec only.

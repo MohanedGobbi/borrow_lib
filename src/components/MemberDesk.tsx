@@ -1,17 +1,15 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { AlertTriangle, Check, CircleSlash, Clock, PackageCheck, BookOpen, ClipboardCheck, X } from "lucide-react";
+import { AlertTriangle, CircleSlash, Clock, PackageCheck, BookOpen, ClipboardCheck, X } from "lucide-react";
 import { apiRecords } from "@/api";
 import { invalidateCirculation } from "@/api/queryKeys";
 import { useDeferredAction } from "@/hooks/useDeferredAction";
 import { useI18n } from "@/i18n";
-import { useRuleVars } from "@/hooks/useLibrarySettings";
 import { useStaffAction } from "@/pages/staff/staffContext";
 import { daysFrom, fmtDate, fmtDateTime, fmtDateTimeAgo, msLeft } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Countdown } from "@/components/Countdown";
 import { DeferredRowAction } from "@/components/DeferredRowAction";
-import { GuardedButton } from "@/components/GuardedButton";
 import { MemberStanding } from "@/components/MemberStanding";
 import { RenewAction } from "@/components/RenewAction";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
@@ -30,7 +28,6 @@ export function MemberDesk({
   member, records, historyHref, actions,
 }: { member: Profile; records: BorrowRecord[]; historyHref: string; actions?: ReactNode }) {
   const { t } = useI18n();
-  const ruleVars = useRuleVars();
   const deferred = useDeferredAction();
   const { run, busyId } = useStaffAction(invalidateCirculation);
   const [rejecting, setRejecting] = useState<BorrowRecord | null>(null);
@@ -142,23 +139,16 @@ export function MemberDesk({
                   <ClipboardCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                   <BookLine record={r} />
                   <div className="text-sm text-muted-foreground">{fmtDateTimeAgo(r.requestedAt)}</div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <Button
-                      size="sm" variant="outline" disabled={busyId === r.id}
+                      size="sm" variant="outline" disabled={busyId === r.id || deferred.phaseOf(r.id) !== null}
                       aria-label={t("aria.reject", vars)}
                       className="text-danger hover:border-danger/40 hover:bg-danger-soft hover:text-danger"
                       onClick={() => setRejecting(r)}
                     >
                       <X className="size-4" aria-hidden /> {t("dash.reject")}
                     </Button>
-                    <GuardedButton
-                      size="sm" disabled={busyId === r.id}
-                      aria-label={t("aria.approve", vars)}
-                      reason={r.bookFreeCopies <= 0 ? t("desk.approveBlocked") : undefined}
-                      onClick={() => run(r.id, () => apiRecords.approve(r.id), t("toast.approved", ruleVars))}
-                    >
-                      <Check className="size-4" aria-hidden /> {t("dash.approve")}
-                    </GuardedButton>
+                    <DeferredRowAction kind="approve" record={r} deferred={deferred} />
                   </div>
                 </li>
               );

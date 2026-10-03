@@ -8,6 +8,8 @@ export const tableCls = {
   th: "h-10 whitespace-nowrap border-b bg-surface/60 px-4 text-start text-[13px] font-medium text-muted-foreground",
   td: "border-b px-4 py-3.5 align-middle",
   row: "transition-colors hover:bg-surface/50 [&:last-child>td]:border-b-0",
+  /** A row that takes keyboard focus (J / K): the ring sits inside the row so the panel does not clip it. */
+  keyRow: "focus-visible:[outline-offset:-2px] aria-selected:bg-surface/60",
 };
 
 /**
