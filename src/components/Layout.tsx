@@ -4,6 +4,7 @@ import { Bell, ClipboardList, Globe, Info, LibraryBig, LogOut, Menu, UserRound }
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/AuthContext";
 import { useCart } from "@/cart/CartContext";
+import { flushDeferredActions } from "@/hooks/useDeferredAction";
 import { useI18n, type Lang } from "@/i18n";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiAuth, apiMisc } from "@/api";
@@ -56,7 +57,7 @@ export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const isStaff = !!me && me.role !== "MEMBER";
   const isMember = !!me && me.role === "MEMBER";
-  const isStaffArea = location.pathname.startsWith("/staff");
+  const isStaffArea = location.pathname.startsWith("/staff") || location.pathname.startsWith("/scan/");
 
   const NAV = [
     { to: "/catalog", label: t("nav.catalog"), show: true },
@@ -81,6 +82,7 @@ export function Layout() {
   };
 
   const signOut = async () => {
+    await flushDeferredActions(); // a pickup or return still in its undo window is saved before the session ends
     await logout();
     navigate("/");
   };

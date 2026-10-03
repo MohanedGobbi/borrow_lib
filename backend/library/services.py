@@ -25,6 +25,7 @@ from .errors import BusinessRuleError, StateMachineError  # noqa: F401  (re-expo
 
 PICKUP_WINDOW = timedelta(hours=48)
 LOAN_PERIOD = timedelta(days=14)
+REJECTION_REASON_MAX = 300
 
 ACTIVE_STATUSES = [Status.PENDING, Status.READY, Status.BORROWED, Status.OVERDUE]
 
@@ -137,15 +138,22 @@ def approve(staff: User, record: BorrowRecord) -> BorrowRecord:
 
 
 @transaction.atomic
-def reject(staff: User, record: BorrowRecord) -> BorrowRecord:
-    """PENDING -> REJECTED (terminal)."""
+def reject(staff: User, record: BorrowRecord, reason: str = "") -> BorrowRecord:
+    """PENDING -> REJECTED (terminal). An optional reason (max 300 characters) is shown to the member."""
     _assert_transition("reject", record)
+    reason = (reason or "").strip()[:REJECTION_REASON_MAX]
     record.status = Status.REJECTED
-    record.save(update_fields=["status"])
+    record.rejection_reason = reason
+    record.save(update_fields=["status", "rejection_reason"])
     log_activity(display_name(staff), "REJECTED",
                  f"Rejected {display_name(record.user)}'s request for “{record.book.title}”.")
-    notify(record.user, "request_rejected",
-           f"Your request for “{record.book.title}” was rejected by staff.", title=record.book.title)
+    if reason:
+        notify(record.user, "request_rejected",
+               f"Your request for “{record.book.title}” was rejected by staff. Reason: {reason}",
+               title=record.book.title, reason=reason)
+    else:
+        notify(record.user, "request_rejected",
+               f"Your request for “{record.book.title}” was rejected by staff.", title=record.book.title)
     return record
 
 

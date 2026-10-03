@@ -47,6 +47,7 @@ class BookFilter(StableOrderingMixin, df.FilterSet):
 
 
 class BorrowRecordFilter(StableOrderingMixin, df.FilterSet):
+    search = df.CharFilter(method="filter_search")
     status = CharInFilter(field_name="status", lookup_expr="in")
     book = df.NumberFilter(field_name="book_id")
     user = df.NumberFilter(field_name="user_id")
@@ -57,6 +58,17 @@ class BorrowRecordFilter(StableOrderingMixin, df.FilterSet):
     class Meta:
         model = BorrowRecord
         fields = []
+
+    def filter_search(self, qs, name, value):
+        # Every word must match somewhere, so "priya sharma" finds Priya Sharma.
+        for word in value.split():
+            qs = qs.filter(
+                Q(user__first_name__icontains=word) | Q(user__last_name__icontains=word)
+                | Q(user__profile__student_or_staff_id__icontains=word)
+                | Q(book__title__icontains=word) | Q(book__isbn__icontains=word)
+                | Q(book__shelf_location__icontains=word)
+            )
+        return qs
 
 
 class UserFilter(StableOrderingMixin, df.FilterSet):

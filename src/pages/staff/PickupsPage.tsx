@@ -1,30 +1,36 @@
+import { useState } from "react";
 import { Link } from "react-router";
-import { AlertTriangle, PackageCheck } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Clock, PackageCheck, SearchX } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRecords } from "@/api";
-import { invalidateCirculation, qk } from "@/api/queryKeys";
+import { qk } from "@/api/queryKeys";
+import { useDebounced } from "@/hooks/useDebounced";
+import { useDeferredAction } from "@/hooks/useDeferredAction";
 import { useI18n } from "@/i18n";
 import { Countdown } from "@/components/Countdown";
+import { DeferredRowAction } from "@/components/DeferredRowAction";
+import { QueueFilter } from "@/components/QueueFilter";
 import { fmtDateTime, msLeft } from "@/lib/time";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { ShowingNote } from "@/components/Pager";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
-import { Button } from "@/components/ui/button";
 import { FullPageLoader } from "@/auth/guards";
-import { useStaffAction } from "@/pages/staff/staffContext";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
 import { URGENT_PICKUP_MS } from "@/types";
 
 export default function PickupsPage() {
   const { t } = useI18n();
-  const params = { status: "READY", ordering: "pickup_deadline", pageSize: 100 };
+  const [filter, setFilter] = useState("");
+  const search = useDebounced(filter.trim(), 300);
+  const params = { status: "READY", ordering: "pickup_deadline", pageSize: 100, search };
   const { data: result, isPending } = useQuery({
     queryKey: qk.records.list(params),
     queryFn: () => apiRecords.list(params),
+    placeholderData: keepPreviousData,
     refetchInterval: 45_000,
   });
-  const { run, busyId } = useStaffAction(invalidateCirculation);
+  const deferred = useDeferredAction();
 
   if (isPending) return <FullPageLoader />;
   const ready = result?.results ?? [];
@@ -32,9 +38,14 @@ export default function PickupsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("staff.pickups")} />
-      <Panel title={t("dash.awaiting")} count={result?.count ?? 0} flush>
+      <Panel
+        title={t("dash.awaiting")} count={result?.count ?? 0} flush
+        actions={<QueueFilter value={filter} onChange={setFilter} />}
+      >
         {ready.length === 0 ? (
-          <EmptyState icon={PackageCheck} title={t("dash.noPickups")} />
+          search
+            ? <EmptyState icon={SearchX} title={t("desk.noFilterMatch", { q: search })} />
+            : <EmptyState icon={PackageCheck} title={t("dash.noPickups")} />
         ) : (
           <div className={tableCls.wrap}>
             <table className={tableCls.table}>
@@ -61,7 +72,7 @@ export default function PickupsPage() {
                       </td>
                       <td className={tableCls.td}>
                         <span className={cn("inline-flex items-center gap-1.5", urgent ? "text-warning" : "text-ink")}>
-                          {urgent && <AlertTriangle className="size-4" aria-label={t("dash.urgent")} />}
+                          {urgent && <Clock className="size-4" aria-label={t("dash.urgent")} />}
                           <Countdown deadline={r.pickupDeadline!} className="tabular font-semibold" />
                         </span>
                         <div className="text-xs text-muted-foreground">{fmtDateTime(r.pickupDeadline)}</div>
@@ -69,12 +80,7 @@ export default function PickupsPage() {
                       <td className={tableCls.td}>
                         <div className="flex justify-end gap-2">
                           <RequestDocButton record={r} />
-                          <Button
-                            size="sm" disabled={busyId === r.id}
-                            onClick={() => run(r.id, () => apiRecords.confirmPickup(r.id), t("toast.pickedUp"))}
-                          >
-                            {t("dash.confirmPickup")}
-                          </Button>
+                          <DeferredRowAction kind="pickup" record={r} deferred={deferred} />
                         </div>
                       </td>
                     </tr>

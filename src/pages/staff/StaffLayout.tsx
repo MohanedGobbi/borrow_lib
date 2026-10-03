@@ -6,6 +6,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { apiMisc, apiRecords } from "@/api";
 import { qk } from "@/api/queryKeys";
+import { DeskSearch } from "@/components/DeskSearch";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -100,7 +101,8 @@ export default function StaffLayout() {
           ))}
         </nav>
       </aside>
-      <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10">
+      <div className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+        <DeskSearch className="mb-6" />
         <Outlet />
       </div>
     </div>

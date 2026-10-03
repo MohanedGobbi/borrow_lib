@@ -105,7 +105,7 @@ export default function UsersPage() {
         </>
       )}
       <Panel
-        title={t("users.title")}
+        title={t("users.all")}
         count={result?.count ?? 0}
         flush
         actions={

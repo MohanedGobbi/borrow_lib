@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, IntegerField, OuterRef, Prefetch, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -106,7 +107,9 @@ class ScanLookupView(APIView):
 
     def get(self, request, uuid):
         profile = get_object_or_404(UserProfile, uuid=uuid)
-        records = profile.user.borrow_records.filter(status__in=services.ACTIVE_STATUSES)
+        records = with_desk_annotations(
+            profile.user.borrow_records.select_related("user__profile", "book")
+            .filter(status__in=services.ACTIVE_STATUSES))
         return Response({
             "member": ProfileSerializer(profile).data,
             "activeRecords": BorrowRecordSerializer(records, many=True).data,
@@ -118,6 +121,20 @@ class ScanLookupView(APIView):
 def with_ready_count(qs):
     """Annotate each book with the copies held for pickup (READY), for freeCopies."""
     return qs.annotate(ready_count=Count("borrow_records", filter=Q(borrow_records__status=Status.READY)))
+
+
+def with_desk_annotations(qs):
+    """Annotate borrow records with what the desk shows beside each row (bookFreeCopies,
+    memberHasOverdue, memberActiveLoans), so the serializer adds no query per row."""
+    ready_for_book = (BorrowRecord.objects.filter(book=OuterRef("book_id"), status=Status.READY)
+                      .order_by().values("book").annotate(n=Count("pk")).values("n"))
+    active_for_user = (BorrowRecord.objects.filter(user=OuterRef("user_id"), status__in=services.ACTIVE_STATUSES)
+                       .order_by().values("user").annotate(n=Count("pk")).values("n"))
+    return qs.annotate(
+        book_ready_count=Coalesce(Subquery(ready_for_book, output_field=IntegerField()), 0),
+        member_active_loans=Coalesce(Subquery(active_for_user, output_field=IntegerField()), 0),
+        member_overdue_flag=Exists(BorrowRecord.objects.filter(user=OuterRef("user_id"), status=Status.OVERDUE)),
+    )
 
 
 class BookListCreateView(generics.ListCreateAPIView):
@@ -211,7 +228,8 @@ class BorrowRecordListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        return BorrowRecord.objects.select_related("user", "user__profile", "book").order_by("-requested_at")
+        return with_desk_annotations(
+            BorrowRecord.objects.select_related("user", "user__profile", "book")).order_by("-requested_at")
 
     def post(self, request):
         if request.user.profile.role != Role.MEMBER:
@@ -244,6 +262,12 @@ class ApproveView(_TransitionView):
 
 class RejectView(_TransitionView):
     op = "reject"
+
+    def post(self, request, pk):
+        record = get_object_or_404(BorrowRecord, pk=pk)
+        reason = request.data.get("reason", "")
+        reason = reason if isinstance(reason, str) else ""
+        return Response(BorrowRecordSerializer(services.reject(request.user, record, reason)).data)
 
 
 class ConfirmPickupView(_TransitionView):
@@ -415,7 +439,7 @@ class UserDetailView(APIView):
 
     def get(self, request, pk):
         profile = get_object_or_404(UserProfile.objects.select_related("user"), pk=pk)
-        records = profile.user.borrow_records.select_related("book")
+        records = with_desk_annotations(profile.user.borrow_records.select_related("user__profile", "book"))
         return Response({
             "member": ProfileSerializer(profile).data,
             "records": BorrowRecordSerializer(records, many=True).data,

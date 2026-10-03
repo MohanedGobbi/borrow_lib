@@ -32,9 +32,12 @@ export function resetDemo() {
 }
 
 /** `fetch` for API calls — routed to the in-browser mock backend in demo builds. */
+let demoApi: typeof import("@/api/demo") | undefined;
 export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
-  if (DEMO) return (await import("@/api/demo")).demoFetch(url, init);
-  return fetch(url, init);
+  if (!DEMO) return fetch(url, init);
+  // Once loaded the module is used without awaiting, so a keepalive request sent from `pagehide` is applied in time.
+  demoApi ??= await import("@/api/demo");
+  return demoApi.demoFetch(url, init);
 }
 
 export class ApiError extends Error {
@@ -135,13 +138,14 @@ export async function authFetch(url: string, init: RequestInit = {}): Promise<Re
 
 export async function api<T = unknown>(
   path: string,
-  opts: { method?: string; body?: unknown; auth?: boolean } = {}
+  opts: { method?: string; body?: unknown; auth?: boolean; keepalive?: boolean } = {}
 ): Promise<T> {
-  const { method = "GET", body, auth = true } = opts;
+  const { method = "GET", body, auth = true, keepalive } = opts;
 
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  const init: RequestInit = { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined };
+  // `keepalive` lets the request outlive the page: used when a page unloads with an action still waiting.
+  const init: RequestInit = { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined, keepalive };
   let res: Response;
   try {
     res = auth

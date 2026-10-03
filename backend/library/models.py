@@ -126,6 +126,7 @@ class BorrowRecord(models.Model):
     approved_by = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_records"
     )
+    rejection_reason = models.CharField(max_length=300, blank=True)
 
     class Meta:
         ordering = ["-requested_at"]

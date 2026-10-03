@@ -92,9 +92,12 @@ export const apiAuth = {
   scan: (uuid: string) => api<ScanResult>(`/users/${uuid}/scan`),
 };
 
+/** Options for the actions that can be sent as the page unloads. */
+type SendOptions = { keepalive?: boolean };
+
 export const apiRecords = {
   mine: () => api<BorrowRecord[]>("/borrow-records/mine"),
-  list: (params: PageParams & { status?: string | string[]; book?: number; user?: number } = {}) => {
+  list: (params: PageParams & { status?: string | string[]; book?: number; user?: number; search?: string } = {}) => {
     const { status, ...rest } = params;
     return api<Page<BorrowRecord>>(
       `/borrow-records${query({ ...rest, status: Array.isArray(status) ? status.join(",") : status })}`,
@@ -103,9 +106,13 @@ export const apiRecords = {
   create: (bookId: number) =>
     api<BorrowRecord>("/borrow-records", { method: "POST", body: { bookId } }),
   approve: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/approve`, { method: "POST" }),
-  reject: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/reject`, { method: "POST" }),
-  confirmPickup: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/confirm-pickup`, { method: "POST" }),
-  confirmReturn: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/confirm-return`, { method: "POST" }),
+  /** The reason (up to 300 characters) is optional and is shown to the student. */
+  reject: (id: number, reason = "") =>
+    api<BorrowRecord>(`/borrow-records/${id}/reject`, { method: "POST", body: { reason } }),
+  confirmPickup: (id: number, opts: SendOptions = {}) =>
+    api<BorrowRecord>(`/borrow-records/${id}/confirm-pickup`, { method: "POST", ...opts }),
+  confirmReturn: (id: number, opts: SendOptions = {}) =>
+    api<BorrowRecord>(`/borrow-records/${id}/confirm-return`, { method: "POST", ...opts }),
   documentUrl: (id: number) => `${API_ROOT}/borrow-records/${id}/document`,
 };
 

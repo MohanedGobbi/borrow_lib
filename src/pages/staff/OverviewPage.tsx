@@ -7,6 +7,8 @@ import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { Countdown } from "@/components/Countdown";
+import { DeferredRowAction } from "@/components/DeferredRowAction";
+import { useDeferredAction } from "@/hooks/useDeferredAction";
 import { daysFrom, fmtDate, msLeft, timeAgo } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
@@ -17,6 +19,7 @@ import { URGENT_PICKUP_MS } from "@/types";
 export default function OverviewPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const deferred = useDeferredAction();
   const poll = { refetchInterval: 45_000 };
   const { data: stats, isPending } = useQuery({ queryKey: qk.stats, queryFn: apiMisc.stats, ...poll });
   const { data: activity } = useQuery({ queryKey: qk.activity, queryFn: apiMisc.activity, ...poll });
@@ -50,7 +53,7 @@ export default function OverviewPage() {
   const vitals = [
     { label: t("dash.pending"), value: pending?.count, to: "/staff/approvals" },
     { label: t("dash.awaiting"), value: stats?.totalReady, to: "/staff/pickups" },
-    { label: t("dash.onLoan"), value: stats?.totalBorrowed, to: "/staff/loans" },
+    { label: t("desk.loansNotOverdue"), value: stats?.totalBorrowed, to: "/staff/loans" },
     { label: t("dash.overdue"), value: stats?.totalOverdue, to: "/staff/loans", danger: (stats?.totalOverdue ?? 0) > 0 },
     { label: t("dash.members"), value: stats?.totalMembers, to: "/staff/users" },
     { label: t("dash.copies"), value: stats?.totalBooks, to: "/staff/inventory" },
@@ -63,6 +66,7 @@ export default function OverviewPage() {
     <div className="space-y-8">
       <PageHeader
         title={t("staff.overview")}
+        description={t("dash.runJobsHelp")}
         actions={
           <Button variant="outline" size="sm" disabled={runJobs.isPending} onClick={() => runJobs.mutate()}>
             <RefreshCcw className="size-4" aria-hidden /> {t("dash.runJobs")}
@@ -104,6 +108,7 @@ export default function OverviewPage() {
                     </p>
                   </div>
                   <span className="text-sm font-semibold text-danger">{t("time.daysOverdue", { n: Math.abs(daysFrom(r.dueDate)) })}</span>
+                  <DeferredRowAction kind="return" record={r} deferred={deferred} />
                 </li>
               ))}
               {urgent.map((r) => (
@@ -117,6 +122,7 @@ export default function OverviewPage() {
                     </p>
                   </div>
                   <Countdown deadline={r.pickupDeadline!} className="tabular text-sm font-semibold text-warning" />
+                  <DeferredRowAction kind="pickup" record={r} deferred={deferred} />
                 </li>
               ))}
             </ul>

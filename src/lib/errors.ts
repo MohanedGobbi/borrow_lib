@@ -56,5 +56,7 @@ export function errorMessage(t: T, e: unknown, fallbackKey = "toast.failed"): st
 
 /** A notification in the active language; rows from before codes existed keep their English text. */
 export function notificationText(t: T, n: { code?: string; params?: Record<string, unknown>; message: string }): string {
-  return translateCode(t, "notif", n.code, n.params) ?? n.message;
+  // A rejection that carries the staff member's reason has its own wording.
+  const code = n.code === "request_rejected" && n.params?.reason ? "request_rejected_reason" : n.code;
+  return translateCode(t, "notif", code, n.params) ?? n.message;
 }

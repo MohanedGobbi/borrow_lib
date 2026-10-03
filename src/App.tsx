@@ -58,20 +58,21 @@ export default function App() {
           <Route path="/cart" element={<RequireAuth><Suspense fallback={<FullPageLoader />}><CartPage /></Suspense></RequireAuth>} />
           <Route path="/my-requests" element={<RequireAuth><Suspense fallback={<FullPageLoader />}><MyRequestsPage /></Suspense></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Suspense fallback={<FullPageLoader />}><ProfilePage /></Suspense></RequireAuth>} />
-          <Route path="/scan/:uuid" element={<RequireStaff><Suspense fallback={<FullPageLoader />}><ScanLookupPage /></Suspense></RequireStaff>} />
           <Route path="/dashboard" element={<Navigate to="/staff" replace />} />
-          <Route path="/staff" element={<RequireStaff><Suspense fallback={<FullPageLoader />}><StaffLayout /></Suspense></RequireStaff>}>
-            <Route index element={<Suspense fallback={<FullPageLoader />}><OverviewPage /></Suspense>} />
-            <Route path="approvals" element={<Suspense fallback={<FullPageLoader />}><ApprovalsPage /></Suspense>} />
-            <Route path="pickups" element={<Suspense fallback={<FullPageLoader />}><PickupsPage /></Suspense>} />
-            <Route path="loans" element={<Suspense fallback={<FullPageLoader />}><LoansPage /></Suspense>} />
-            <Route path="inventory" element={<Suspense fallback={<FullPageLoader />}><InventoryPage /></Suspense>} />
-            <Route path="inventory/import" element={<Suspense fallback={<FullPageLoader />}><ImportBooksPage /></Suspense>} />
-            <Route path="reservations" element={<Suspense fallback={<FullPageLoader />}><ReservationsPage /></Suspense>} />
-            <Route path="users" element={<Suspense fallback={<FullPageLoader />}><UsersPage /></Suspense>} />
-            <Route path="users/:id" element={<Suspense fallback={<FullPageLoader />}><UserDetailPage /></Suspense>} />
-            <Route path="analytics" element={<Suspense fallback={<FullPageLoader />}><AnalyticsPage /></Suspense>} />
-            <Route path="activity" element={<Suspense fallback={<FullPageLoader />}><ActivityPage /></Suspense>} />
+          {/* The staff desk shell (sidebar and desk search) also frames the member workstation at /scan/:uuid. */}
+          <Route element={<RequireStaff><Suspense fallback={<FullPageLoader />}><StaffLayout /></Suspense></RequireStaff>}>
+            <Route path="/scan/:uuid" element={<Suspense fallback={<FullPageLoader />}><ScanLookupPage /></Suspense>} />
+            <Route path="/staff" element={<Suspense fallback={<FullPageLoader />}><OverviewPage /></Suspense>} />
+            <Route path="/staff/approvals" element={<Suspense fallback={<FullPageLoader />}><ApprovalsPage /></Suspense>} />
+            <Route path="/staff/pickups" element={<Suspense fallback={<FullPageLoader />}><PickupsPage /></Suspense>} />
+            <Route path="/staff/loans" element={<Suspense fallback={<FullPageLoader />}><LoansPage /></Suspense>} />
+            <Route path="/staff/inventory" element={<Suspense fallback={<FullPageLoader />}><InventoryPage /></Suspense>} />
+            <Route path="/staff/inventory/import" element={<Suspense fallback={<FullPageLoader />}><ImportBooksPage /></Suspense>} />
+            <Route path="/staff/reservations" element={<Suspense fallback={<FullPageLoader />}><ReservationsPage /></Suspense>} />
+            <Route path="/staff/users" element={<Suspense fallback={<FullPageLoader />}><UsersPage /></Suspense>} />
+            <Route path="/staff/users/:id" element={<Suspense fallback={<FullPageLoader />}><UserDetailPage /></Suspense>} />
+            <Route path="/staff/analytics" element={<Suspense fallback={<FullPageLoader />}><AnalyticsPage /></Suspense>} />
+            <Route path="/staff/activity" element={<Suspense fallback={<FullPageLoader />}><ActivityPage /></Suspense>} />
           </Route>
           <Route path="*" element={<LandingPage />} />
         </Route>

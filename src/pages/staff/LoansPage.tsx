@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { BookOpen } from "lucide-react";
+import { BookOpen, SearchX } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRecords } from "@/api";
-import { invalidateCirculation, qk } from "@/api/queryKeys";
+import { qk } from "@/api/queryKeys";
+import { useDebounced } from "@/hooks/useDebounced";
+import { useDeferredAction } from "@/hooks/useDeferredAction";
 import { useI18n } from "@/i18n";
+import { DeferredRowAction } from "@/components/DeferredRowAction";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pager } from "@/components/Pager";
+import { QueueFilter } from "@/components/QueueFilter";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { daysFrom, fmtDate, msLeft } from "@/lib/time";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
-import { Button } from "@/components/ui/button";
 import { FullPageLoader } from "@/auth/guards";
-import { useStaffAction } from "@/pages/staff/staffContext";
 import { fetchPage } from "@/lib/paging";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
@@ -22,15 +24,19 @@ const PAGE_SIZE = 50;
 
 export default function LoansPage() {
   const { t } = useI18n();
-  const [page, setPage] = useState(1);
-  const params = { status: ["BORROWED", "OVERDUE"], ordering: "due_date", pageSize: PAGE_SIZE };
+  const [filter, setFilter] = useState("");
+  const search = useDebounced(filter.trim(), 300);
+  // The page belongs to one search: a new search starts again from page 1.
+  const [pageState, setPageState] = useState({ key: search, page: 1 });
+  const page = pageState.key === search ? pageState.page : 1;
+  const params = { status: ["BORROWED", "OVERDUE"], ordering: "due_date", pageSize: PAGE_SIZE, search };
   const { data: result, isPending } = useQuery({
     queryKey: qk.records.list({ ...params, page }),
     queryFn: () => fetchPage((p) => apiRecords.list({ ...params, page: p }), page),
     placeholderData: keepPreviousData,
     refetchInterval: 45_000,
   });
-  const { run, busyId } = useStaffAction(invalidateCirculation);
+  const deferred = useDeferredAction();
 
   if (isPending) return <FullPageLoader />;
   const loans = result?.results ?? [];
@@ -38,9 +44,14 @@ export default function LoansPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("staff.loans")} />
-      <Panel title={t("dash.onLoan")} count={result?.count ?? 0} flush>
+      <Panel
+        title={t("desk.loansOut")} count={result?.count ?? 0} flush
+        actions={<QueueFilter value={filter} onChange={setFilter} />}
+      >
         {loans.length === 0 ? (
-          <EmptyState icon={BookOpen} title={t("dash.noLoans")} />
+          search
+            ? <EmptyState icon={SearchX} title={t("desk.noFilterMatch", { q: search })} />
+            : <EmptyState icon={BookOpen} title={t("dash.noLoans")} />
         ) : (
           <div className={tableCls.wrap}>
             <table className={tableCls.table}>
@@ -76,12 +87,7 @@ export default function LoansPage() {
                       <td className={tableCls.td}>
                         <div className="flex justify-end gap-2">
                           <RequestDocButton record={r} />
-                          <Button
-                            size="sm" variant="outline" disabled={busyId === r.id}
-                            onClick={() => run(r.id, () => apiRecords.confirmReturn(r.id), t("toast.returned"))}
-                          >
-                            {t("dash.confirmReturn")}
-                          </Button>
+                          <DeferredRowAction kind="return" record={r} deferred={deferred} />
                         </div>
                       </td>
                     </tr>
@@ -91,7 +97,12 @@ export default function LoansPage() {
             </table>
           </div>
         )}
-        {result && <Pager page={result.page} pageSize={result.pageSize} count={result.count} onPage={setPage} />}
+        {result && (
+          <Pager
+            page={result.page} pageSize={result.pageSize} count={result.count}
+            onPage={(next) => setPageState({ key: search, page: next })}
+          />
+        )}
       </Panel>
     </div>
   );

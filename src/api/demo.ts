@@ -15,6 +15,7 @@ const H = 60 * 60 * 1000;
 const D = 24 * H;
 const PICKUP_WINDOW = 48 * H;
 const LOAN_PERIOD = 14 * D;
+const REJECTION_REASON_MAX = 300;
 const ACTIVE: BorrowStatus[] = ["PENDING", "READY", "BORROWED", "OVERDUE"];
 
 interface DCategory { id: number; name: string; color: string }
@@ -34,6 +35,8 @@ interface DRecord {
   id: number; userId: number; bookId: number; requestedAt: number; approvedAt: number | null;
   pickupDeadline: number | null; borrowedAt: number | null; dueDate: number | null;
   returnedAt: number | null; status: BorrowStatus;
+  /** Why staff rejected the request (max 300 characters); shown to the member. */
+  rejectionReason?: string;
 }
 interface DReservation { id: number; userId: number; bookId: number; reservedAt: number; isActive: boolean }
 interface DActivity { id: number; at: number; actorName: string; action: string; detail: string }
@@ -308,7 +311,9 @@ function sRecord(r: DRecord) {
     id: r.id, userId: u.id, userProfileId: u.id, bookId: b.id, userName: u.name, userIdNumber: u.idNumber,
     bookTitle: b.title, bookShelf: b.shelfLocation, requestedAt: iso(r.requestedAt), approvedAt: iso(r.approvedAt),
     pickupDeadline: iso(r.pickupDeadline), borrowedAt: iso(r.borrowedAt), dueDate: iso(r.dueDate),
-    returnedAt: iso(r.returnedAt), status: r.status,
+    returnedAt: iso(r.returnedAt), status: r.status, rejectionReason: r.rejectionReason ?? "",
+    bookFreeCopies: freeCopies(b), memberHasOverdue: hasOverdue(u.id), memberActiveLoans: activeLoans(u.id),
+    memberMaxBorrowLimit: u.maxLimit,
   };
 }
 
@@ -600,9 +605,17 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
         { title: book.title });
     } else if (op === "reject") {
       transition("reject", r, ["PENDING"]);
+      const asked = ctx.body.reason;
+      const reason = (typeof asked === "string" ? asked : "").trim().slice(0, REJECTION_REASON_MAX);
       r.status = "REJECTED";
+      r.rejectionReason = reason;
       log(staff.name, "REJECTED", `Rejected ${user.name}'s request for “${book.title}”.`);
-      notify(user.id, "request_rejected", `Your request for “${book.title}” was rejected by staff.`, { title: book.title });
+      if (reason) {
+        notify(user.id, "request_rejected", `Your request for “${book.title}” was rejected by staff. Reason: ${reason}`,
+          { title: book.title, reason });
+      } else {
+        notify(user.id, "request_rejected", `Your request for “${book.title}” was rejected by staff.`, { title: book.title });
+      }
     } else if (op === "pickup") {
       transition("pickup", r, ["READY"]);
       if (book.availableCopies <= 0) throw bad("pickup_no_copy", "No physical copy on the shelf to hand out.");
@@ -1199,8 +1212,16 @@ const ROUTES: [string, RegExp, Handler][] = [
     const statuses = (ctx.query.get("status") ?? "").split(",").map((v) => v.trim()).filter(Boolean);
     const book = ctx.query.get("book");
     const user = ctx.query.get("user");
+    // Every word must match somewhere (member name or ID, book title, ISBN or shelf mark), like BorrowRecordFilter.
+    const words = (ctx.query.get("search") ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+    const haystack = (r: DRecord) => {
+      const m = userById(r.userId)!;
+      const b = bookById(r.bookId)!;
+      return [m.name, m.idNumber, b.title, b.isbn, b.shelfLocation].join("\n").toLowerCase();
+    };
     const matches = state.records.filter((r) =>
-      (!statuses.length || statuses.includes(r.status)) && (!book || r.bookId === Number(book)) && (!user || r.userId === Number(user)),
+      (!statuses.length || statuses.includes(r.status)) && (!book || r.bookId === Number(book)) && (!user || r.userId === Number(user))
+      && words.every((w) => haystack(r).includes(w)),
     );
     const sorted = orderBy(matches, ctx, {
       requested_at: (r) => r.requestedAt, due_date: (r) => r.dueDate, pickup_deadline: (r) => r.pickupDeadline,
@@ -1410,8 +1431,9 @@ export async function demoFetch(url: string, init: RequestInit = {}): Promise<Re
     try { body = JSON.parse(init.body); } catch { return json(400, { detail: "Malformed JSON." }); }
   }
 
-  // Small delay so loading states render the way they would against a server.
-  await new Promise((r) => setTimeout(r, 120));
+  // Small delay so loading states render the way they would against a server. A keepalive request
+  // is the page's last word before it unloads: it must be applied and saved without waiting.
+  if (!init.keepalive) await new Promise((r) => setTimeout(r, 120));
 
   for (const [m, re, handler] of ROUTES) {
     const match = m === method && re.exec(path);
@@ -1419,7 +1441,8 @@ export async function demoFetch(url: string, init: RequestInit = {}): Promise<Re
     try {
       // Stand-in for the cron jobs: expire pickups / flag overdue loans before serving.
       const jobs = runJobs();
-      const result = await handler({ method, path, query: parsed.searchParams, body, form, user, headers }, match.slice(1));
+      const handled = handler({ method, path, query: parsed.searchParams, body, form, user, headers }, match.slice(1));
+      const result = handled instanceof Promise ? await handled : handled; // no await for sync handlers: see keepalive
       if (method !== "GET" || jobs.cancelled || jobs.flaggedOverdue) save();
       if (result instanceof Blob) return new Response(result, { status: 200, headers: { "Content-Type": result.type } });
       if (result instanceof Reply) return json(result.status, result.data);

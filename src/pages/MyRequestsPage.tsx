@@ -97,6 +97,7 @@ export default function MyRequestsPage() {
                   <StatusBadge status={r.status} />
                   <span>{fmtDate(r.requestedAt)}{r.returnedAt ? ` → ${fmtDate(r.returnedAt)}` : ""}</span>
                 </div>
+                <RejectionReason record={r} />
                 <div className="mt-1 -ms-3"><RequestDocButton record={r} /></div>
               </li>
             ))}
@@ -117,6 +118,7 @@ export default function MyRequestsPage() {
                   <tr key={r.id} className={tableCls.row}>
                     <td className={tableCls.td}>
                       <Link to={`/books/${r.bookId}`} className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
+                      <RejectionReason record={r} />
                     </td>
                     <td className={tableCls.td}>{fmtDate(r.requestedAt)}</td>
                     <td className={tableCls.td}>{fmtDate(r.returnedAt)}</td>
@@ -170,5 +172,17 @@ function ActiveRow({ r }: { r: BorrowRecord }) {
       </div>
       <div className="sm:text-end"><RequestDocButton record={r} /></div>
     </li>
+  );
+}
+
+/** Why staff rejected a request, when they said. */
+function RejectionReason({ record }: { record: BorrowRecord }) {
+  const { t } = useI18n();
+  if (record.status !== "REJECTED" || !record.rejectionReason) return null;
+  return (
+    <p className="mt-1.5 max-w-prose text-sm text-ink/85">
+      <span className="font-medium">{t("req.rejectedReason")}:</span>{" "}
+      <span dir="auto">{record.rejectionReason}</span>
+    </p>
   );
 }

@@ -49,7 +49,22 @@ Never switch models mid-WP: the prompt cache is per model.
 | 13 | Playwright E2E against both the demo and Django ([spec](WP-13.md)); axe checks | Sonnet · high | done: 14 tests × 2 backends, no demo/Django mismatches, 0 critical a11y; 2 serious `<dl>` issues on staff overview logged in `e2e/a11y-report.md` for WP-24 |
 | 14 | Contract tests run against both Django and `demo.ts` | merged into WP-13: the same E2E suite runs on both backends | |
 
-## Sprint 4: Operations
+## Sprint 4: Design and features (moved ahead of operations at the owner's request, 2026-10-03)
+
+| WP | Task | Model · effort | Status |
+|---|---|---|---|
+| D1 | Design audit of every main screen (desktop, phone, Arabic) against DESIGN.md; prioritised fix list | Opus | done: 23/40, report in `.impeccable/critique/`; owner chose desk first, all P0–P2, no rethinks |
+| D2a | Desk safety + scan-first desk ([spec](D2a.md)) | Sonnet · high | done, Opus-reviewed |
+| D2b | Student control (cancel request, leave list, inline confirmation), Arabic bugs, activity codes, public copy privacy | Sonnet · high | |
+| D2c | Phone layouts + visual drift + minor observations | Sonnet · medium | |
+| 21a | Loan renewal: once per loan, +14 days, blocked by a waiting list or an overdue loan | Opus tests → Sonnet | |
+| 21b | Email reminders: ready for pickup, due in 2 days, overdue (scheduled job, per-language, idempotent) | Sonnet · medium | |
+| 22 | Circulation rules (hold hours, loan days, limits) editable by admin in the DB | Sonnet · medium | |
+| 23 | Catalogue/loan export to Excel/CSV; bulk student import | Sonnet · low | |
+
+Deferred: barcode/copy-level tracking (WP-18–20).
+
+## Sprint 5: Operations
 
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
@@ -57,7 +72,7 @@ Never switch models mid-WP: the prompt cache is per model.
 | 16 | S3-compatible media (`django-storages`), Sentry front + back, JSON logs | Sonnet · low | |
 | 17 | Dependabot, backup script, one-page admin guide | Haiku | |
 
-## Sprint 5: Copy-level tracking
+## Sprint 6: Copy-level tracking (deferred)
 
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
@@ -66,7 +81,7 @@ Never switch models mid-WP: the prompt cache is per model.
 | 20 | Serializers, scan-the-book staff UI, per-copy history | Sonnet · medium | |
 | 21 | Loan renewal (one, blocked by a queue); email notifications (ready, due in 2 days, overdue) | Sonnet · medium | |
 
-## Sprint 6: Polish
+## Sprint 7: Polish
 
 | WP | Task | Model · effort | Status |
 |---|---|---|---|

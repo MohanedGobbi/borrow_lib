@@ -48,6 +48,12 @@ export function fmtDateTime(ts: string | number | null): string {
   });
 }
 
+/** "3 Oct, 09:12 · 2 days ago": the exact moment and how long ago it was. */
+export function fmtDateTimeAgo(ts: string | number | null): string {
+  if (ts == null) return "—";
+  return `${fmtDateTime(ts)} · ${timeAgo(ts)}`;
+}
+
 export function msLeft(ts: string | number | null): number {
   const ms = toMs(ts);
   return ms == null ? Infinity : ms - Date.now();

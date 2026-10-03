@@ -109,12 +109,39 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
     borrowedAt = serializers.DateTimeField(source="borrowed_at", read_only=True)
     dueDate = serializers.DateTimeField(source="due_date", read_only=True)
     returnedAt = serializers.DateTimeField(source="returned_at", read_only=True)
+    rejectionReason = serializers.CharField(source="rejection_reason", read_only=True)
+    bookFreeCopies = serializers.SerializerMethodField()
+    memberHasOverdue = serializers.SerializerMethodField()
+    memberActiveLoans = serializers.SerializerMethodField()
+    memberMaxBorrowLimit = serializers.IntegerField(source="user.profile.max_borrow_limit", read_only=True)
 
     class Meta:
         model = BorrowRecord
         fields = ["id", "userId", "userProfileId", "bookId", "userName", "userIdNumber", "bookTitle", "bookShelf",
                   "requestedAt", "approvedAt", "pickupDeadline", "borrowedAt", "dueDate",
-                  "returnedAt", "status"]
+                  "returnedAt", "status", "rejectionReason", "bookFreeCopies", "memberHasOverdue",
+                  "memberActiveLoans", "memberMaxBorrowLimit"]
+
+    # The desk lists annotate these (views.with_desk_annotations); other callers fall back to a query.
+    def get_bookFreeCopies(self, obj):
+        ready = getattr(obj, "book_ready_count", None)
+        if ready is None:
+            ready = obj.book.borrow_records.filter(status=Status.READY).count()
+        return max(0, obj.book.available_copies - ready)
+
+    def get_memberHasOverdue(self, obj):
+        flag = getattr(obj, "member_overdue_flag", None)
+        if flag is None:
+            from .services import has_overdue
+            flag = has_overdue(obj.user)
+        return flag
+
+    def get_memberActiveLoans(self, obj):
+        count = getattr(obj, "member_active_loans", None)
+        if count is None:
+            from .services import active_loan_count
+            count = active_loan_count(obj.user)
+        return count
 
     def get_userName(self, obj):
         return obj.user.get_full_name() or obj.user.username

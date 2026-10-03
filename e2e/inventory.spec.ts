@@ -24,6 +24,10 @@ test.describe("inventory", () => {
     await page.goto("/staff/inventory");
     await page.getByLabel("Filter by title, author, ISBN or shelf").fill(DELETED);
     await page.getByRole("button", { name: `Delete book: ${DELETED}` }).click();
+    // Deleting asks first: the dialog names the book and Cancel has the focus.
+    const confirm = page.getByRole("alertdialog", { name: `Delete “${DELETED}”?` });
+    await expect(confirm.getByRole("button", { name: "Cancel" })).toBeFocused();
+    await confirm.getByRole("button", { name: "Delete book" }).click();
     await expectToast(page, "Book deleted");
 
     await page.goto(`/catalog?q=${encodeURIComponent("Structure and Interpretation")}`);

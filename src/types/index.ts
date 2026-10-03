@@ -135,6 +135,13 @@ export interface BorrowRecord {
   dueDate: string | null;
   returnedAt: string | null;
   status: BorrowStatus;
+  /** Why staff rejected the request; empty when they gave no reason. */
+  rejectionReason: string;
+  /** Free copies of the book right now (on the shelf and not held for another pickup). */
+  bookFreeCopies: number;
+  memberHasOverdue: boolean;
+  memberActiveLoans: number;
+  memberMaxBorrowLimit: number;
 }
 
 export interface Reservation {

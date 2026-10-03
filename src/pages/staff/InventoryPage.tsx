@@ -12,7 +12,12 @@ import { BookEditDialog } from "@/components/BookEditDialog";
 import { Availability } from "@/components/BookActions";
 import { Pager } from "@/components/Pager";
 import { PageHeader, Panel } from "@/components/Page";
+import { GuardedButton } from "@/components/GuardedButton";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { FullPageLoader } from "@/auth/guards";
 import { useStaffAction } from "@/pages/staff/staffContext";
@@ -36,6 +41,7 @@ export default function InventoryPage() {
   const { run, busyId } = useStaffAction(invalidateCatalog);
   const [editBook, setEditBook] = useState<Book | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState<Book | null>(null);
 
   if (isPending) return <FullPageLoader />;
 
@@ -112,16 +118,17 @@ export default function InventoryPage() {
                         <Button size="icon-sm" variant="ghost" aria-label={`${t("catalog.edit")}: ${b.title}`} title={t("catalog.edit")} onClick={() => openEdit(b)}>
                           <Pencil className="size-4" aria-hidden />
                         </Button>
-                        <Button
+                        <GuardedButton
                           size="icon-sm" variant="ghost"
-                          className="text-danger hover:bg-danger-soft hover:text-danger"
+                          className="text-muted-foreground hover:bg-danger-soft hover:text-danger focus-visible:text-danger"
                           aria-label={`${t("dash.deleteBook")}: ${b.title}`}
-                          title={deletable ? t("dash.deleteBook") : t("dash.cannotDelete")}
-                          disabled={!deletable || busyId === b.id}
-                          onClick={() => run(b.id, () => apiBooks.remove(b.id), t("toast.bookDeleted"))}
+                          title={deletable ? t("dash.deleteBook") : undefined}
+                          reason={deletable ? undefined : t("dash.cannotDelete")}
+                          disabled={busyId === b.id}
+                          onClick={() => setDeleting(b)}
                         >
                           <Trash2 className="size-4" aria-hidden />
-                        </Button>
+                        </GuardedButton>
                       </div>
                     </td>
                   </tr>
@@ -139,6 +146,25 @@ export default function InventoryPage() {
       </Panel>
 
       <BookEditDialog book={editBook} open={dialogOpen} onOpenChange={setDialogOpen} />
+
+      {/* Deleting is final: name the book, and make Cancel the default focus (Radix does that for AlertDialog). */}
+      <AlertDialog open={deleting !== null} onOpenChange={(o) => !o && setDeleting(null)}>
+        <AlertDialogContent className="bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("delete.title", { title: deleting?.title ?? "" })}</AlertDialogTitle>
+            <AlertDialogDescription>{t("delete.body")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-danger text-white hover:bg-danger/90"
+              onClick={() => deleting && run(deleting.id, () => apiBooks.remove(deleting.id), t("toast.bookDeleted"))}
+            >
+              {t("dash.deleteBook")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
