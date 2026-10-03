@@ -1,6 +1,8 @@
 from django.contrib import admin
 
-from .models import ActivityLog, Book, BorrowRecord, LibrarySettings, Notification, Reservation, StaffInvite, UserProfile
+from .models import (
+    ActivityLog, Book, BorrowRecord, LibrarySettings, Notification, Reservation, SiteImage, StaffInvite, UserProfile,
+)
 
 admin.site.register([Book, UserProfile, BorrowRecord, Reservation, ActivityLog, Notification])
 
@@ -22,3 +24,9 @@ class LibrarySettingsAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(SiteImage)
+class SiteImageAdmin(admin.ModelAdmin):
+    list_display = ["slot", "width", "height", "updated_at", "updated_by"]
+    readonly_fields = ["updated_at", "updated_by"]

@@ -9,7 +9,7 @@ const BASE = API_ROOT;
 /** Static demo build (`npm run build:demo`): the API runs in the browser, no server needed. */
 export const DEMO = import.meta.env.VITE_DEMO === "true";
 
-export const DEMO_STORAGE_KEY = "lb_demo_state_v10";
+export const DEMO_STORAGE_KEY = "lb_demo_state_v11";
 /** Demo-only stand-in for the httpOnly refresh cookie. */
 export const DEMO_REFRESH_KEY = "lb_demo_refresh";
 
@@ -143,9 +143,11 @@ export async function api<T = unknown>(
   const { method = "GET", body, auth = true, keepalive } = opts;
 
   const headers: Record<string, string> = {};
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  // A FormData body (a file upload) sets its own multipart Content-Type, with the boundary.
+  const multipart = body instanceof FormData;
+  if (body !== undefined && !multipart) headers["Content-Type"] = "application/json";
   // `keepalive` lets the request outlive the page: used when a page unloads with an action still waiting.
-  const init: RequestInit = { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined, keepalive };
+  const init: RequestInit = { method, headers, body: body === undefined ? undefined : multipart ? body : JSON.stringify(body), keepalive };
   let res: Response;
   try {
     res = auth

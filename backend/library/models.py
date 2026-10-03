@@ -71,6 +71,42 @@ class LibrarySettings(models.Model):
         return "Library settings"
 
 
+class SiteImageSlot(models.TextChoices):
+    HERO = "hero", "Landing page, top"
+    FEATURE = "feature", "Landing page, feature"
+    AUTH = "auth", "Sign-in pages"
+
+
+def site_image_path(instance, filename):
+    """A random name, so an uploaded file name never reaches the disk and a replaced photo gets a new URL."""
+    return f"site/{uuid.uuid4().hex}.webp"
+
+
+class SiteImage(models.Model):
+    """A photograph an admin set for one place on the site. No row for a slot means the bundled default.
+
+    The upload is re-encoded to WebP at three widths (2000, 1200, 640; never upscaled), with all metadata removed.
+    """
+    slot = models.CharField(max_length=10, choices=SiteImageSlot.choices, unique=True)
+    image_2000 = models.ImageField(upload_to=site_image_path, max_length=200)
+    image_1200 = models.ImageField(upload_to=site_image_path, max_length=200)
+    image_640 = models.ImageField(upload_to=site_image_path, max_length=200)
+    width = models.PositiveIntegerField()   # of the original upload
+    height = models.PositiveIntegerField()
+    alt_en = models.CharField(max_length=200)
+    alt_fr = models.CharField(max_length=200)
+    alt_ar = models.CharField(max_length=200)
+    credit = models.CharField(max_length=200, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    def __str__(self):
+        return f"Site image: {self.slot}"
+
+    def files(self):
+        return [self.image_2000, self.image_1200, self.image_640]
+
+
 class Book(models.Model):
     title = models.CharField(max_length=300)
     author = models.CharField(max_length=300)

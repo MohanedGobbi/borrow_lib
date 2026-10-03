@@ -32,6 +32,7 @@ export const qk = {
   notifications: ["notifications"] as const,
   invites: ["invites"] as const,
   settings: ["settings"] as const,
+  siteImages: ["siteImages"] as const,
   mailbox: ["mailbox"] as const,
 };
 
@@ -59,6 +60,9 @@ export const invalidateCatalog = (qc: QueryClient) =>
 
 /** The circulation rules changed: the copy that quotes them, and the activity log that records the change. */
 export const invalidateSettings = (qc: QueryClient) => invalidateAll(qc, [qk.settings, qk.activity]);
+
+/** A site photograph was replaced or restored: the pictures themselves, and the activity log that records it. */
+export const invalidateSiteImages = (qc: QueryClient) => invalidateAll(qc, [qk.siteImages, qk.activity]);
 
 export const invalidateInvites = (qc: QueryClient) => invalidateAll(qc, [qk.invites]);
 export const invalidateNotifications = (qc: QueryClient) => invalidateAll(qc, [qk.notifications]);

@@ -13,7 +13,7 @@ import { invalidateNotifications, qk } from "@/api/queryKeys";
 import { DEMO, resetDemo } from "@/api/client";
 import { notificationText } from "@/lib/errors";
 import { useHeroHeaderState } from "@/lib/heroHeader";
-import { siteImageCredits } from "@/lib/siteImages";
+import { siteImageCredits, useSiteImages } from "@/lib/siteImages";
 import { timeAgo } from "@/lib/time";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -119,7 +119,8 @@ export function Layout() {
     navigate("/");
   };
 
-  const credits = siteImageCredits();
+  const { data: siteImages } = useSiteImages();
+  const credits = siteImageCredits(siteImages);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-ink">
@@ -351,13 +352,24 @@ export function Layout() {
               {t("footer.rules", ruleVars)}
             </p>
             <p>
-              {t("footer.photos")}{" "}
-              {credits.map((c, i) => (
-                <span key={c.url}>
-                  {i > 0 && ", "}
-                  <a href={c.url} target="_blank" rel="noopener noreferrer" className="underline decoration-ink/20 hover:text-ink hover:decoration-ink/60">
-                    <bdi>{c.name}</bdi>
-                  </a>
+              {credits.unsplash.length > 0 && (
+                <>
+                  {t("footer.photos")}{" "}
+                  {credits.unsplash.map((c, i) => (
+                    <span key={c.url}>
+                      {i > 0 && ", "}
+                      <a href={c.url} target="_blank" rel="noopener noreferrer" className="underline decoration-ink/20 hover:text-ink hover:decoration-ink/60">
+                        <bdi>{c.name}</bdi>
+                      </a>
+                    </span>
+                  ))}
+                </>
+              )}
+              {/* The library's own photographs, credited in the words the admin typed. */}
+              {credits.text.map((line, i) => (
+                <span key={line}>
+                  {(i > 0 || credits.unsplash.length > 0) && " · "}
+                  <bdi>{line}</bdi>
                 </span>
               ))}
             </p>

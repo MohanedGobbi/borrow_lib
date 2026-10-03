@@ -270,6 +270,23 @@ export type SettingsPatch = Partial<Pick<
   "holdHours" | "loanDays" | "maxRenewals" | "memberBorrowLimit" | "staffBorrowLimit" | "reminderDaysBeforeDue"
 >>;
 
+export type SiteImageSlot = "hero" | "feature" | "auth";
+
+/** A photograph an admin set for one slot (GET /api/site-images). A slot with none shows the bundled photograph. */
+export interface SiteImageData {
+  /** The 1200-wide file. */
+  src: string;
+  /** "url 640w, url 1200w, url 2000w": only the widths that exist. */
+  srcset: string;
+  /** Size of the original upload, for the aspect ratio. */
+  width: number;
+  height: number;
+  alt: Record<Lang, string>;
+  credit: string;
+  updatedAt: string;
+}
+export type SiteImages = Record<SiteImageSlot, SiteImageData | null>;
+
 export const URGENT_PICKUP_MS = 6 * 60 * 60 * 1000;
 export const DUE_SOON_DAYS = 3;
 export const DUE_SOON_MS = DUE_SOON_DAYS * 24 * 60 * 60 * 1000;

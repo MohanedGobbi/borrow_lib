@@ -79,7 +79,7 @@ Owner decisions recorded with it:
 | R1 | New identity + public side ([spec](R1.md)) | Opus | done; owner: "right direction, keep going". DESIGN.md rewrite moves to the finish (documenter) |
 | R2 | Student and staff screens in the new language ([spec](R2.md)) | Sonnet · high, Opus review | done |
 | R3 | P1/P2 issues from the 27/40 critique + overdue blocks pickup ([spec](R3.md)) | Sonnet · high | done, Opus-reviewed: also enforced overdue block on waiting lists server-side |
-| R4 | Admin-editable site photos | Sonnet · medium | |
+| R4 | Admin-editable site photos ([spec](R4.md)) | Sonnet · medium | done, Opus-reviewed: Pillow-verified formats, 8 MB / 40 MP limits, metadata stripped, WebP 640/1200/2000, alt text required in 3 languages |
 | R5 | Finish review (impeccable-finish-reviewer) + DESIGN.md (impeccable-documenter) | Opus agents | |
 
 ## Sprint 5: Operations

@@ -13,6 +13,8 @@ function toVars(t: T, params: Record<string, unknown> | undefined): Record<strin
     else if (key === "hours" && typeof value === "number") vars[key] = fmtHours(value);
     else if (key === "days" && typeof value === "number") vars[key] = fmtDays(value);
     else if (key === "role" && typeof value === "string" && hasKey(`role.${value}`)) vars[key] = t(`role.${value}`);
+    // A site photograph's slot ("hero") is named by where it appears.
+    else if (key === "slot" && typeof value === "string" && hasKey(`photos.slot.${value}`)) vars[key] = t(`photos.slot.${value}`);
     else if (typeof value === "number") vars[key] = value;
     else if (value != null) vars[key] = String(value);
   }

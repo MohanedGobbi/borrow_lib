@@ -9,6 +9,9 @@ import { CSRF_HEADER, DEMO_REFRESH_KEY, DEMO_STORAGE_KEY as STORAGE_KEY } from "
 import type { Lang } from "@/i18n/locales";
 import type { BorrowStatus, Role } from "@/types";
 
+type SiteSlot = "hero" | "feature" | "auth";
+const SITE_SLOTS: SiteSlot[] = ["hero", "feature", "auth"];
+
 const PASSWORD = "password123";
 const LIBRARY = "University Library";
 const H = 60 * 60 * 1000;
@@ -55,6 +58,11 @@ interface DSettings {
   staffBorrowLimit: number; reminderDaysBeforeDue: number;
   updatedAt: number; updatedBy: number | null;
 }
+/** A photograph an admin set (SiteImage): WebP data URLs at 1200 and 640 only, to keep localStorage small. */
+interface DSiteImage {
+  src1200: string; src640: string; width: number; height: number;
+  altEn: string; altFr: string; altAr: string; credit: string; updatedAt: number;
+}
 interface DReservation { id: number; userId: number; bookId: number; reservedAt: number; isActive: boolean }
 interface DActivity {
   id: number; at: number; actorName: string; action: string; detail: string;
@@ -88,6 +96,8 @@ interface DemoState {
   invites: DInvite[];
   /** Everything the demo "sent", newest first (the real app emails it). */
   outbox: DMail[];
+  /** Photographs admins replaced, by slot; a missing slot shows the bundled photograph. */
+  siteImages: Partial<Record<SiteSlot, DSiteImage>>;
 }
 
 // ------------------------------- seed -------------------------------
@@ -165,7 +175,7 @@ function seed(): DemoState {
       reminderDaysBeforeDue: 2, updatedAt: now, updatedBy: null,
     },
     categories: [], books: [], users: [], records: [], reservations: [], activity: [], notifications: [], revokedTokens: [],
-    emailTokens: [], invites: [], outbox: [],
+    emailTokens: [], invites: [], outbox: [], siteImages: {},
   };
   CATEGORY_COLORS.forEach(([name, color], i) => s.categories.push({ id: i + 1, name, color }));
   BOOKS.forEach(([title, author, isbn, cat, publisher, year, total, avail, shelf, color, description], i) =>
@@ -293,7 +303,10 @@ const state: DemoState = load();
 function load(): DemoState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as DemoState;
+    if (raw) {
+      const saved = JSON.parse(raw) as DemoState;
+      return { ...saved, siteImages: saved.siteImages ?? {} };
+    }
   } catch { /* unavailable or corrupt storage — reseed */ }
   return seed();
 }
@@ -348,6 +361,21 @@ function sSettingsAdmin() {
     memberBorrowLimit: s.memberBorrowLimit, staffBorrowLimit: s.staffBorrowLimit,
     reminderDaysBeforeDue: s.reminderDaysBeforeDue, updatedAt: iso(s.updatedAt),
     updatedBy: s.updatedBy == null ? null : userById(s.updatedBy)?.name ?? null,
+  };
+}
+
+/** The slot as GET /api/site-images returns it (library/site_image_views.py). */
+function sSiteImage(image: DSiteImage | undefined) {
+  if (!image) return null;
+  const small = [image.src640, Math.min(640, image.width)] as const;
+  const medium = [image.src1200, Math.min(1200, image.width)] as const;
+  return {
+    src: image.src1200,
+    // Like the server, no two files at the same width: an original narrower than 1200 has one file only.
+    srcset: (small[1] === medium[1] ? [small] : [small, medium]).map(([u, w]) => `${u} ${w}w`).join(", "),
+    width: image.width, height: image.height,
+    alt: { en: image.altEn, fr: image.altFr, ar: image.altAr },
+    credit: image.credit, updatedAt: iso(image.updatedAt),
   };
 }
 
@@ -1353,6 +1381,83 @@ function filterBooks(ctx: Ctx): DBook[] {
     .filter((b) => !ids || ids.includes(b.id));
 }
 
+// ---------------------------- site photographs ----------------------------
+// The server re-encodes with Pillow (library/site_images.py); the demo has no server, so the browser does it with a
+// canvas. Drawing to a canvas drops EXIF and every other kind of metadata, as the server does.
+
+const SITE_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+const SITE_IMAGE_MAX_PIXELS = 40_000_000;
+const SITE_IMAGE_TEXT_MAX = 200;
+const SITE_IMAGE_MIN_WIDTH: Record<SiteSlot, number> = { hero: 1200, feature: 1200, auth: 640 };
+
+/** JPEG, PNG or WebP by the file's first bytes, not by its name or the type the browser reported. */
+async function sniffImage(file: File): Promise<boolean> {
+  const b = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const jpeg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  const png = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+  const webp = b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46
+    && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50;
+  return jpeg || png || webp;
+}
+
+const siteText = (value: unknown, field: string) => {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (text.length > SITE_IMAGE_TEXT_MAX) {
+    throw bad("site_image_text_too_long", `Keep the ${field} to ${SITE_IMAGE_TEXT_MAX} characters or fewer.`, { field, max: SITE_IMAGE_TEXT_MAX });
+  }
+  return text;
+};
+
+async function encodeSiteImage(file: unknown, slot: SiteSlot) {
+  if (!(file instanceof File)) throw bad("image_required", "Choose a photograph to upload.");
+  if (file.size > SITE_IMAGE_MAX_BYTES) {
+    throw bad("image_too_large", "The photograph is larger than 8 MB.", { maxMb: SITE_IMAGE_MAX_BYTES / 2 ** 20 });
+  }
+  const unreadable = () => bad("image_invalid", "The file is not a readable image.");
+  let bitmap: ImageBitmap;
+  try {
+    if (!(await sniffImage(file))) {
+      // Something else a browser can show (GIF, BMP) is a type error; anything it cannot decode is just not an image.
+      await createImageBitmap(file).then((other) => other.close());
+      throw bad("image_type_not_allowed", "Only JPEG, PNG and WebP photographs are accepted.");
+    }
+    bitmap = await createImageBitmap(file); // applies the EXIF rotation
+  } catch (e) {
+    throw e instanceof HttpError ? e : unreadable();
+  }
+  try {
+    if (bitmap.width * bitmap.height > SITE_IMAGE_MAX_PIXELS) {
+      throw bad("image_too_many_pixels", "The photograph has more than 40 megapixels.", { megapixels: SITE_IMAGE_MAX_PIXELS / 1_000_000 });
+    }
+    const minimum = SITE_IMAGE_MIN_WIDTH[slot];
+    if (bitmap.width < minimum) {
+      throw bad("image_too_small", `The photograph must be at least ${minimum} pixels wide.`, { minWidth: minimum, width: bitmap.width });
+    }
+    const render = (target: number) => {
+      const w = Math.min(target, bitmap.width); // never upscaled
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = Math.max(1, Math.round((bitmap.height * w) / bitmap.width));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw unreadable();
+      ctx.fillStyle = "#fff"; // transparency is flattened onto white
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/webp", 0.82);
+    };
+    return { src1200: render(1200), src640: render(640), width: bitmap.width, height: bitmap.height };
+  } finally {
+    bitmap.close();
+  }
+}
+
+function siteSlot(raw: string): SiteSlot {
+  if (!SITE_SLOTS.includes(raw as SiteSlot)) throw notFound();
+  return raw as SiteSlot;
+}
+
+const SITE_SLOT_NAMES: Record<SiteSlot, string> = { hero: "landing page", feature: "landing page feature", auth: "sign-in pages" };
+
 const ROUTES: [string, RegExp, Handler][] = [
   // ------------------------------ auth ------------------------------
   ["POST", /^\/auth\/login$/, (ctx) => {
@@ -1936,6 +2041,45 @@ const ROUTES: [string, RegExp, Handler][] = [
       log(admin.name, "SETTINGS_CHANGED", `Changed the library rules: ${detail}.`, changes);
     }
     return sSettingsAdmin();
+  }],
+  // --------------------------- site photographs ---------------------------
+  ["GET", /^\/site-images$/, () => Object.fromEntries(SITE_SLOTS.map((slot) => [slot, sSiteImage(state.siteImages[slot])]))],
+  ["PUT", /^\/site-images\/([^/]+)$/, async (ctx, [raw]) => {
+    const admin = requireAdmin(ctx);
+    const slot = siteSlot(raw);
+    const field = (name: string) => {
+      const value = ctx.form?.get(name);
+      return typeof value === "string" ? value.trim() : "";
+    };
+    if (!field("altEn") || !field("altFr") || !field("altAr")) {
+      throw bad("alt_required", "Describe the photograph in English, French and Arabic.");
+    }
+    const texts = {
+      altEn: siteText(field("altEn"), "alt_en"), altFr: siteText(field("altFr"), "alt_fr"), altAr: siteText(field("altAr"), "alt_ar"),
+      credit: siteText(field("credit"), "credit"),
+    };
+    const encoded = await encodeSiteImage(ctx.form?.get("file"), slot);
+    const previous = state.siteImages[slot];
+    state.siteImages[slot] = { ...encoded, ...texts, updatedAt: Date.now() };
+    // localStorage holds a few megabytes: say so, and keep the old photograph, rather than lose the change on reload.
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      if (previous) state.siteImages[slot] = previous;
+      else delete state.siteImages[slot];
+      throw bad("demo_storage_full", "The demo cannot store a photograph this large in the browser.");
+    }
+    log(admin.name, "SITE_IMAGE_CHANGED", `Replaced the ${SITE_SLOT_NAMES[slot]} photograph.`, { slot });
+    return sSiteImage(state.siteImages[slot]);
+  }],
+  ["DELETE", /^\/site-images\/([^/]+)$/, (ctx, [raw]) => {
+    const admin = requireAdmin(ctx);
+    const slot = siteSlot(raw);
+    if (state.siteImages[slot]) {
+      delete state.siteImages[slot];
+      log(admin.name, "SITE_IMAGE_RESET", `Restored the default ${SITE_SLOT_NAMES[slot]} photograph.`, { slot });
+    }
+    return new Reply(204, null);
   }],
   ["POST", /^\/jobs\/run$/, (ctx) => {
     requireStaff(ctx);

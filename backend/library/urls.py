@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import account_views, auth_views, views
+from . import account_views, auth_views, site_image_views, views
 
 urlpatterns = [
     # auth
@@ -60,4 +60,6 @@ urlpatterns = [
     path("notifications/read", views.MarkNotificationsReadView.as_view()),
     path("jobs/run", views.RunJobsView.as_view()),
     path("settings", views.SettingsView.as_view()),
+    path("site-images", site_image_views.SiteImageListView.as_view()),
+    path("site-images/<str:slot>", site_image_views.SiteImageDetailView.as_view()),
 ]

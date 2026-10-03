@@ -20,6 +20,9 @@ import type {
   DemoMail,
   ScanResult,
   SettingsPatch,
+  SiteImageData,
+  SiteImageSlot,
+  SiteImages,
   StaffInvite,
   UserDetail,
 } from "@/types";
@@ -133,6 +136,16 @@ export const apiSettings = {
   /** Everyone gets the public rules; a signed-in admin gets the full settings. */
   get: () => api<LibraryRules | LibrarySettings>("/settings"),
   update: (patch: SettingsPatch) => api<LibrarySettings>("/settings", { method: "PATCH", body: patch }),
+};
+
+export const apiSiteImages = {
+  /** Public: a slot is null until an admin replaces the bundled photograph. */
+  get: () => api<SiteImages>("/site-images", { auth: false }),
+  /** Admin: multipart with file, altEn, altFr, altAr and credit. */
+  replace: (slot: SiteImageSlot, form: FormData) =>
+    api<SiteImageData>(`/site-images/${slot}`, { method: "PUT", body: form }),
+  /** Admin: remove the custom photograph, so the slot shows the bundled one again. */
+  restore: (slot: SiteImageSlot) => api<void>(`/site-images/${slot}`, { method: "DELETE" }),
 };
 
 export const apiInvites = {
