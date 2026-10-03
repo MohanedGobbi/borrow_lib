@@ -76,6 +76,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     maxBorrowLimit = serializers.SerializerMethodField()
     borrowLimitIsDefault = serializers.SerializerMethodField()
     emailVerified = serializers.BooleanField(source="email_verified", read_only=True)
+    emailReminders = serializers.BooleanField(source="email_reminders", required=False)
     activeLoans = serializers.SerializerMethodField()
     hasOverdue = serializers.SerializerMethodField()
 
@@ -83,7 +84,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ["id", "uuid", "name", "email", "studentOrStaffId", "phoneNumber", "address",
                   "role", "membershipStartDate", "maxBorrowLimit", "borrowLimitIsDefault", "active", "language", "emailVerified",
-                  "activeLoans", "hasOverdue"]
+                  "emailReminders", "activeLoans", "hasOverdue"]
         # PATCH /users/me must not let anyone promote or reactivate themselves.
         read_only_fields = ["role", "active"]
 

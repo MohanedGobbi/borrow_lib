@@ -82,6 +82,9 @@ export const apiAuth = {
     phoneNumber?: string; address?: string; language?: Lang; inviteToken?: string;
   }) => api<Profile>("/auth/register", { method: "POST", body: payload, auth: false }),
   me: () => api<Profile>("/users/me"),
+  /** The member's opt-out of pickup, due-date and overdue emails (notifications stay on). */
+  setEmailReminders: (emailReminders: boolean) =>
+    api<Profile>("/users/me", { method: "PATCH", body: { emailReminders } }),
   /** Fire-and-forget from the language switcher; the server uses it for emails. */
   setLanguage: (language: Lang) => api<Profile>("/users/me", { method: "PATCH", body: { language } }),
   requestPasswordReset: (email: string) =>
@@ -180,7 +183,7 @@ export const apiMisc = {
   activity: () => api<ActivityEntry[]>("/activity"),
   notifications: () => api<AppNotification[]>("/notifications/mine"),
   markRead: () => api<{ ok: boolean }>("/notifications/read", { method: "POST" }),
-  runJobs: () => api<{ cancelled: number; flaggedOverdue: number }>("/jobs/run", { method: "POST" }),
+  runJobs: () => api<{ cancelled: number; flaggedOverdue: number; remindersSent: number }>("/jobs/run", { method: "POST" }),
 };
 
 /** Download the server-generated ID card PDF with the auth header attached. */

@@ -103,6 +103,8 @@ class UserProfile(models.Model):
     language = models.CharField(max_length=2, choices=Language.choices, default=Language.EN)
     # True by default so existing accounts stay verified; self-registration sets it to False.
     email_verified = models.BooleanField(default=True)
+    # Opt-out of the ready / due-soon / overdue reminder emails. In-app notifications always stay on.
+    email_reminders = models.BooleanField(default=True)
 
     def borrow_limit_with(self, rules: "LibrarySettings") -> int:
         """The limit given already-loaded settings (lists pass one copy instead of a query per row)."""
@@ -170,6 +172,10 @@ class BorrowRecord(models.Model):
     # True when the member withdrew the request or hold themselves (not staff, not the hold expiring).
     cancelled_by_member = models.BooleanField(default=False)
     renewal_count = models.PositiveIntegerField(default=0)
+    # One reminder email per event per record: each is set only after a successful send (see reminders in services.py).
+    ready_email_sent_at = models.DateTimeField(null=True, blank=True)
+    due_reminder_sent_at = models.DateTimeField(null=True, blank=True)  # cleared by a renewal
+    overdue_email_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-requested_at"]

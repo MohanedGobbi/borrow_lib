@@ -58,7 +58,7 @@ Never switch models mid-WP: the prompt cache is per model.
 | D2b | Student control (cancel request, leave list, inline confirmation), Arabic bugs, activity codes, public copy privacy ([spec](D2b.md)) | Sonnet · high | done, Opus-reviewed |
 | D2c | Phone layouts + visual drift + minor observations ([spec](D2c.md)) | Sonnet · medium | done, Opus-reviewed: also fixed sheet/dialog close buttons overlapping content in RTL (physical `right-4` → `end-4`) |
 | 21a | Loan renewal: once per loan, +14 days, blocked by a waiting list or an overdue loan ([spec](F1.md)) | Opus tests → Sonnet | done with WP-22 as F1, Opus-reviewed |
-| 21b | Email reminders: ready for pickup, due in 2 days, overdue (scheduled job, per-language, idempotent) | Sonnet · medium | |
+| 21b | Email reminders: ready for pickup, due in 2 days, overdue (scheduled job, per-language, idempotent) ([spec](F2.md)) | Sonnet · medium | done, Opus-reviewed |
 | 22 | Circulation rules (hold hours, loan days, limits) editable by admin in the DB | Sonnet · high | done in F1 (`/staff/settings`) |
 | 23 | Catalogue/loan export to Excel/CSV; bulk student import | Sonnet · low | |
 

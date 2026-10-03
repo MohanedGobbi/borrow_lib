@@ -1,23 +1,39 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
+import { useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { Download, LibraryBig } from "lucide-react";
-import { downloadIdCard } from "@/api";
+import { apiAuth, downloadIdCard } from "@/api";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { FullPageLoader } from "@/auth/guards";
 import { Container } from "@/components/Layout";
 import { PageHeader, Panel } from "@/components/Page";
+import { errorMessage } from "@/lib/errors";
 import { fmtDate } from "@/lib/time";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 export default function ProfilePage() {
-  const { me, loading } = useAuth();
+  const { me, loading, refresh } = useAuth();
   const { t } = useI18n();
   const [downloading, setDownloading] = useState(false);
   const { hash } = useLocation();
   const ready = !loading && !!me;
+
+  // Saves straight away: the box shows the value being saved until the profile reloads.
+  const reminders = useMutation({
+    mutationFn: apiAuth.setEmailReminders,
+    onSuccess: async (profile) => {
+      await refresh();
+      toast.success(t(profile.emailReminders ? "toast.remindersOn" : "toast.remindersOff"));
+    },
+    onError: (e) => {
+      toast.error(errorMessage(t, e));
+    },
+  });
 
   // "Show my card" on My loans links here: the card is not on the page until the profile has loaded.
   useEffect(() => {
@@ -57,16 +73,37 @@ export default function ProfilePage() {
       <PageHeader title={t("profile.title")} />
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
-        <Panel title={t("profile.details")} flush>
-          <dl className="divide-y">
-            {rows.map(([k, v]) => (
-              <div key={k} className="grid gap-1 px-4 py-3 sm:grid-cols-[12rem_1fr] sm:gap-4">
-                <dt className="text-sm text-muted-foreground">{k}</dt>
-                <dd className="text-[15px] text-ink">{v}</dd>
+        <div className="space-y-8">
+          <Panel title={t("profile.details")} flush>
+            <dl className="divide-y">
+              {rows.map(([k, v]) => (
+                <div key={k} className="grid gap-1 px-4 py-3 sm:grid-cols-[12rem_1fr] sm:gap-4">
+                  <dt className="text-sm text-muted-foreground">{k}</dt>
+                  <dd className="text-[15px] text-ink">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </Panel>
+
+          {me.role === "MEMBER" && (
+            <Panel>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="email-reminders"
+                  className="mt-1"
+                  checked={reminders.isPending ? reminders.variables : me.emailReminders}
+                  disabled={reminders.isPending}
+                  onCheckedChange={(v) => reminders.mutate(v === true)}
+                  aria-describedby="email-reminders-help"
+                />
+                <div className="min-w-0">
+                  <Label htmlFor="email-reminders" className="text-[15px] font-medium">{t("profile.reminders")}</Label>
+                  <p id="email-reminders-help" className="mt-0.5 text-sm text-muted-foreground">{t("profile.remindersHelp")}</p>
+                </div>
               </div>
-            ))}
-          </dl>
-        </Panel>
+            </Panel>
+          )}
+        </div>
 
         <section id="card" aria-labelledby="card-h" className="order-first scroll-mt-24 lg:order-none">
           <h2 id="card-h" className="text-[15px] font-semibold">{t("profile.card")}</h2>

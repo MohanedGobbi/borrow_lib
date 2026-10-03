@@ -30,6 +30,8 @@ interface DUser {
   /** A personal override; null means "the default for my role" from the settings. */
   maxLimit: number | null;
   language: Lang; emailVerified: boolean;
+  /** Opted in to the ready / due-soon / overdue emails (anything but false counts as on). */
+  emailReminders?: boolean;
   /** Refresh tokens issued before this moment are dead (set by a password reset). */
   sessionsRevokedAt?: number;
 }
@@ -43,6 +45,10 @@ interface DRecord {
   cancelledByMember?: boolean;
   /** How many times the loan has been renewed. */
   renewalCount?: number;
+  /** One email per event per record: each is set only after the email went out (a renewal clears the due one). */
+  readyEmailSentAt?: number | null;
+  dueReminderSentAt?: number | null;
+  overdueEmailSentAt?: number | null;
 }
 interface DSettings {
   holdHours: number; loanDays: number; maxRenewals: number; memberBorrowLimit: number;
@@ -170,7 +176,7 @@ function seed(): DemoState {
       id: i + 1, uuid: uuid(), name, email, password: PASSWORD, idNumber,
       phone: `+1 555 010 ${idNumber.slice(-4)}`, address: "", role,
       since: now - sinceDays * D, maxLimit: null, active: true,
-      language: SEED_LANGUAGES[email] ?? "en", emailVerified: true,
+      language: SEED_LANGUAGES[email] ?? "en", emailVerified: true, emailReminders: true,
     }));
 
   const u = (email: string) => s.users.find((x) => x.email === email)!.id;
@@ -188,6 +194,9 @@ function seed(): DemoState {
       borrowedAt: o.borrowedAt != null ? now + o.borrowedAt : null,
       dueDate: o.dueDate != null ? now + o.dueDate : null,
       returnedAt: o.returnedAt != null ? now + o.returnedAt : null,
+      // Seeded holds and overdue loans count as already announced, so the first job run stays quiet.
+      readyEmailSentAt: status === "READY" ? now : null,
+      overdueEmailSentAt: status === "OVERDUE" ? now : null,
     });
 
   rec(priya, "A Brief History of Time", "PENDING", { requestedAt: -5 * H });
@@ -351,7 +360,7 @@ function sProfile(u: DUser) {
     phoneNumber: u.phone, address: u.address, role: u.role,
     membershipStartDate: new Date(u.since).toISOString().slice(0, 10),
     maxBorrowLimit: effectiveLimit(u), borrowLimitIsDefault: u.maxLimit === null, active: u.active, language: u.language, emailVerified: u.emailVerified,
-    activeLoans: activeLoans(u.id), hasOverdue: hasOverdue(u.id),
+    emailReminders: u.emailReminders !== false, activeLoans: activeLoans(u.id), hasOverdue: hasOverdue(u.id),
   };
 }
 
@@ -451,6 +460,7 @@ function handToQueue(book: DBook, now: number) {
       { member: nu.name, title: book.title, hours });
     notify(nu.id, "queue_handoff", `Good news — “${book.title}” is now held for you. Pick it up within ${hours} hours.`,
       { title: book.title, hours });
+    emailReady(state.records[state.records.length - 1]);
     return;
   }
 }
@@ -482,8 +492,75 @@ function runJobs() {
       { member: user.name, title: book.title });
     notify(user.id, "overdue", `“${book.title}” is overdue. Please return it — new requests are blocked until resolved.`,
       { title: book.title });
+    emailOverdue(r);
   }
-  return { cancelled, flaggedOverdue };
+  return { cancelled, flaggedOverdue, remindersSent: runDailyReminders(now) };
+}
+
+// ----------------------------- reminders -----------------------------
+// Mirrors services.run_daily_reminders and the ready / overdue emails; the wording is in the email section below.
+
+/** The member has an address and has not opted out of reminder emails (notifications always stay on). */
+const wantsEmail = (u: DUser) => !!u.email && u.emailReminders !== false;
+
+function emailReady(r: DRecord) {
+  const u = userById(r.userId)!;
+  const book = bookById(r.bookId)!;
+  if (r.status !== "READY" || r.readyEmailSentAt || !wantsEmail(u)) return;
+  const shelf = book.shelfLocation ? REMINDER_PARTS[u.language].shelf.replace("{shelf}", book.shelfLocation) : "";
+  sendReminderMail("ready", u, book, { deadline: mailDate(r.pickupDeadline!, u.language), shelf_line: shelf });
+  r.readyEmailSentAt = Date.now();
+}
+
+function emailOverdue(r: DRecord) {
+  const u = userById(r.userId)!;
+  if (r.status !== "OVERDUE" || r.overdueEmailSentAt || !wantsEmail(u)) return;
+  sendReminderMail("overdue", u, bookById(r.bookId)!, { due: mailDate(r.dueDate!, u.language) });
+  r.overdueEmailSentAt = Date.now();
+}
+
+/** Due-soon emails for loans inside the reminder window (0 turns them off), and overdue emails not yet sent. */
+function runDailyReminders(now: number): number {
+  let sent = 0;
+  const days = state.settings.reminderDaysBeforeDue;
+  if (days) {
+    for (const r of state.records) {
+      const u = userById(r.userId)!;
+      if (r.status !== "BORROWED" || r.dueReminderSentAt || r.dueDate! < now || r.dueDate! > now + days * D || !wantsEmail(u)) continue;
+      const hint = renewBlocker(r, now) ? "" : REMINDER_PARTS[u.language].renewal;
+      sendReminderMail("due_soon", u, bookById(r.bookId)!, { due: mailDate(r.dueDate!, u.language), renewal: hint });
+      r.dueReminderSentAt = now;
+      sent++;
+    }
+  }
+  for (const r of state.records) {
+    if (r.status === "OVERDUE" && !r.overdueEmailSentAt && wantsEmail(userById(r.userId)!)) {
+      emailOverdue(r);
+      sent++;
+    }
+  }
+  return sent;
+}
+
+/** Why a BORROWED loan cannot be renewed right now, or null (services.renewal_blocker, same checks in the same order). */
+function renewBlocker(r: DRecord, now: number): { code: string; message: string; params: Record<string, unknown> } | null {
+  const rules = state.settings;
+  if (hasOverdue(r.userId)) {
+    return { code: "overdue_block", message: "You have an overdue loan. Resolve it before renewing.", params: {} };
+  }
+  if ((r.renewalCount ?? 0) >= rules.maxRenewals) {
+    return { code: "renew_limit", message: `This loan cannot be renewed again (limit ${rules.maxRenewals}).`, params: { max: rules.maxRenewals } };
+  }
+  if (hasWaitingList(r.bookId)) {
+    return { code: "renew_queue", message: "Someone is waiting for this book, so it cannot be renewed.", params: {} };
+  }
+  if (r.dueDate! - now > RENEW_WINDOW_DAYS * D) {
+    return {
+      code: "renew_too_early", message: `A loan can be renewed in the last ${RENEW_WINDOW_DAYS} days before it is due.`,
+      params: { days: RENEW_WINDOW_DAYS },
+    };
+  }
+  return null;
 }
 
 // ------------------------------- PDFs -------------------------------
@@ -664,6 +741,7 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
         { member: user.name, title: book.title, hours });
       notify(user.id, "request_approved", `Your request for “${book.title}” was approved. Pick it up within ${hours} hours.`,
         { title: book.title, hours });
+      emailReady(r);
     } else if (op === "reject") {
       transition("reject", r, ["PENDING"]);
       const asked = ctx.body.reason;
@@ -890,7 +968,8 @@ function requireCsrfHeader(ctx: Ctx) {
 // The demo cannot send mail, so messages land in state.outbox and are listed at /demo/mailbox.
 // The wording mirrors backend/library/emails.py.
 
-const MAIL: Record<"reset" | "verify" | "invite", Record<Lang, [string, string]>> = {
+type MailKind = "reset" | "verify" | "invite" | "ready" | "due_soon" | "overdue";
+const MAIL: Record<MailKind, Record<Lang, [string, string]>> = {
   reset: {
     en: ["Reset your {library} password",
       "We received a request to reset the password of your {library} account. Open this link to choose a new one:\n\n{link}\n\nThe link is valid for {validity} and works once. If you did not ask for this, ignore this email: your password stays as it is."],
@@ -915,7 +994,51 @@ const MAIL: Record<"reset" | "verify" | "invite", Record<Lang, [string, string]>
     ar: ["دعوة للانضمام إلى {library} بصفة {role}",
       "تمت دعوتك لإنشاء حساب {role} في {library}. افتح هذا الرابط للتسجيل بهذا البريد الإلكتروني:\n\n{link}\n\nالرابط صالح لمدة {validity} ويمكن استخدامه مرة واحدة فقط."],
   },
+  ready: {
+    en: ["“{title}” is ready for pickup",
+      "“{title}” is being held for you at {library}.\n\n{shelf_line}Pick it up by {deadline}. If you do not, the hold is cancelled and the book goes to the next person on the waiting list.\n\nYour loans: {link}\n\n{footer}"],
+    fr: ["« {title} » est prêt à être retiré",
+      "« {title} » est réservé pour vous à {library}.\n\n{shelf_line}Venez le retirer avant le {deadline}. Passé ce délai, la réservation est annulée et le livre passe au prochain membre de la liste d'attente.\n\nVos prêts : {link}\n\n{footer}"],
+    ar: ["«{title}» جاهز للاستلام",
+      "«{title}» محجوز لك في {library}.\n\n{shelf_line}يرجى استلامه قبل {deadline}. بعد ذلك يُلغى الحجز وينتقل الكتاب إلى العضو التالي في قائمة الانتظار.\n\nإعاراتي: {link}\n\n{footer}"],
+  },
+  due_soon: {
+    en: ["“{title}” is due back soon",
+      "Your loan of “{title}” is due back on {due}. Please return it to the circulation desk by then.{renewal}\n\nYour loans: {link}\n\n{footer}"],
+    fr: ["« {title} » est bientôt à rendre",
+      "Votre prêt de « {title} » est à rendre le {due}. Merci de le rapporter au bureau de prêt avant cette date.{renewal}\n\nVos prêts : {link}\n\n{footer}"],
+    ar: ["موعد إرجاع «{title}» يقترب",
+      "موعد إرجاع «{title}» المُعار لك هو {due}. يرجى إعادته إلى مكتب الإعارة قبل ذلك.{renewal}\n\nإعاراتي: {link}\n\n{footer}"],
+  },
+  overdue: {
+    en: ["“{title}” is overdue",
+      "“{title}” was due back on {due} and has not been returned. New requests are blocked until you return it at the circulation desk.\n\nYour loans: {link}\n\n{footer}"],
+    fr: ["« {title} » est en retard",
+      "« {title} » devait être rendu le {due} et ne l'a pas été. Les nouvelles demandes sont bloquées tant que vous ne l'avez pas rapporté au bureau de prêt.\n\nVos prêts : {link}\n\n{footer}"],
+    ar: ["«{title}» متأخر عن موعد الإرجاع",
+      "كان موعد إرجاع «{title}» في {due} ولم يُرجَع بعد. الطلبات الجديدة محظورة إلى أن تعيده إلى مكتب الإعارة.\n\nإعاراتي: {link}\n\n{footer}"],
+  },
 };
+/** Pieces of the reminder emails (emails.REMINDER_PARTS). */
+const REMINDER_PARTS: Record<Lang, { shelf: string; renewal: string; footer: string }> = {
+  en: { shelf: "Shelf mark: {shelf}\n", renewal: " You can renew it from My loans.",
+    footer: "You get this email because email reminders are on. You can turn them off in your profile: {profile_link}" },
+  fr: { shelf: "Cote : {shelf}\n", renewal: " Vous pouvez le renouveler depuis Mes prêts.",
+    footer: "Vous recevez cet e-mail parce que les rappels par e-mail sont activés. Vous pouvez les désactiver dans votre profil : {profile_link}" },
+  ar: { shelf: "رمز الرف: {shelf}\n", renewal: " يمكنك تجديده من إعاراتي.",
+    footer: "تصلك هذه الرسالة لأن التذكيرات بالبريد الإلكتروني مفعّلة. يمكنك إيقافها من ملفك الشخصي: {profile_link}" },
+};
+/** The time zone dates are written in inside emails (LIBRARY_TIME_ZONE; the demo has no setting for it). */
+const LIBRARY_TIME_ZONE = "UTC";
+const MAIL_LOCALES: Record<Lang, string> = { en: "en-GB", fr: "fr-FR", ar: "ar-u-ca-gregory-nu-latn" };
+
+/** "5 October 2026, 14:30" with the month spelled in the member's language (emails.local_datetime). */
+function mailDate(ms: number, lang: Lang): string {
+  const when = new Date(ms);
+  const day = new Intl.DateTimeFormat(MAIL_LOCALES[lang], { day: "numeric", month: "long", year: "numeric", timeZone: LIBRARY_TIME_ZONE }).format(when);
+  const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: LIBRARY_TIME_ZONE }).format(when);
+  return `${day}, ${time}`;
+}
 const GREETING: Record<Lang, [string, string]> = {
   en: ["Hello {name},", "Hello,"], fr: ["Bonjour {name},", "Bonjour,"], ar: ["مرحبًا {name}،", "مرحبًا،"],
 };
@@ -934,15 +1057,21 @@ const UNVERIFIED = "Confirm your email address first: check your inbox for the v
 const LANGS: Lang[] = ["en", "fr", "ar"];
 
 function sendMail(
-  kind: "reset" | "verify" | "invite", lang: Lang, to: string, name: string | null, path: string,
-  validity: string, role = "",
+  kind: MailKind, lang: Lang, to: string, name: string | null, path: string,
+  validity: string, role = "", extra: Record<string, string> = {},
 ) {
   const link = `${window.location.origin}${path}`;
-  const vars: Record<string, string> = { library: LIBRARY, role, link, validity };
+  const vars: Record<string, string> = { library: LIBRARY, role, link, validity, ...extra };
   const fill = (s: string) => s.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m);
   const [subject, body] = MAIL[kind][lang];
   const greeting = name ? GREETING[lang][0].replace("{name}", name) : GREETING[lang][1];
   state.outbox.unshift({ id: nextId(), to, subject: fill(subject), body: `${greeting}\n\n${fill(body)}\n\n${LIBRARY}`, link, at: Date.now() });
+}
+
+/** A loan reminder to the member, in their language, linking to My loans. */
+function sendReminderMail(kind: "ready" | "due_soon" | "overdue", user: DUser, book: DBook, values: Record<string, string>) {
+  const footer = REMINDER_PARTS[user.language].footer.replace("{profile_link}", `${window.location.origin}/profile`);
+  sendMail(kind, user.language, user.email, user.name.split(" ")[0], "/my-requests", "", "", { title: book.title, footer, ...values });
 }
 
 function issueToken(kind: "reset" | "verify", user: DUser): string {
@@ -1070,6 +1199,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     if (typeof ctx.body.address === "string") u.address = ctx.body.address;
     const language = LANGS.find((l) => l === ctx.body.language);
     if (language) u.language = language;
+    if (typeof ctx.body.emailReminders === "boolean") u.emailReminders = ctx.body.emailReminders;
     return sProfile(u);
   }],
   ["POST", /^\/auth\/password-reset$/, (ctx) => {
@@ -1349,19 +1479,12 @@ const ROUTES: [string, RegExp, Handler][] = [
     transition("renew", r, ["BORROWED"]);
     const owner = userById(r.userId)!;
     const book = bookById(r.bookId)!;
-    if (hasOverdue(owner.id)) throw bad("overdue_block", "You have an overdue loan. Resolve it before renewing.");
+    const blocker = renewBlocker(r, Date.now());
+    if (blocker) throw bad(blocker.code, blocker.message, blocker.params);
     const rules = state.settings;
-    const used = r.renewalCount ?? 0;
-    if (used >= rules.maxRenewals) {
-      throw bad("renew_limit", `This loan cannot be renewed again (limit ${rules.maxRenewals}).`, { max: rules.maxRenewals });
-    }
-    if (hasWaitingList(book.id)) throw bad("renew_queue", "Someone is waiting for this book, so it cannot be renewed.");
-    if (r.dueDate! - Date.now() > RENEW_WINDOW_DAYS * D) {
-      throw bad("renew_too_early", `A loan can be renewed in the last ${RENEW_WINDOW_DAYS} days before it is due.`,
-        { days: RENEW_WINDOW_DAYS });
-    }
     r.dueDate = r.dueDate! + rules.loanDays * D;
-    r.renewalCount = used + 1;
+    r.renewalCount = (r.renewalCount ?? 0) + 1;
+    r.dueReminderSentAt = null; // the new due date gets its own reminder
     const due = new Date(r.dueDate).toLocaleDateString();
     const onBehalf = owner.id !== actor.id;
     log(actor.name, "LOAN_RENEWED", `${actor.name} renewed “${book.title}”${onBehalf ? ` for ${owner.name}` : ""}. New due date ${due}.`,
@@ -1604,7 +1727,7 @@ export async function demoFetch(url: string, init: RequestInit = {}): Promise<Re
       const jobs = runJobs();
       const handled = handler({ method, path, query: parsed.searchParams, body, form, user, headers }, match.slice(1));
       const result = handled instanceof Promise ? await handled : handled; // no await for sync handlers: see keepalive
-      if (method !== "GET" || jobs.cancelled || jobs.flaggedOverdue) save();
+      if (method !== "GET" || jobs.cancelled || jobs.flaggedOverdue || jobs.remindersSent) save();
       if (result instanceof Blob) return new Response(result, { status: 200, headers: { "Content-Type": result.type } });
       if (result instanceof Reply) return json(result.status, result.data);
       return json(200, result);

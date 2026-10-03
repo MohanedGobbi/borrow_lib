@@ -111,6 +111,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
+# The languages the app speaks. Email dates are written in the member's own (month names come from these).
+LANGUAGES = [("en", "English"), ("fr", "Français"), ("ar", "العربية")]
 USE_I18N = True
 USE_TZ = True
 
@@ -178,6 +180,8 @@ CORS_ALLOW_HEADERS = (*default_headers, "x-libborrow-csrf")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 LIBRARY_NAME = os.environ.get("LIBRARY_NAME", "University Library")
+# The time zone dates are written in inside emails (an IANA name, e.g. "Africa/Algiers"). Storage stays UTC.
+LIBRARY_TIME_ZONE = os.environ.get("LIBRARY_TIME_ZONE", "UTC")
 
 # Password reset links are valid for one hour (verification and invite links have their own rules).
 PASSWORD_RESET_TIMEOUT = 3600

@@ -99,7 +99,7 @@ class JobsOutsideTransactionTests(TransactionTestCase):
         with postgres_row_locking():
             res = client.post("/api/jobs/run")
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json(), {"cancelled": 1, "flaggedOverdue": 1})
+        self.assertEqual(res.json(), {"cancelled": 1, "flaggedOverdue": 1, "remindersSent": 0})
 
 
 # ------------------------------------------------------- 2. returns serve the queue first

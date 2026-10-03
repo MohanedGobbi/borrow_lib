@@ -74,10 +74,13 @@ In development, emails are printed to the Django server's console; in the demo b
 ```bash
 python manage.py cancel_expired_pickups   # hourly
 python manage.py mark_overdue             # nightly
+python manage.py send_reminders           # daily, in the morning
 ```
 
-Staff can also trigger both on demand from the staff desk ("Run scheduled checks" →
-`POST /api/jobs/run`).
+`send_reminders` emails members about loans due soon (and retries failed overdue emails); the
+"ready for pickup" and "overdue" emails go out when those events happen. Members can switch the
+emails off in their profile; in-app notifications always stay on. Staff can also trigger all
+three on demand from the staff desk ("Run scheduled checks" → `POST /api/jobs/run`).
 
 **Tests:** `cd backend && python manage.py test library` — 21 tests covering every
 state transition, invalid transitions, stock rules, queue handoff, job idempotency,
@@ -107,7 +110,7 @@ gunicorn/uvicorn behind a reverse proxy, set `DJANGO_SECRET_KEY`, `FRONTEND_URL`
 | Bulk book import (Excel / CSV / JSON) | Staff desk → Inventory → Import books (`src/pages/staff/ImportBooksPage.tsx`) → `POST /api/books/import` (dry-run preview, then import); `python manage.py import_books file.xlsx [--update] [--dry-run]`; rules in `backend/library/importing.py` |
 | Book cover uploads | `Book.cover_image` → `/media/covers/`; staff editor in the UI |
 | Request receipts (REQ-xxx PDF) | `backend/library/documents.py` → `GET /api/borrow-records/<id>/document` (owner or staff) |
-| Background jobs | `backend/library/management/commands/` + `services.run_hourly_cancellation / run_nightly_overdue` |
+| Background jobs | `backend/library/management/commands/` + `services.run_hourly_cancellation / run_nightly_overdue / run_daily_reminders` |
 | ID card PDF + QR | `backend/library/idcard.py` → `GET /api/users/me/id-card` |
 | Staff QR scan lookup | `GET /api/users/<uuid>/scan` → `/scan/:uuid` page |
 | User management | `/api/users` list/detail, admin-only `DELETE /api/users/<id>/delete` |

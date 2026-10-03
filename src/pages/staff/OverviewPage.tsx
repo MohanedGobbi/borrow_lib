@@ -38,8 +38,8 @@ export default function OverviewPage() {
   const runJobs = useMutation({
     mutationFn: apiMisc.runJobs,
     onSuccess: (r) => {
-      if (r.cancelled + r.flaggedOverdue === 0) toast.info(t("dash.jobsNone"));
-      else toast.success(t("dash.jobsDone", { c: r.cancelled, o: r.flaggedOverdue }));
+      if (r.cancelled + r.flaggedOverdue + r.remindersSent === 0) toast.info(t("dash.jobsNone"));
+      else toast.success(t("dash.jobsDone", { c: r.cancelled, o: r.flaggedOverdue, r: r.remindersSent }));
       return invalidateCirculation(qc);
     },
     onError: (e) => {

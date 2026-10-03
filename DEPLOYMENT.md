@@ -22,6 +22,7 @@
    | `CSRF_TRUSTED_ORIGINS` | origins allowed to post to the Django admin | none |
    | `FRONTEND_URL` | base URL embedded in ID-card QR codes and in the links of password-reset, verification and invite emails | `http://localhost:3000` |
    | `LIBRARY_NAME` | printed on ID cards and in emails | University Library |
+   | `LIBRARY_TIME_ZONE` | IANA time zone (e.g. `Africa/Algiers`) that dates and times inside emails are written in; stored times stay UTC | `UTC` |
    | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP server for password-reset, verification and invite emails (outside debug mode; debug prints them to the console) | none / `587` / none / none / `1` |
    | `DEFAULT_FROM_EMAIL` | sender of those emails | `LibBorrow <no-reply@localhost>` |
    | `DJANGO_SSL_REDIRECT` | redirect HTTP → HTTPS | `1` |
@@ -78,9 +79,17 @@
    # the crontab needs the same environment variables (DJANGO_DEBUG=0 etc.)
    7 * * * *  /path/to/.venv/bin/python /path/to/backend/manage.py cancel_expired_pickups
    11 0 * * * /path/to/.venv/bin/python /path/to/backend/manage.py mark_overdue
+   0 8 * * *  /path/to/.venv/bin/python /path/to/backend/manage.py send_reminders
    ```
 
-   Or Celery Beat calling the same two commands. `POST /api/jobs/run` remains
+   `send_reminders` emails members whose loan is due within the reminder window (Staff desk →
+   Library rules; 0 turns it off) and retries overdue emails that failed to send. Each email goes
+   out once per loan, so overlap is safe. Pick a morning hour in `LIBRARY_TIME_ZONE`'s day. The
+   "ready for pickup" email needs no job: it goes out when staff approve a request or the
+   waiting list hands over a copy, and the overdue email goes out when `mark_overdue` flags
+   the loan.
+
+   Or Celery Beat calling the same three commands. `POST /api/jobs/run` remains
    available as a staff-triggered manual run.
 
 ## Frontend (Vite/React)

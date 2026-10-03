@@ -93,6 +93,8 @@ export interface Profile {
   language: Lang;
   /** False until the member follows the link in the verification email; unverified members cannot borrow. */
   emailVerified: boolean;
+  /** False when the member turned off pickup, due-date and overdue emails; notifications always stay on. */
+  emailReminders: boolean;
   activeLoans: number;
   hasOverdue: boolean;
 }

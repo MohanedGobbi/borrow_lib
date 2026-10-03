@@ -574,13 +574,14 @@ class UserActiveView(APIView):
 # ------------------------------- jobs -------------------------------
 
 class RunJobsView(APIView):
-    """Ops helper: run the hourly + nightly jobs on demand (idempotent)."""
+    """Ops helper: run the hourly, nightly and daily reminder jobs on demand (idempotent)."""
     permission_classes = [IsStaffOrAdmin]
 
     def post(self, request):
         cancelled = services.run_hourly_cancellation()
         overdue = services.run_nightly_overdue()
-        return Response({"cancelled": cancelled, "flaggedOverdue": overdue})
+        reminders = services.run_daily_reminders()
+        return Response({"cancelled": cancelled, "flaggedOverdue": overdue, "remindersSent": reminders})
 
 
 # ------------------------------ analytics ------------------------------

@@ -9,7 +9,7 @@ const BASE = API_ROOT;
 /** Static demo build (`npm run build:demo`): the API runs in the browser, no server needed. */
 export const DEMO = import.meta.env.VITE_DEMO === "true";
 
-export const DEMO_STORAGE_KEY = "lb_demo_state_v9";
+export const DEMO_STORAGE_KEY = "lb_demo_state_v10";
 /** Demo-only stand-in for the httpOnly refresh cookie. */
 export const DEMO_REFRESH_KEY = "lb_demo_refresh";
 

@@ -11,6 +11,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
+from . import emails
 from .models import (
     Book,
     BorrowRecord,
@@ -80,6 +81,28 @@ def free_copies(book: Book) -> int:
     return max(0, book.available_copies - held)
 
 
+def _wants_email(user: User) -> bool:
+    """The member has an address and has not opted out of reminder emails (notifications always stay on)."""
+    return bool(user.email) and user.profile.email_reminders
+
+
+def _email_ready_after_commit(record: BorrowRecord) -> None:
+    """Email "ready for pickup" once the transaction that created the hold commits (a rolled-back hold never emails).
+
+    One email per record, never retried: the mark is set only after a successful send.
+    """
+    pk = record.pk
+
+    def send():
+        fresh = BorrowRecord.objects.select_related("user", "book").get(pk=pk)
+        if fresh.status != Status.READY or fresh.ready_email_sent_at or not _wants_email(fresh.user):
+            return
+        if emails.send_ready_email(fresh):
+            BorrowRecord.objects.filter(pk=pk).update(ready_email_sent_at=timezone.now())
+
+    transaction.on_commit(send, robust=True)
+
+
 def _hand_to_queue(book: Book, now) -> BorrowRecord | None:
     """Give a free copy to the first eligible member of the reservation queue.
 
@@ -104,6 +127,7 @@ def _hand_to_queue(book: Book, now) -> BorrowRecord | None:
         notify(reservation.user, "queue_handoff",
                f"Good news — “{book.title}” is now held for you. Pick it up within {hours} hours.",
                title=book.title, hours=hours)
+        _email_ready_after_commit(record)
         return record
     return None
 
@@ -152,6 +176,7 @@ def approve(staff: User, record: BorrowRecord) -> BorrowRecord:
     notify(record.user, "request_approved",
            f"Your request for “{record.book.title}” was approved. Pick it up within {hours} hours.",
            title=record.book.title, hours=hours)
+    _email_ready_after_commit(record)
     return record
 
 
@@ -274,6 +299,22 @@ def leave_reservation(user: User, reservation: Reservation) -> None:
     reservation.save(update_fields=["is_active"])
 
 
+def renewal_blocker(record: BorrowRecord, rules: LibrarySettings, now) -> BusinessRuleError | None:
+    """Why a BORROWED loan cannot be renewed right now, or None: the checks `renew` enforces, in its order, without raising."""
+    if has_overdue(record.user):
+        return BusinessRuleError("overdue_block", "You have an overdue loan. Resolve it before renewing.")
+    if record.renewal_count >= rules.max_renewals:
+        return BusinessRuleError("renew_limit", f"This loan cannot be renewed again (limit {rules.max_renewals}).",
+                                 max=rules.max_renewals)
+    if has_waiting_list(record.book):
+        return BusinessRuleError("renew_queue", "Someone is waiting for this book, so it cannot be renewed.")
+    if record.due_date - now > timedelta(days=RENEW_WINDOW_DAYS):
+        return BusinessRuleError("renew_too_early",
+                                 f"A loan can be renewed in the last {RENEW_WINDOW_DAYS} days before it is due.",
+                                 days=RENEW_WINDOW_DAYS)
+    return None
+
+
 @transaction.atomic
 def renew(actor: User, record: BorrowRecord) -> BorrowRecord:
     """BORROWED -> BORROWED with the due date pushed back by `loan_days`.
@@ -289,22 +330,14 @@ def renew(actor: User, record: BorrowRecord) -> BorrowRecord:
     book = Book.objects.select_for_update().get(pk=record.book_id)
     record = BorrowRecord.objects.select_for_update().select_related("user", "book").get(pk=record.pk)
     _assert_transition("renew", record)
-    if has_overdue(record.user):
-        raise BusinessRuleError("overdue_block", "You have an overdue loan. Resolve it before renewing.")
     rules = LibrarySettings.get()
-    if record.renewal_count >= rules.max_renewals:
-        raise BusinessRuleError("renew_limit", f"This loan cannot be renewed again (limit {rules.max_renewals}).",
-                                max=rules.max_renewals)
-    if has_waiting_list(book):
-        raise BusinessRuleError("renew_queue", "Someone is waiting for this book, so it cannot be renewed.")
-    now = timezone.now()
-    if record.due_date - now > timedelta(days=RENEW_WINDOW_DAYS):
-        raise BusinessRuleError("renew_too_early",
-                                f"A loan can be renewed in the last {RENEW_WINDOW_DAYS} days before it is due.",
-                                days=RENEW_WINDOW_DAYS)
+    blocker = renewal_blocker(record, rules, timezone.now())
+    if blocker:
+        raise blocker
     record.due_date = record.due_date + timedelta(days=rules.loan_days)
     record.renewal_count += 1
-    record.save(update_fields=["due_date", "renewal_count"])
+    record.due_reminder_sent_at = None  # the new due date gets its own reminder
+    record.save(update_fields=["due_date", "renewal_count", "due_reminder_sent_at"])
     on_behalf = record.user_id != actor.id
     detail = f"{display_name(actor)} renewed “{book.title}”"
     if on_behalf:
@@ -356,6 +389,16 @@ def run_hourly_cancellation(now=None) -> int:
     return cancelled
 
 
+def _email_overdue(record: BorrowRecord) -> bool:
+    """Send the overdue email and mark it sent. A failed send leaves the mark empty, so a later run retries.
+    Call with the record locked."""
+    if not _wants_email(record.user) or not emails.send_overdue_email(record):
+        return False
+    record.overdue_email_sent_at = timezone.now()
+    record.save(update_fields=["overdue_email_sent_at"])
+    return True
+
+
 def run_nightly_overdue(now=None) -> int:
     """Idempotent nightly job: BORROWED past due_date -> OVERDUE."""
     now = now or timezone.now()
@@ -378,4 +421,49 @@ def run_nightly_overdue(now=None) -> int:
             notify(record.user, "overdue",
                    f"“{record.book.title}” is overdue. Please return it — new requests are blocked until resolved.",
                    title=record.book.title)
+            _email_overdue(record)
     return flagged
+
+
+def run_daily_reminders(now=None) -> int:
+    """Idempotent daily job: email members about loans due within `reminder_days_before_due` days (0 turns it
+    off), and retry overdue emails whose send failed. Returns how many emails went out.
+
+    One email per event per record: the mark is set only after a successful send, a renewal clears the due-soon
+    mark, and a member who opted out of reminders is skipped. Each record gets its own transaction and lock.
+    """
+    now = now or timezone.now()
+    sent = 0
+    days = LibrarySettings.get().reminder_days_before_due
+    due_soon_ids = []
+    if days:
+        due_soon_ids = list(BorrowRecord.objects.filter(
+            status=Status.BORROWED, due_reminder_sent_at__isnull=True,
+            due_date__gte=now, due_date__lte=now + timedelta(days=days),
+            user__profile__email_reminders=True,
+        ).exclude(user__email="").values_list("pk", flat=True))
+    overdue_ids = list(BorrowRecord.objects.filter(
+        status=Status.OVERDUE, overdue_email_sent_at__isnull=True, user__profile__email_reminders=True,
+    ).exclude(user__email="").values_list("pk", flat=True))
+
+    for pk in due_soon_ids:
+        with transaction.atomic():
+            # Lock the book before the record, the same order as approve/pickup/return and renew.
+            book_id = BorrowRecord.objects.values_list("book_id", flat=True).get(pk=pk)
+            Book.objects.select_for_update().get(pk=book_id)
+            record = BorrowRecord.objects.select_for_update().get(pk=pk)
+            if (record.status != Status.BORROWED or record.due_reminder_sent_at
+                    or not (now <= record.due_date <= now + timedelta(days=days)) or not _wants_email(record.user)):
+                continue  # renewed, returned or reminded since the ids were collected
+            can_renew = renewal_blocker(record, LibrarySettings.get(), now) is None
+            if emails.send_due_soon_email(record, can_renew):
+                record.due_reminder_sent_at = timezone.now()
+                record.save(update_fields=["due_reminder_sent_at"])
+                sent += 1
+
+    for pk in overdue_ids:
+        with transaction.atomic():
+            record = BorrowRecord.objects.select_for_update().get(pk=pk)
+            if record.status == Status.OVERDUE and not record.overdue_email_sent_at and _email_overdue(record):
+                sent += 1
+    return sent

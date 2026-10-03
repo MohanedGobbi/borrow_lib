@@ -1,15 +1,19 @@
-"""Transactional email: password reset, address verification and staff invites (docs/rework/WP-08.md).
+"""Transactional email: password reset, address verification, staff invites (docs/rework/WP-08.md)
+and the loan reminders: ready for pickup, due soon, overdue (docs/rework/F2.md).
 
 One function per email. Each builds a plain-text message in the recipient's language
 (for invites, the inviting admin's), and never raises: a failed send is logged and reported
 through the return value, so a mail outage cannot break a request.
 """
 import logging
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.contrib.auth.tokens import PasswordResetTokenGenerator, default_token_generator
 from django.core.mail import send_mail
+from django.utils import timezone, translation
 from django.utils.encoding import force_bytes
+from django.utils.formats import date_format
 from django.utils.http import urlsafe_base64_encode
 
 from .models import INVITE_LIFETIME
@@ -79,11 +83,57 @@ MESSAGES = {
                "بهذا البريد الإلكتروني:\n\n{link}\n\n"
                "الرابط صالح لمدة {validity} ويمكن استخدامه مرة واحدة فقط."),
     },
+    "ready": {
+        "en": ("“{title}” is ready for pickup",
+               "“{title}” is being held for you at {library}.\n\n"
+               "{shelf_line}Pick it up by {deadline}. If you do not, the hold is cancelled and the book goes "
+               "to the next person on the waiting list.\n\nYour loans: {link}\n\n{footer}"),
+        "fr": ("« {title} » est prêt à être retiré",
+               "« {title} » est réservé pour vous à {library}.\n\n"
+               "{shelf_line}Venez le retirer avant le {deadline}. Passé ce délai, la réservation est annulée "
+               "et le livre passe au prochain membre de la liste d'attente.\n\nVos prêts : {link}\n\n{footer}"),
+        "ar": ("«{title}» جاهز للاستلام",
+               "«{title}» محجوز لك في {library}.\n\n"
+               "{shelf_line}يرجى استلامه قبل {deadline}. بعد ذلك يُلغى الحجز وينتقل الكتاب إلى العضو التالي "
+               "في قائمة الانتظار.\n\nإعاراتي: {link}\n\n{footer}"),
+    },
+    "due_soon": {
+        "en": ("“{title}” is due back soon",
+               "Your loan of “{title}” is due back on {due}. Please return it to the circulation desk by then."
+               "{renewal}\n\nYour loans: {link}\n\n{footer}"),
+        "fr": ("« {title} » est bientôt à rendre",
+               "Votre prêt de « {title} » est à rendre le {due}. Merci de le rapporter au bureau de prêt avant "
+               "cette date.{renewal}\n\nVos prêts : {link}\n\n{footer}"),
+        "ar": ("موعد إرجاع «{title}» يقترب",
+               "موعد إرجاع «{title}» المُعار لك هو {due}. يرجى إعادته إلى مكتب الإعارة قبل ذلك."
+               "{renewal}\n\nإعاراتي: {link}\n\n{footer}"),
+    },
+    "overdue": {
+        "en": ("“{title}” is overdue",
+               "“{title}” was due back on {due} and has not been returned. New requests are blocked until you "
+               "return it at the circulation desk.\n\nYour loans: {link}\n\n{footer}"),
+        "fr": ("« {title} » est en retard",
+               "« {title} » devait être rendu le {due} et ne l'a pas été. Les nouvelles demandes sont bloquées "
+               "tant que vous ne l'avez pas rapporté au bureau de prêt.\n\nVos prêts : {link}\n\n{footer}"),
+        "ar": ("«{title}» متأخر عن موعد الإرجاع",
+               "كان موعد إرجاع «{title}» في {due} ولم يُرجَع بعد. الطلبات الجديدة محظورة إلى أن تعيده إلى "
+               "مكتب الإعارة.\n\nإعاراتي: {link}\n\n{footer}"),
+    },
 }
 
 ROLE_NAMES = {
     "STAFF": {"en": "staff", "fr": "membre du personnel", "ar": "موظف"},
     "ADMIN": {"en": "admin", "fr": "administrateur", "ar": "مسؤول"},
+}
+
+# Pieces of the reminder emails, per language.
+REMINDER_PARTS = {
+    "en": {"shelf": "Shelf mark: {shelf}\n", "renewal": " You can renew it from My loans.",
+           "footer": "You get this email because email reminders are on. You can turn them off in your profile: {profile_link}"},
+    "fr": {"shelf": "Cote : {shelf}\n", "renewal": " Vous pouvez le renouveler depuis Mes prêts.",
+           "footer": "Vous recevez cet e-mail parce que les rappels par e-mail sont activés. Vous pouvez les désactiver dans votre profil : {profile_link}"},
+    "ar": {"shelf": "رمز الرف: {shelf}\n", "renewal": " يمكنك تجديده من إعاراتي.",
+           "footer": "تصلك هذه الرسالة لأن التذكيرات بالبريد الإلكتروني مفعّلة. يمكنك إيقافها من ملفك الشخصي: {profile_link}"},
 }
 
 UNITS = {
@@ -112,7 +162,7 @@ def duration(seconds: int, lang: str) -> str:
 
 def frontend_link(path: str, **params) -> str:
     query = "&".join(f"{key}={value}" for key, value in params.items())
-    return f"{settings.FRONTEND_URL.rstrip('/')}{path}?{query}"
+    return f"{settings.FRONTEND_URL.rstrip('/')}{path}" + (f"?{query}" if query else "")
 
 
 def user_link(path: str, user, token: str) -> str:
@@ -155,3 +205,41 @@ def send_staff_invite(invite, token: str) -> bool:
     return deliver("staff_invite", lang, invite.email, None, link=invite_link(token),
                    role=ROLE_NAMES[invite.role][lang],
                    validity=duration(int(INVITE_LIFETIME.total_seconds()), lang))
+
+
+# ------------------------------------------------------------------ loan reminders
+
+def local_datetime(value, lang: str) -> str:
+    """A moment in the library's time zone, with the month spelled in the member's language."""
+    with translation.override(lang):
+        return date_format(timezone.localtime(value, ZoneInfo(settings.LIBRARY_TIME_ZONE)), "j F Y, H:i")
+
+
+def _send_reminder(kind: str, record, **values) -> bool:
+    """One reminder about `record` to its member, in their language. False when it was not (or could not be) sent."""
+    user = record.user
+    if not user.email:
+        return False
+    lang = language_of(user)
+    parts = REMINDER_PARTS[lang]
+    footer = parts["footer"].format(profile_link=frontend_link("/profile"))
+    return deliver(kind, lang, user.email, user.first_name or None, title=record.book.title,
+                   link=frontend_link("/my-requests"), footer=footer, **values)
+
+
+def send_ready_email(record) -> bool:
+    lang = language_of(record.user)
+    shelf = record.book.shelf_location
+    return _send_reminder("ready", record, deadline=local_datetime(record.pickup_deadline, lang),
+                          shelf_line=REMINDER_PARTS[lang]["shelf"].format(shelf=shelf) if shelf else "")
+
+
+def send_due_soon_email(record, can_renew: bool) -> bool:
+    lang = language_of(record.user)
+    return _send_reminder("due_soon", record, due=local_datetime(record.due_date, lang),
+                          renewal=REMINDER_PARTS[lang]["renewal"] if can_renew else "")
+
+
+def send_overdue_email(record) -> bool:
+    lang = language_of(record.user)
+    return _send_reminder("overdue", record, due=local_datetime(record.due_date, lang))

@@ -131,6 +131,11 @@ class Command(BaseCommand):
             for key, delta in offsets.items():
                 # accept absolute datetimes or timedeltas relative to now
                 fields[key] = now + delta if isinstance(delta, timedelta) else delta
+            # Seeded holds and overdue loans count as already announced, so the first job run stays quiet.
+            if status == Status.READY:
+                fields["ready_email_sent_at"] = now
+            elif status == Status.OVERDUE:
+                fields["overdue_email_sent_at"] = now
             r = BorrowRecord.objects.create(user=user, book=book, **fields)
             BorrowRecord.objects.filter(pk=r.pk).update(requested_at=fields.get("requested_at", now))
             return r

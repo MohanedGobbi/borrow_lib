@@ -79,6 +79,57 @@ export async function latestEmailLink(page: Page, project: string, to: string, p
   return found;
 }
 
+/**
+ * The newest email sent to `to`: its subject and body text.
+ * Same two sources as latestEmailLink. The demo mailbox lists newest first; for Django the newest file wins.
+ */
+export async function latestEmail(page: Page, project: string, to: string): Promise<{ subject: string; body: string }> {
+  if (project === "demo") {
+    await page.goto("/demo/mailbox");
+    const mail = page.locator("section").filter({ hasText: to }).first();
+    await expect(mail).toBeVisible();
+    return { subject: (await mail.locator("h2").innerText()).trim(), body: await mail.locator("pre").innerText() };
+  }
+
+  let found: { subject: string; body: string } | null = null;
+  await expect.poll(() => {
+    found = findMessageInMailDir(to);
+    return found !== null;
+  }, { message: `an email to ${to}` }).toBe(true);
+  return found!;
+}
+
+function findMessageInMailDir(to: string): { subject: string; body: string } | null {
+  let files: string[];
+  try {
+    files = readdirSync(mailDir).map((name) => path.join(mailDir, name));
+  } catch {
+    return null;
+  }
+  files.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs || b.localeCompare(a));
+  for (const file of files) {
+    const message = decodeMessage(readFileSync(file, "utf8"));
+    if (!new RegExp(`^To:.*${to.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "mi").test(message.headers)) continue;
+    const subject = /^Subject:[ \t]*(.*(?:\r?\n[ \t]+.*)*)/im.exec(message.headers)?.[1] ?? "";
+    return { subject: decodeHeader(subject), body: message.body };
+  }
+  return null;
+}
+
+/** Undoes RFC 2047 encoded words ("=?utf-8?b?...?=") in a header, which Django uses for non-ASCII subjects. */
+function decodeHeader(value: string): string {
+  return value
+    .replace(/\r?\n[ \t]+/g, " ")
+    .replace(/\?=\s+=\?/g, "?==?")
+    .replace(/=\?utf-8\?([bq])\?(.*?)\?=/gi, (_, kind: string, text: string) =>
+      kind.toLowerCase() === "b"
+        ? Buffer.from(text, "base64").toString("utf8")
+        : Buffer.from(
+          text.replace(/_/g, " ").replace(/=([0-9A-F]{2})/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16))),
+          "latin1",
+        ).toString("utf8"));
+}
+
 function findLinkInMailDir(to: string, pattern: RegExp): string | null {
   let files: string[];
   try {
