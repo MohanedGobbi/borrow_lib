@@ -29,9 +29,9 @@ export function RequestDocButton({ record }: { record: BorrowRecord }) {
   };
 
   const rows: [string, React.ReactNode][] = [
-    [t("col.member"), record.userName],
+    [t("col.member"), <span dir="auto">{record.userName}</span>],
     [t("col.id"), <span dir="ltr" className="font-mono text-[13px]">{record.userIdNumber}</span>],
-    [t("col.book"), record.bookTitle],
+    [t("col.book"), <span dir="auto">{record.bookTitle}</span>],
     [t("field.shelf"), <span dir="ltr" className="font-mono text-[13px]">{record.bookShelf || "—"}</span>],
     [t("col.requested"), fmtDate(record.requestedAt)],
     [t("receipt.approved"), fmtDate(record.approvedAt)],

@@ -21,7 +21,7 @@ from .models import (
     log_activity,
     notify,
 )
-from .errors import BusinessRuleError, StateMachineError  # noqa: F401  (re-exported for callers and tests)
+from .errors import BusinessRuleError, Forbidden, NotFoundError, StateMachineError  # noqa: F401  (re-exported for callers and tests)
 
 PICKUP_WINDOW = timedelta(hours=48)
 LOAN_PERIOD = timedelta(days=14)
@@ -36,6 +36,7 @@ TRANSITIONS = {
     "pickup": [Status.READY],
     "return": [Status.BORROWED, Status.OVERDUE],
     "cancel": [Status.READY],
+    "withdraw": [Status.PENDING, Status.READY],
     "overdue": [Status.BORROWED],
 }
 
@@ -88,7 +89,8 @@ def _hand_to_queue(book: Book, now) -> BorrowRecord | None:
             status=Status.READY, approved_at=now, pickup_deadline=now + PICKUP_WINDOW,
         )
         log_activity("System", "QUEUE_HANDOFF",
-                     f"Reservation queue: “{book.title}” is now held for {display_name(reservation.user)} (fresh 48h window).")
+                     f"Reservation queue: “{book.title}” is now held for {display_name(reservation.user)} (fresh 48h window).",
+                     member=display_name(reservation.user), title=book.title)
         notify(reservation.user, "queue_handoff",
                f"Good news — “{book.title}” is now held for you. Pick it up within 48 hours.", title=book.title)
         return record
@@ -112,7 +114,8 @@ def create_request(user: User, book: Book) -> BorrowRecord:
     if user.borrow_records.filter(book=book, status__in=[Status.PENDING, Status.READY]).exists():
         raise BusinessRuleError("already_requested", "You already have an open request for this book.")
     record = BorrowRecord.objects.create(user=user, book=book)
-    log_activity(display_name(user), "REQUEST_CREATED", f"{display_name(user)} requested “{book.title}”.")
+    log_activity(display_name(user), "REQUEST_CREATED", f"{display_name(user)} requested “{book.title}”.",
+                 member=display_name(user), title=book.title)
     return record
 
 
@@ -131,7 +134,8 @@ def approve(staff: User, record: BorrowRecord) -> BorrowRecord:
     record.approved_by = staff
     record.save(update_fields=["status", "approved_at", "pickup_deadline", "approved_by"])
     log_activity(display_name(staff), "APPROVED",
-                 f"Approved {display_name(record.user)}'s request for “{record.book.title}”. Pickup within 48h.")
+                 f"Approved {display_name(record.user)}'s request for “{record.book.title}”. Pickup within 48h.",
+                 member=display_name(record.user), title=record.book.title)
     notify(record.user, "request_approved",
            f"Your request for “{record.book.title}” was approved. Pick it up within 48 hours.", title=record.book.title)
     return record
@@ -146,7 +150,8 @@ def reject(staff: User, record: BorrowRecord, reason: str = "") -> BorrowRecord:
     record.rejection_reason = reason
     record.save(update_fields=["status", "rejection_reason"])
     log_activity(display_name(staff), "REJECTED",
-                 f"Rejected {display_name(record.user)}'s request for “{record.book.title}”.")
+                 f"Rejected {display_name(record.user)}'s request for “{record.book.title}”.",
+                 member=display_name(record.user), title=record.book.title)
     if reason:
         notify(record.user, "request_rejected",
                f"Your request for “{record.book.title}” was rejected by staff. Reason: {reason}",
@@ -172,7 +177,8 @@ def confirm_pickup(staff: User, record: BorrowRecord) -> BorrowRecord:
     book.available_copies -= 1
     book.save(update_fields=["available_copies"])
     log_activity(display_name(staff), "PICKUP_CONFIRMED",
-                 f"{display_name(record.user)} picked up “{book.title}”. Due in 14 days.")
+                 f"{display_name(record.user)} picked up “{book.title}”. Due in 14 days.",
+                 member=display_name(record.user), title=book.title)
     notify(record.user, "picked_up", f"You picked up “{book.title}”. Due back on {record.due_date:%b %d, %Y}.",
            title=book.title, dueDate=record.due_date.isoformat())
     return record
@@ -189,7 +195,8 @@ def confirm_return(staff: User, record: BorrowRecord) -> BorrowRecord:
     book.available_copies = min(book.total_copies, book.available_copies + 1)
     book.save(update_fields=["available_copies"])
     log_activity(display_name(staff), "RETURN_CONFIRMED",
-                 f"{display_name(record.user)} returned “{book.title}”.")
+                 f"{display_name(record.user)} returned “{book.title}”.",
+                 member=display_name(record.user), title=book.title)
     _hand_to_queue(book, timezone.now())
     return record
 
@@ -208,10 +215,48 @@ def create_reservation(user: User, book: Book) -> Reservation:
     reservation = Reservation.objects.create(user=user, book=book)
     position = list(queue_for_book(book).values_list("id", flat=True)).index(reservation.id) + 1
     log_activity(display_name(user), "RESERVED",
-                 f"{display_name(user)} joined the queue for “{book.title}” (position {position}).")
+                 f"{display_name(user)} joined the queue for “{book.title}” (position {position}).",
+                 member=display_name(user), title=book.title, position=position)
     notify(user, "queue_joined", f"You joined the reservation queue for “{book.title}” at position {position}.",
            title=book.title, position=position)
     return reservation
+
+
+@transaction.atomic
+def withdraw(user: User, record: BorrowRecord) -> BorrowRecord:
+    """PENDING/READY -> CANCELLED by the record's owner. Stock never changes.
+
+    A READY hold never took a copy off the shelf, so withdrawing it frees the copy for the
+    next member in the queue (same handoff as the expiry job). Staff use reject instead.
+    """
+    if record.user_id != user.id:
+        raise Forbidden("forbidden", "Only the member who made the request can withdraw it.")
+    # Lock the book before the record, the same order as approve/pickup/return and the hourly job.
+    book = Book.objects.select_for_update().get(pk=record.book_id)
+    record = BorrowRecord.objects.select_for_update().select_related("user", "book").get(pk=record.pk)
+    _assert_transition("withdraw", record)
+    was_ready = record.status == Status.READY
+    record.status = Status.CANCELLED
+    record.cancelled_by_member = True
+    record.save(update_fields=["status", "cancelled_by_member"])
+    log_activity(display_name(user), "REQUEST_WITHDRAWN",
+                 f"{display_name(user)} withdrew their request for “{book.title}”.",
+                 member=display_name(user), title=book.title)
+    if was_ready:
+        _hand_to_queue(book, timezone.now())
+    return record
+
+
+@transaction.atomic
+def leave_reservation(user: User, reservation: Reservation) -> None:
+    """The owner leaves a waiting list. Everyone behind moves up; positions are computed, not stored."""
+    if reservation.user_id != user.id:
+        raise Forbidden("forbidden", "Only the member on the waiting list can leave it.")
+    reservation = Reservation.objects.select_for_update().get(pk=reservation.pk)
+    if not reservation.is_active:
+        raise NotFoundError("not_found", "You are no longer on this waiting list.")
+    reservation.is_active = False
+    reservation.save(update_fields=["is_active"])
 
 
 def run_hourly_cancellation(now=None) -> int:
@@ -240,7 +285,8 @@ def run_hourly_cancellation(now=None) -> int:
             record.save(update_fields=["status"])
             cancelled += 1
             log_activity("System", "AUTO_CANCELLED",
-                         f"{display_name(record.user)} missed the 48h pickup window for “{book.title}”. Request auto-cancelled.")
+                         f"{display_name(record.user)} missed the 48h pickup window for “{book.title}”. Request auto-cancelled.",
+                         member=display_name(record.user), title=book.title)
             notify(record.user, "hold_expired",
                    f"Your request for “{book.title}” was auto-cancelled after the 48h pickup window expired.",
                    title=book.title)
@@ -265,7 +311,8 @@ def run_nightly_overdue(now=None) -> int:
             record.save(update_fields=["status"])
             flagged += 1
             log_activity("System", "MARKED_OVERDUE",
-                         f"{display_name(record.user)}'s loan of “{record.book.title}” is now overdue.")
+                         f"{display_name(record.user)}'s loan of “{record.book.title}” is now overdue.",
+                         member=display_name(record.user), title=record.book.title)
             notify(record.user, "overdue",
                    f"“{record.book.title}” is overdue. Please return it — new requests are blocked until resolved.",
                    title=record.book.title)

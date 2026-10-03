@@ -101,8 +101,8 @@ export default function InventoryPage() {
                 return (
                   <tr key={b.id} className={tableCls.row}>
                     <td className={tableCls.td}>
-                      <Link to={`/books/${b.id}`} className="font-medium hover:text-brand-dark hover:underline">{b.title}</Link>
-                      <div className="text-xs text-muted-foreground">{b.author}</div>
+                      <Link dir="auto" to={`/books/${b.id}`} className="font-medium hover:text-brand-dark hover:underline">{b.title}</Link>
+                      <div dir="auto" className="text-xs text-muted-foreground">{b.author}</div>
                     </td>
                     <td className={tableCls.td}><span dir="ltr" className="font-mono text-[13px]">{b.shelfLocation || "—"}</span></td>
                     <td className={tableCls.td}><span dir="ltr" className="whitespace-nowrap font-mono text-[13px] text-muted-foreground">{b.isbn}</span></td>

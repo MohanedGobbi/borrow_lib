@@ -130,15 +130,15 @@ export function DeskSearch({ className }: { className?: string }) {
         {option.kind === "member" ? (
           <>
             <User className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="min-w-0 flex-1 truncate font-medium">{option.member.name}</span>
+            <span dir="auto" className="min-w-0 flex-1 truncate font-medium">{option.member.name}</span>
             <span dir="ltr" className="shrink-0 font-mono text-xs text-muted-foreground">{option.member.studentOrStaffId}</span>
           </>
         ) : (
           <>
             <BookOpen className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{option.book.title}</span>
-              <span className="block truncate text-xs text-muted-foreground">{option.book.author}</span>
+              <span dir="auto" className="block truncate font-medium">{option.book.title}</span>
+              <span dir="auto" className="block truncate text-xs text-muted-foreground">{option.book.author}</span>
             </span>
             <span dir="ltr" className="shrink-0 font-mono text-xs text-muted-foreground">{option.book.shelfLocation || option.book.isbn}</span>
           </>

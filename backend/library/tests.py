@@ -258,7 +258,9 @@ class BookCopiesTests(TestCase):
         BorrowRecord.objects.filter(book=self.book, status=Status.BORROWED).update(
             due_date=timezone.now() - timedelta(days=1))
         services.run_nightly_overdue()
-        self.assertEqual(self.get().data[0]["state"], "OVERDUE")
+        # Staff see it as overdue; everyone else sees plain "on loan" (D2b, test_student_control.py).
+        self.assertEqual(self.get(self.staff).data[0]["state"], "OVERDUE")
+        self.assertEqual(self.get().data[0]["state"], "BORROWED")
 
 
 class PdfTests(TestCase):

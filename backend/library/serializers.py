@@ -110,6 +110,7 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
     dueDate = serializers.DateTimeField(source="due_date", read_only=True)
     returnedAt = serializers.DateTimeField(source="returned_at", read_only=True)
     rejectionReason = serializers.CharField(source="rejection_reason", read_only=True)
+    cancelledByMember = serializers.BooleanField(source="cancelled_by_member", read_only=True)
     bookFreeCopies = serializers.SerializerMethodField()
     memberHasOverdue = serializers.SerializerMethodField()
     memberActiveLoans = serializers.SerializerMethodField()
@@ -119,7 +120,7 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
         model = BorrowRecord
         fields = ["id", "userId", "userProfileId", "bookId", "userName", "userIdNumber", "bookTitle", "bookShelf",
                   "requestedAt", "approvedAt", "pickupDeadline", "borrowedAt", "dueDate",
-                  "returnedAt", "status", "rejectionReason", "bookFreeCopies", "memberHasOverdue",
+                  "returnedAt", "status", "rejectionReason", "cancelledByMember", "bookFreeCopies", "memberHasOverdue",
                   "memberActiveLoans", "memberMaxBorrowLimit"]
 
     # The desk lists annotate these (views.with_desk_annotations); other callers fall back to a query.
@@ -177,7 +178,7 @@ class ActivitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ActivityLog
-        fields = ["id", "at", "actorName", "action", "detail"]
+        fields = ["id", "at", "actorName", "action", "detail", "code", "params"]
 
 
 class NotificationSerializer(serializers.ModelSerializer):

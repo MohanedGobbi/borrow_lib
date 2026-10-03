@@ -137,6 +137,8 @@ export interface BorrowRecord {
   status: BorrowStatus;
   /** Why staff rejected the request; empty when they gave no reason. */
   rejectionReason: string;
+  /** True when the student withdrew the request or hold themselves (not staff, not the 48-hour expiry). */
+  cancelledByMember: boolean;
   /** Free copies of the book right now (on the shelf and not held for another pickup). */
   bookFreeCopies: number;
   memberHasOverdue: boolean;
@@ -161,7 +163,11 @@ export interface ActivityEntry {
   at: string;
   actorName: string;
   action: string;
+  /** English sentence, for rows without a code. */
   detail: string;
+  /** Translatable event code (`pickup_confirmed`, …); empty on older rows. */
+  code: string;
+  params: Record<string, unknown>;
 }
 
 export interface AppNotification {

@@ -63,11 +63,11 @@ export default function PickupsPage() {
                   return (
                     <tr key={r.id} className={tableCls.row}>
                       <td className={tableCls.td}>
-                        <span className="font-medium">{r.bookTitle}</span>
+                        <span dir="auto" className="font-medium">{r.bookTitle}</span>
                         <div dir="ltr" className="whitespace-nowrap font-mono text-xs text-muted-foreground rtl:text-end">{r.bookShelf}</div>
                       </td>
                       <td className={tableCls.td}>
-                        <Link to={`/staff/users/${r.userProfileId}`} className="hover:text-brand-dark hover:underline">{r.userName}</Link>
+                        <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="hover:text-brand-dark hover:underline">{r.userName}</Link>
                         <div dir="ltr" className="whitespace-nowrap font-mono text-xs text-muted-foreground rtl:text-end">{r.userIdNumber}</div>
                       </td>
                       <td className={tableCls.td}>

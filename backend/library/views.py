@@ -80,7 +80,8 @@ class RegisterView(APIView):
                 invite.save(update_fields=["used_at", "used_by"])
         if not invite:
             emails.send_verification(user)
-        log_activity("System", "REGISTERED", f"{display_name(user)} registered as {role.lower()}.")
+        log_activity("System", "REGISTERED", f"{display_name(user)} registered as {role.lower()}.",
+                     member=display_name(user), role=role)
         return Response(ProfileSerializer(user.profile).data, status=http.HTTP_201_CREATED)
 
 
@@ -156,7 +157,8 @@ class BookListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         book = serializer.save(available_copies=serializer.validated_data["total_copies"])
         log_activity(display_name(self.request.user), "BOOK_ADDED",
-                     f"Added “{book.title}” ({book.total_copies} copies) to the catalog.")
+                     f"Added “{book.title}” ({book.total_copies} copies) to the catalog.",
+                     title=book.title, copies=book.total_copies)
 
 
 class BookDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -176,13 +178,13 @@ class BookDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise BusinessRuleError("total_below_on_loan",
                                     f"Cannot set total below {on_loan} — that many copies are on loan.", onLoan=on_loan)
         serializer.save(available_copies=new_total - on_loan)
-        log_activity(display_name(self.request.user), "BOOK_UPDATED", f"Updated “{book.title}”.")
+        log_activity(display_name(self.request.user), "BOOK_UPDATED", f"Updated “{book.title}”.", title=book.title)
 
     def destroy(self, request, *args, **kwargs):
         book = self.get_object()
         if book.available_copies != book.total_copies:
             raise BusinessRuleError("book_on_loan", "Cannot delete: copies are currently on loan.")
-        log_activity(display_name(request.user), "BOOK_DELETED", f"Removed “{book.title}” from the catalog.")
+        log_activity(display_name(request.user), "BOOK_DELETED", f"Removed “{book.title}” from the catalog.", title=book.title)
         return super().destroy(request, *args, **kwargs)
 
 
@@ -278,6 +280,14 @@ class ConfirmReturnView(_TransitionView):
     op = "confirm_return"
 
 
+class WithdrawView(APIView):
+    """The owning member takes back a PENDING request or a READY hold. Staff use reject instead."""
+
+    def post(self, request, pk):
+        record = get_object_or_404(BorrowRecord.objects.select_related("user__profile", "book"), pk=pk)
+        return Response(BorrowRecordSerializer(services.withdraw(request.user, record)).data)
+
+
 class BorrowDocumentView(APIView):
     """Request receipt PDF — the owning member or any staff/admin."""
     def get(self, request, pk):
@@ -304,6 +314,13 @@ class ReservationListCreateView(APIView):
         return Response(ReservationSerializer(reservation).data, status=http.HTTP_201_CREATED)
 
 
+class ReservationDetailView(APIView):
+    def delete(self, request, pk):
+        reservation = get_object_or_404(Reservation, pk=pk)
+        services.leave_reservation(request.user, reservation)
+        return Response(status=http.HTTP_204_NO_CONTENT)
+
+
 class BookImportView(APIView):
     """Staff-only bulk import. Body: {rows: [{header: value, "__row": n}], mode: "skip"|"update",
     dryRun: bool, filename: str}. A dry run returns the preview; nothing is written."""
@@ -328,7 +345,8 @@ class BookCopiesView(APIView):
     """Where every copy of a book is: on loan (with due date), held for pickup, or on the shelf.
 
     Public, so students can see when a copy is expected back; borrower names are
-    only included for staff.
+    only included for staff. Everyone else sees an overdue copy as plain "on loan" with no
+    date: a past due date says who is late, and nothing a student can act on.
     """
     permission_classes = [AllowAny]
 
@@ -346,7 +364,12 @@ class BookCopiesView(APIView):
                 return {}
             return {"recordId": r.id, "userName": display_name(r.user), "userProfileId": r.user.profile.id}
 
-        copies = [{"state": r.status, "dueDate": r.due_date, "since": r.borrowed_at, **who(r)} for r in out]
+        def on_loan(r):
+            if r.status == Status.OVERDUE and not is_staff:
+                return {"state": Status.BORROWED, "since": r.borrowed_at}
+            return {"state": r.status, "dueDate": r.due_date, "since": r.borrowed_at, **who(r)}
+
+        copies = [on_loan(r) for r in out]
         on_shelf = max(0, book.total_copies - len(out))
         # READY holds sit on the hold shelf: they are physically in the library but set aside.
         for r in held[:on_shelf]:
@@ -458,7 +481,7 @@ class UserDeleteView(APIView):
             raise BusinessRuleError("cannot_delete_admin", "Only superusers can delete admin accounts.")
         name = display_name(profile.user)
         profile.user.delete()
-        log_activity(display_name(request.user), "ACCOUNT_DELETED", f"Deleted {name}'s account.")
+        log_activity(display_name(request.user), "ACCOUNT_DELETED", f"Deleted {name}'s account.", member=name)
         return Response(status=http.HTTP_204_NO_CONTENT)
 
 
@@ -473,7 +496,8 @@ class UserRoleView(APIView):
         profile.role = role
         profile.save(update_fields=["role"])
         log_activity(display_name(request.user), "ROLE_CHANGED",
-                     f"Changed {display_name(profile.user)}'s role to {role}.")
+                     f"Changed {display_name(profile.user)}'s role to {role}.",
+                     member=display_name(profile.user), role=role)
         return Response(ProfileSerializer(profile).data)
 
 
@@ -485,8 +509,9 @@ class UserActiveView(APIView):
         profile.active = bool(request.data.get("active"))
         profile.save(update_fields=["active"])
         # signals.py mirrors this onto User.is_active, which SimpleJWT checks.
-        log_activity(display_name(request.user), "ACCOUNT_TOGGLED",
-                     f"{'Reactivated' if profile.active else 'Deactivated'} {display_name(profile.user)}'s account.")
+        log_activity(display_name(request.user), "ACCOUNT_REACTIVATED" if profile.active else "ACCOUNT_DEACTIVATED",
+                     f"{'Reactivated' if profile.active else 'Deactivated'} {display_name(profile.user)}'s account.",
+                     member=display_name(profile.user))
         return Response(ProfileSerializer(profile).data)
 
 

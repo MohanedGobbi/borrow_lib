@@ -172,7 +172,7 @@ export function Layout() {
                           <li key={n.id} className="flex gap-3 px-4 py-3">
                             <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read ? "bg-transparent" : "bg-brand")} aria-hidden />
                             <span>
-                              <span className="block text-sm leading-snug">{notificationText(t, n)}</span>
+                              <span dir="auto" className="block text-sm leading-snug">{notificationText(t, n)}</span>
                               <span className="mt-1 block text-xs text-muted-foreground">{timeAgo(n.at)}</span>
                             </span>
                           </li>

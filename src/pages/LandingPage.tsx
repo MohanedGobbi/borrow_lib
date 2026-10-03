@@ -101,7 +101,7 @@ export default function LandingPage() {
                   <span className="mt-3 block text-[15px] font-semibold leading-snug text-ink group-hover:text-brand-dark group-hover:underline line-clamp-2">
                     {b.title}
                   </span>
-                  <span className="mt-0.5 block text-sm text-muted-foreground line-clamp-1">{b.author}</span>
+                  <span dir="auto" className="mt-0.5 block text-sm text-muted-foreground line-clamp-1">{b.author}</span>
                 </Link>
               </li>
             ))}

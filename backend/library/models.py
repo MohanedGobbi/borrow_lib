@@ -127,6 +127,8 @@ class BorrowRecord(models.Model):
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_records"
     )
     rejection_reason = models.CharField(max_length=300, blank=True)
+    # True when the member withdrew the request or hold themselves (not staff, not the 48h expiry).
+    cancelled_by_member = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-requested_at"]
@@ -150,6 +152,8 @@ class ActivityLog(models.Model):
     actor_name = models.CharField(max_length=150)
     action = models.CharField(max_length=40)
     detail = models.CharField(max_length=500)
+    code = models.CharField(max_length=40, blank=True)
+    params = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["-at"]
@@ -167,8 +171,11 @@ class Notification(models.Model):
         ordering = ["-at"]
 
 
-def log_activity(actor_name: str, action: str, detail: str) -> ActivityLog:
-    return ActivityLog.objects.create(actor_name=actor_name, action=action, detail=detail)
+def log_activity(actor_name: str, action: str, detail: str, **params) -> ActivityLog:
+    """`detail` is the English sentence (old rows, the admin, API clients). The UI translates
+    `activity.<code>` with `params`; the code is the action in lower case ("PICKUP_CONFIRMED" -> "pickup_confirmed")."""
+    return ActivityLog.objects.create(actor_name=actor_name, action=action, detail=detail,
+                                      code=action.lower(), params=params)
 
 
 def notify(user: User, code: str, message: str, **params) -> Notification:

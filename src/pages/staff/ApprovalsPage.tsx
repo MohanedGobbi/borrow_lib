@@ -68,12 +68,12 @@ export default function ApprovalsPage() {
                   return (
                     <tr key={r.id} className={tableCls.row}>
                       <td className={tableCls.td}>
-                        <Link to={`/staff/users/${r.userProfileId}`} className="font-medium hover:text-brand-dark hover:underline">{r.userName}</Link>
+                        <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="font-medium hover:text-brand-dark hover:underline">{r.userName}</Link>
                         <div dir="ltr" className="whitespace-nowrap font-mono text-xs text-muted-foreground rtl:text-end">{r.userIdNumber}</div>
                         <RecordStanding record={r} />
                       </td>
                       <td className={tableCls.td}>
-                        <Link to={`/books/${r.bookId}`} className="hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
+                        <Link dir="auto" to={`/books/${r.bookId}`} className="hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                           <span dir="ltr" className="whitespace-nowrap font-mono">{r.bookShelf}</span>
                           <span aria-hidden>·</span>

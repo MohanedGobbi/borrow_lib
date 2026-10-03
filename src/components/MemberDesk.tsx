@@ -45,7 +45,7 @@ export function MemberDesk({
   return (
     <div className="space-y-6">
       <PageHeader
-        title={member.name}
+        title={<span dir="auto">{member.name}</span>}
         description={
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
             <span dir="ltr" className="font-mono text-[13px]">{member.studentOrStaffId}</span>
@@ -170,7 +170,7 @@ export function MemberDesk({
 function BookLine({ record }: { record: BorrowRecord }) {
   return (
     <div className="min-w-[12rem] flex-1">
-      <Link to={`/books/${record.bookId}`} className="font-medium hover:text-brand-dark hover:underline">{record.bookTitle}</Link>
+      <Link dir="auto" to={`/books/${record.bookId}`} className="font-medium hover:text-brand-dark hover:underline">{record.bookTitle}</Link>
       <div dir="ltr" className="whitespace-nowrap font-mono text-xs text-muted-foreground rtl:text-end">{record.bookShelf}</div>
     </div>
   );

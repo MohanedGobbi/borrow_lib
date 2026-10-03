@@ -55,7 +55,7 @@ Never switch models mid-WP: the prompt cache is per model.
 |---|---|---|---|
 | D1 | Design audit of every main screen (desktop, phone, Arabic) against DESIGN.md; prioritised fix list | Opus | done: 23/40, report in `.impeccable/critique/`; owner chose desk first, all P0–P2, no rethinks |
 | D2a | Desk safety + scan-first desk ([spec](D2a.md)) | Sonnet · high | done, Opus-reviewed |
-| D2b | Student control (cancel request, leave list, inline confirmation), Arabic bugs, activity codes, public copy privacy | Sonnet · high | |
+| D2b | Student control (cancel request, leave list, inline confirmation), Arabic bugs, activity codes, public copy privacy ([spec](D2b.md)) | Sonnet · high | done, Opus-reviewed |
 | D2c | Phone layouts + visual drift + minor observations | Sonnet · medium | |
 | 21a | Loan renewal: once per loan, +14 days, blocked by a waiting list or an overdue loan | Opus tests → Sonnet | |
 | 21b | Email reminders: ready for pickup, due in 2 days, overdue (scheduled job, per-language, idempotent) | Sonnet · medium | |

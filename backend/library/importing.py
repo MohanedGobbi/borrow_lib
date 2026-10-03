@@ -257,7 +257,8 @@ def run_import(rows: list[dict], *, mode: str = "skip", dry_run: bool = True,
                     updated += 1
             where = f" from {source}" if source else ""
             log_activity(actor_name, "BOOKS_IMPORTED",
-                         f"Imported {created} new books and updated {updated}{where}.")
+                         f"Imported {created} new books and updated {updated}{where}.",
+                         created=created, updated=updated, source=source)
 
     return {
         "dryRun": dry_run,

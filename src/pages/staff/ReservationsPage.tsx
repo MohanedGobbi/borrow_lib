@@ -30,7 +30,7 @@ export default function ReservationsPage() {
           {[...byBook.entries()].map(([bookId, queue]) => (
             <Panel
               key={bookId}
-              title={<Link to={`/books/${bookId}`} className="hover:text-brand-dark hover:underline">{queue[0].bookTitle}</Link>}
+              title={<Link dir="auto" to={`/books/${bookId}`} className="hover:text-brand-dark hover:underline">{queue[0].bookTitle}</Link>}
               count={queue.length}
               flush
             >
@@ -38,7 +38,7 @@ export default function ReservationsPage() {
                 {queue.map((q) => (
                   <li key={q.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                     <span className="tabular flex size-6 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-semibold">{q.position}</span>
-                    <Link to={`/staff/users/${q.userProfileId}`} className="flex-1 font-medium hover:text-brand-dark hover:underline">{q.userName}</Link>
+                    <Link dir="auto" to={`/staff/users/${q.userProfileId}`} className="flex-1 font-medium hover:text-brand-dark hover:underline">{q.userName}</Link>
                     <span className="text-muted-foreground">{fmtDate(q.reservedAt)}</span>
                   </li>
                 ))}

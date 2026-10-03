@@ -147,10 +147,10 @@ export default function CatalogPage() {
                     <BookCover book={b} size="sm" />
                   </Link>
                   <div className="min-w-0">
-                    <Link to={`/books/${b.id}`} className="text-base font-semibold leading-snug text-ink hover:text-brand-dark hover:underline">
+                    <Link dir="auto" to={`/books/${b.id}`} className="text-base font-semibold leading-snug text-ink hover:text-brand-dark hover:underline">
                       {b.title}
                     </Link>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
+                    <p dir="auto" className="mt-0.5 text-sm text-muted-foreground">
                       {b.author}{b.year ? ` · ${b.year}` : ""}{b.publisher ? ` · ${b.publisher}` : ""}
                     </p>
                     <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">

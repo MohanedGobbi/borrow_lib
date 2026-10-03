@@ -37,9 +37,15 @@ interface DRecord {
   returnedAt: number | null; status: BorrowStatus;
   /** Why staff rejected the request (max 300 characters); shown to the member. */
   rejectionReason?: string;
+  /** True when the member withdrew the request or hold themselves. */
+  cancelledByMember?: boolean;
 }
 interface DReservation { id: number; userId: number; bookId: number; reservedAt: number; isActive: boolean }
-interface DActivity { id: number; at: number; actorName: string; action: string; detail: string }
+interface DActivity {
+  id: number; at: number; actorName: string; action: string; detail: string;
+  /** Translation key suffix and placeholders (rows saved before D2b have neither and show `detail`). */
+  code?: string; params?: Record<string, unknown>;
+}
 interface DNotification {
   id: number; userId: number; at: number; code: string; params: Record<string, unknown>; message: string; read: boolean;
 }
@@ -231,19 +237,20 @@ function seed(): DemoState {
   const name = (id: number) => s.users.find((x) => x.id === id)!.name;
   const title = (id: number) => s.books.find((x) => x.id === id)!.title;
   let aid = 0;
-  const trail = (at: number | null, actorName: string, action: string, detail: string) => {
-    if (at != null) s.activity.push({ id: ++aid, at, actorName, action, detail });
+  const trail = (at: number | null, actorName: string, action: string, detail: string, params: Record<string, unknown>) => {
+    if (at != null) s.activity.push({ id: ++aid, at, actorName, action, detail, code: action.toLowerCase(), params });
   };
   for (const r of s.records) {
     const who = name(r.userId);
     const what = title(r.bookId);
-    trail(r.requestedAt, who, "REQUEST_CREATED", `${who} requested “${what}”.`);
-    if (r.status === "REJECTED") trail(r.requestedAt + 3 * H, staffName, "REJECTED", `Rejected ${who}'s request for “${what}”.`);
-    trail(r.approvedAt, staffName, "APPROVED", `Approved ${who}'s request for “${what}”. Pickup within 48h.`);
-    if (r.status === "CANCELLED") trail(r.pickupDeadline, "System", "AUTO_CANCELLED", `${who} missed the 48h pickup window for “${what}”. Request auto-cancelled.`);
-    trail(r.borrowedAt, staffName, "PICKUP_CONFIRMED", `${who} picked up “${what}”. Due in 14 days.`);
-    trail(r.returnedAt, staffName, "RETURN_CONFIRMED", `${who} returned “${what}”.`);
-    if (r.status === "OVERDUE") trail(r.dueDate! + 12 * H, "System", "MARKED_OVERDUE", `${who}'s loan of “${what}” is now overdue.`);
+    const p = { member: who, title: what };
+    trail(r.requestedAt, who, "REQUEST_CREATED", `${who} requested “${what}”.`, p);
+    if (r.status === "REJECTED") trail(r.requestedAt + 3 * H, staffName, "REJECTED", `Rejected ${who}'s request for “${what}”.`, p);
+    trail(r.approvedAt, staffName, "APPROVED", `Approved ${who}'s request for “${what}”. Pickup within 48h.`, p);
+    if (r.status === "CANCELLED") trail(r.pickupDeadline, "System", "AUTO_CANCELLED", `${who} missed the 48h pickup window for “${what}”. Request auto-cancelled.`, p);
+    trail(r.borrowedAt, staffName, "PICKUP_CONFIRMED", `${who} picked up “${what}”. Due in 14 days.`, p);
+    trail(r.returnedAt, staffName, "RETURN_CONFIRMED", `${who} returned “${what}”.`, p);
+    if (r.status === "OVERDUE") trail(r.dueDate! + 12 * H, "System", "MARKED_OVERDUE", `${who}'s loan of “${what}” is now overdue.`, p);
   }
   s.activity = s.activity.filter((a) => a.at <= now).sort((a, b) => b.at - a.at);
   s.notifications.push({ id: 1, userId: daniel, at: now, read: false, code: "", params: {},
@@ -312,6 +319,7 @@ function sRecord(r: DRecord) {
     bookTitle: b.title, bookShelf: b.shelfLocation, requestedAt: iso(r.requestedAt), approvedAt: iso(r.approvedAt),
     pickupDeadline: iso(r.pickupDeadline), borrowedAt: iso(r.borrowedAt), dueDate: iso(r.dueDate),
     returnedAt: iso(r.returnedAt), status: r.status, rejectionReason: r.rejectionReason ?? "",
+    cancelledByMember: r.cancelledByMember ?? false,
     bookFreeCopies: freeCopies(b), memberHasOverdue: hasOverdue(u.id), memberActiveLoans: activeLoans(u.id),
     memberMaxBorrowLimit: u.maxLimit,
   };
@@ -367,8 +375,9 @@ function invalid(...errors: [field: string, message: string, code: string][]) {
   return new HttpError(400, "Invalid input.", "invalid", undefined, { ...fields, fields, fieldCodes });
 }
 
-function log(actorName: string, action: string, detail: string) {
-  state.activity.unshift({ id: nextId(), at: Date.now(), actorName, action, detail });
+/** `detail` is the English sentence; the UI translates `activity.<code>` with `params` (code = action in lower case). */
+function log(actorName: string, action: string, detail: string, params: Record<string, unknown> = {}) {
+  state.activity.unshift({ id: nextId(), at: Date.now(), actorName, action, detail, code: action.toLowerCase(), params });
 }
 
 function notify(userId: number, code: string, message: string, params: Record<string, unknown>) {
@@ -393,7 +402,8 @@ function handToQueue(book: DBook, now: number) {
       id: nextId(), userId: nxt.userId, bookId: book.id, requestedAt: nxt.reservedAt, approvedAt: now,
       pickupDeadline: now + PICKUP_WINDOW, borrowedAt: null, dueDate: null, returnedAt: null, status: "READY",
     });
-    log("System", "QUEUE_HANDOFF", `Reservation queue: “${book.title}” is now held for ${nu.name} (fresh 48h window).`);
+    log("System", "QUEUE_HANDOFF", `Reservation queue: “${book.title}” is now held for ${nu.name} (fresh 48h window).`,
+      { member: nu.name, title: book.title });
     notify(nu.id, "queue_handoff", `Good news — “${book.title}” is now held for you. Pick it up within 48 hours.`,
       { title: book.title });
     return;
@@ -410,7 +420,8 @@ function runJobs() {
     const book = bookById(r.bookId)!;
     r.status = "CANCELLED";
     cancelled++;
-    log("System", "AUTO_CANCELLED", `${user.name} missed the 48h pickup window for “${book.title}”. Request auto-cancelled.`);
+    log("System", "AUTO_CANCELLED", `${user.name} missed the 48h pickup window for “${book.title}”. Request auto-cancelled.`,
+      { member: user.name, title: book.title });
     notify(user.id, "hold_expired", `Your request for “${book.title}” was auto-cancelled after the 48h pickup window expired.`,
       { title: book.title });
     handToQueue(book, now);
@@ -420,7 +431,8 @@ function runJobs() {
     const book = bookById(r.bookId)!;
     r.status = "OVERDUE";
     flaggedOverdue++;
-    log("System", "MARKED_OVERDUE", `${user.name}'s loan of “${book.title}” is now overdue.`);
+    log("System", "MARKED_OVERDUE", `${user.name}'s loan of “${book.title}” is now overdue.`,
+      { member: user.name, title: book.title });
     notify(user.id, "overdue", `“${book.title}” is overdue. Please return it — new requests are blocked until resolved.`,
       { title: book.title });
   }
@@ -583,7 +595,7 @@ async function updateBook(ctx: Ctx, book: DBook, actor: DUser) {
   }
   if (src.coverImage instanceof File) book.coverImage = await fileToDataUrl(src.coverImage);
   else if (src.coverImage === null || src.coverImage === "") book.coverImage = null;
-  log(actor.name, "BOOK_UPDATED", `Updated “${book.title}”.`);
+  log(actor.name, "BOOK_UPDATED", `Updated “${book.title}”.`, { title: book.title });
   return sBook(book);
 }
 
@@ -600,7 +612,8 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
         throw bad("approve_no_free_copy", "No free copy to hold — every copy is on loan or already held for pickup.");
       }
       Object.assign(r, { status: "READY", approvedAt: now, pickupDeadline: now + PICKUP_WINDOW });
-      log(staff.name, "APPROVED", `Approved ${user.name}'s request for “${book.title}”. Pickup within 48h.`);
+      log(staff.name, "APPROVED", `Approved ${user.name}'s request for “${book.title}”. Pickup within 48h.`,
+        { member: user.name, title: book.title });
       notify(user.id, "request_approved", `Your request for “${book.title}” was approved. Pick it up within 48 hours.`,
         { title: book.title });
     } else if (op === "reject") {
@@ -609,7 +622,8 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
       const reason = (typeof asked === "string" ? asked : "").trim().slice(0, REJECTION_REASON_MAX);
       r.status = "REJECTED";
       r.rejectionReason = reason;
-      log(staff.name, "REJECTED", `Rejected ${user.name}'s request for “${book.title}”.`);
+      log(staff.name, "REJECTED", `Rejected ${user.name}'s request for “${book.title}”.`,
+        { member: user.name, title: book.title });
       if (reason) {
         notify(user.id, "request_rejected", `Your request for “${book.title}” was rejected by staff. Reason: ${reason}`,
           { title: book.title, reason });
@@ -621,14 +635,16 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
       if (book.availableCopies <= 0) throw bad("pickup_no_copy", "No physical copy on the shelf to hand out.");
       Object.assign(r, { status: "BORROWED", borrowedAt: now, dueDate: now + LOAN_PERIOD });
       book.availableCopies -= 1;
-      log(staff.name, "PICKUP_CONFIRMED", `${user.name} picked up “${book.title}”. Due in 14 days.`);
+      log(staff.name, "PICKUP_CONFIRMED", `${user.name} picked up “${book.title}”. Due in 14 days.`,
+        { member: user.name, title: book.title });
       notify(user.id, "picked_up", `You picked up “${book.title}”. Due back on ${new Date(r.dueDate!).toLocaleDateString()}.`,
         { title: book.title, dueDate: iso(r.dueDate) });
     } else {
       transition("return", r, ["BORROWED", "OVERDUE"]);
       Object.assign(r, { status: "RETURNED", returnedAt: now });
       book.availableCopies = Math.min(book.totalCopies, book.availableCopies + 1);
-      log(staff.name, "RETURN_CONFIRMED", `${user.name} returned “${book.title}”.`);
+      log(staff.name, "RETURN_CONFIRMED", `${user.name} returned “${book.title}”.`,
+        { member: user.name, title: book.title });
       handToQueue(book, now);
     }
     return sRecord(r);
@@ -789,7 +805,8 @@ function runImport(rows: Record<string, unknown>[], mode: string, dryRun: boolea
         updated++;
       }
     }
-    log(actor, "BOOKS_IMPORTED", `Imported ${created} new books and updated ${updated}${source ? ` from ${source}` : ""}.`);
+    log(actor, "BOOKS_IMPORTED", `Imported ${created} new books and updated ${updated}${source ? ` from ${source}` : ""}.`,
+      { created, updated, source });
   }
 
   const summary = { ...empty, total: results.length, newCategories: newCategories.length };
@@ -994,7 +1011,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     state.users.push(u);
     if (invite) invite.usedAt = Date.now();
     else sendLinkMail("verify", u);
-    log("System", "REGISTERED", `${u.name} registered as ${role.toLowerCase()}.`);
+    log("System", "REGISTERED", `${u.name} registered as ${role.toLowerCase()}.`, { member: u.name, role });
     return new Reply(201, sProfile(u));
   }],
   ["GET", /^\/users\/me$/, (ctx) => sProfile(requireUser(ctx))],
@@ -1020,7 +1037,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     user.password = String(ctx.body.password);
     spendTokens("reset", user);
     user.sessionsRevokedAt = Date.now() + 1; // every session ends; the next sign-in starts a new one
-    log(user.name, "PASSWORD_RESET", `${user.name} reset their password.`);
+    log(user.name, "PASSWORD_RESET", `${user.name} reset their password.`, { member: user.name });
     return new Reply(204, null);
   }],
   ["POST", /^\/auth\/verify-email$/, (ctx) => {
@@ -1058,7 +1075,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     state.invites.push(invite);
     const path = `/signup?invite=${invite.token}`;
     sendMail("invite", admin.language, email, null, path, VALIDITY.week[admin.language], ROLE_NAMES[role][admin.language]);
-    log(admin.name, "INVITE_SENT", `Invited ${email} as ${role.toLowerCase()}.`);
+    log(admin.name, "INVITE_SENT", `Invited ${email} as ${role.toLowerCase()}.`, { email, role });
     return new Reply(201, { ...sInvite(invite), link: `${window.location.origin}${path}` });
   }],
   ["GET", /^\/invites\/lookup$/, (ctx) => {
@@ -1130,7 +1147,8 @@ const ROUTES: [string, RegExp, Handler][] = [
       coverImage: null, description: String(d.description ?? ""),
     };
     state.books.push(book);
-    log(staff.name, "BOOK_ADDED", `Added “${book.title}” (${book.totalCopies} copies) to the catalog.`);
+    log(staff.name, "BOOK_ADDED", `Added “${book.title}” (${book.totalCopies} copies) to the catalog.`,
+      { title: book.title, copies: book.totalCopies });
     return new Reply(201, sBook(book));
   }],
   ["GET", /^\/books\/(\d+)$/, (_ctx, [id]) => sBook(findBook(id))],
@@ -1142,7 +1160,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     state.books = state.books.filter((b) => b.id !== book.id);
     state.records = state.records.filter((r) => r.bookId !== book.id);
     state.reservations = state.reservations.filter((r) => r.bookId !== book.id);
-    log(staff.name, "BOOK_DELETED", `Removed “${book.title}” from the catalog.`);
+    log(staff.name, "BOOK_DELETED", `Removed “${book.title}” from the catalog.`, { title: book.title });
     return new Reply(204, null);
   }],
   ["POST", /^\/books\/import$/, (ctx) => {
@@ -1169,7 +1187,10 @@ const ROUTES: [string, RegExp, Handler][] = [
       .sort((a, b) => (a.pickupDeadline ?? 0) - (b.pickupDeadline ?? 0));
     const onShelf = Math.max(0, book.totalCopies - out.length);
     const copies: Record<string, unknown>[] = [
-      ...out.map((r) => ({ state: r.status, dueDate: iso(r.dueDate), since: iso(r.borrowedAt), ...who(r) })),
+      // Everyone but staff sees an overdue copy as plain "on loan", without the past due date.
+      ...out.map((r) => r.status === "OVERDUE" && !isStaff
+        ? { state: "BORROWED", since: iso(r.borrowedAt) }
+        : { state: r.status, dueDate: iso(r.dueDate), since: iso(r.borrowedAt), ...who(r) }),
       ...held.slice(0, onShelf).map((r) => ({ state: "HELD", heldUntil: iso(r.pickupDeadline), ...who(r) })),
       ...Array.from({ length: onShelf - Math.min(held.length, onShelf) }, () => ({ state: "ON_SHELF", shelf: book.shelfLocation })),
     ];
@@ -1247,12 +1268,26 @@ const ROUTES: [string, RegExp, Handler][] = [
       pickupDeadline: null, borrowedAt: null, dueDate: null, returnedAt: null, status: "PENDING",
     };
     state.records.push(r);
-    log(u.name, "REQUEST_CREATED", `${u.name} requested “${book.title}”.`);
+    log(u.name, "REQUEST_CREATED", `${u.name} requested “${book.title}”.`, { member: u.name, title: book.title });
     return new Reply(201, sRecord(r));
   }],
   ["GET", /^\/borrow-records\/mine$/, (ctx) => {
     const u = requireUser(ctx);
     return recordsNewestFirst(state.records.filter((r) => r.userId === u.id)).map(sRecord);
+  }],
+  ["POST", /^\/borrow-records\/(\d+)\/withdraw$/, (ctx, [id]) => {
+    // The owner takes back a PENDING request or READY hold; stock never changes (mirrors services.withdraw).
+    const u = requireUser(ctx);
+    const r = findRecord(id);
+    if (r.userId !== u.id) throw forbidden("forbidden", "Only the member who made the request can withdraw it.");
+    transition("withdraw", r, ["PENDING", "READY"]);
+    const book = bookById(r.bookId)!;
+    const wasReady = r.status === "READY";
+    r.status = "CANCELLED";
+    r.cancelledByMember = true;
+    log(u.name, "REQUEST_WITHDRAWN", `${u.name} withdrew their request for “${book.title}”.`, { member: u.name, title: book.title });
+    if (wasReady) handToQueue(book, Date.now());
+    return sRecord(r);
   }],
   ["POST", /^\/borrow-records\/(\d+)\/approve$/, recordTransition("approve")],
   ["POST", /^\/borrow-records\/(\d+)\/reject$/, recordTransition("reject")],
@@ -1291,10 +1326,20 @@ const ROUTES: [string, RegExp, Handler][] = [
     const r: DReservation = { id: nextId(), userId: u.id, bookId: book.id, reservedAt: Date.now(), isActive: true };
     state.reservations.push(r);
     const position = queueFor(book.id).findIndex((x) => x.id === r.id) + 1;
-    log(u.name, "RESERVED", `${u.name} joined the queue for “${book.title}” (position ${position}).`);
+    log(u.name, "RESERVED", `${u.name} joined the queue for “${book.title}” (position ${position}).`,
+      { member: u.name, title: book.title, position });
     notify(u.id, "queue_joined", `You joined the reservation queue for “${book.title}” at position ${position}.`,
       { title: book.title, position });
     return new Reply(201, sReservation(r));
+  }],
+  ["DELETE", /^\/reservations\/(\d+)$/, (ctx, [id]) => {
+    const u = requireUser(ctx);
+    const r = state.reservations.find((x) => x.id === Number(id));
+    if (!r) throw notFound();
+    if (r.userId !== u.id) throw forbidden("forbidden", "Only the member on the waiting list can leave it.");
+    if (!r.isActive) throw notFound();
+    r.isActive = false;
+    return new Reply(204, null);
   }],
   ["GET", /^\/reservations\/all$/, (ctx) => {
     requireStaff(ctx);
@@ -1332,7 +1377,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     state.records = state.records.filter((r) => r.userId !== u.id);
     state.reservations = state.reservations.filter((r) => r.userId !== u.id);
     state.notifications = state.notifications.filter((n) => n.userId !== u.id);
-    log(admin.name, "ACCOUNT_DELETED", `Deleted ${u.name}'s account.`);
+    log(admin.name, "ACCOUNT_DELETED", `Deleted ${u.name}'s account.`, { member: u.name });
     return new Reply(204, null);
   }],
   // ---------------------------- dashboard etc ----------------------------

@@ -23,7 +23,9 @@ export function BookCopies({ copies }: { copies: BookCopy[] }) {
     }
     if (c.state === "HELD") return t("copies.heldUntil", { date: fmtDateTime(c.heldUntil ?? null) });
     if (c.state === "OVERDUE") return t("copies.wasDue", { date: fmtDate(c.dueDate ?? null) });
-    return t("copies.dueBack", { date: fmtDate(c.dueDate ?? null) });
+    // The public list leaves out the date of a copy that is late: "on loan" is all a student needs to know.
+    if (!c.dueDate) return t("copies.backSoon");
+    return t("copies.dueBack", { date: fmtDate(c.dueDate) });
   };
 
   return (
@@ -47,6 +49,7 @@ export function BookCopies({ copies }: { copies: BookCopy[] }) {
               <span className="col-start-2 text-muted-foreground sm:col-start-auto">{detail(c)}</span>
               {c.userName && (
                 <Link
+                  dir="auto"
                   to={`/staff/users/${c.userProfileId}`}
                   className="col-start-2 font-medium text-ink hover:text-brand-dark hover:underline sm:col-start-auto sm:text-end"
                 >

@@ -135,7 +135,7 @@ export default function UserDetailPage() {
                     {records.map((r) => (
                       <tr key={r.id} className={cn(tableCls.row, r.status === "OVERDUE" && "bg-danger-soft/40")}>
                         <td className={tableCls.td}>
-                          <Link to={`/books/${r.bookId}`} className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
+                          <Link dir="auto" to={`/books/${r.bookId}`} className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
                         </td>
                         <td className={cn(tableCls.td, "whitespace-nowrap")}>{fmtDate(r.requestedAt)}</td>
                         <td className={cn(tableCls.td, "whitespace-nowrap")}>{fmtDate(r.dueDate)}</td>

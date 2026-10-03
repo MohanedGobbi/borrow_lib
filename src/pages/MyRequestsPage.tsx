@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router";
 import { AlertTriangle, BookOpen } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { apiRecords, apiReservations } from "@/api";
-import { qk } from "@/api/queryKeys";
+import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errors";
 import { StatusBadge } from "@/components/StatusBadge";
+import { WithdrawDialog, type WithdrawTarget } from "@/components/WithdrawDialog";
 import { Countdown } from "@/components/Countdown";
 import { daysFrom, fmtDate, fmtDateTime } from "@/lib/time";
 import { RequestDocButton } from "@/components/RequestDocButton";
@@ -26,6 +30,24 @@ export default function MyRequestsPage() {
     queryKey: qk.records.mine, queryFn: apiRecords.mine, refetchInterval: 30_000,
   });
   const { data: reservations } = useQuery({ queryKey: qk.reservations.mine, queryFn: apiReservations.mine });
+  const qc = useQueryClient();
+  const [target, setTarget] = useState<WithdrawTarget | null>(null);
+
+  // Giving up a request, a hold or a place in line changes free copies and queues everywhere.
+  const withdraw = useMutation({
+    mutationFn: async (what: WithdrawTarget) => {
+      if (what.kind === "waitlist") await apiReservations.leave(what.id);
+      else await apiRecords.withdraw(what.id);
+    },
+    onSuccess: (_data, what) => {
+      toast.success(t(what.kind === "request" ? "toast.withdrawn" : what.kind === "hold" ? "toast.holdReleased" : "toast.leftList"));
+    },
+    onError: (e) => {
+      toast.error(errorMessage(t, e));
+    },
+    // Also after a failure: the row may have moved on (approved, picked up) since this page loaded.
+    onSettled: () => invalidateCirculation(qc),
+  });
 
   if (isPending || !me) return <FullPageLoader />;
 
@@ -66,7 +88,12 @@ export default function MyRequestsPage() {
           </div>
         ) : (
           <ul className="mt-3 divide-y rounded-md border bg-white">
-            {active.map((r) => <ActiveRow key={r.id} r={r} />)}
+            {active.map((r) => (
+              <ActiveRow
+                key={r.id} r={r}
+                onWithdraw={(kind) => setTarget({ kind, id: r.id, title: r.bookTitle })}
+              />
+            ))}
           </ul>
         )}
       </section>
@@ -76,10 +103,16 @@ export default function MyRequestsPage() {
           <ul className="divide-y">
             {(reservations ?? []).map((q) => (
               <li key={q.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
-                <Link to={`/books/${q.bookId}`} className="flex-1 font-medium hover:text-brand-dark hover:underline">{q.bookTitle}</Link>
+                <Link to={`/books/${q.bookId}`} dir="auto" className="flex-1 font-medium hover:text-brand-dark hover:underline">{q.bookTitle}</Link>
                 <span className="text-sm text-muted-foreground">
                   {t("req.position")} <span className="tabular font-semibold text-ink">{q.position}</span> · {fmtDate(q.reservedAt)}
                 </span>
+                <Button
+                  size="sm" variant="outline" disabled={withdraw.isPending}
+                  onClick={() => setTarget({ kind: "waitlist", id: q.id, title: q.bookTitle })}
+                >
+                  {t("req.leaveList")}
+                </Button>
               </li>
             ))}
           </ul>
@@ -92,12 +125,13 @@ export default function MyRequestsPage() {
           <ul className="divide-y sm:hidden">
             {history.map((r) => (
               <li key={r.id} className="px-4 py-3">
-                <Link to={`/books/${r.bookId}`} className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
+                <Link to={`/books/${r.bookId}`} dir="auto" className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
                   <StatusBadge status={r.status} />
                   <span>{fmtDate(r.requestedAt)}{r.returnedAt ? ` → ${fmtDate(r.returnedAt)}` : ""}</span>
                 </div>
                 <RejectionReason record={r} />
+                <CancelledNote record={r} />
                 <div className="mt-1 -ms-3"><RequestDocButton record={r} /></div>
               </li>
             ))}
@@ -117,8 +151,9 @@ export default function MyRequestsPage() {
                 {history.map((r) => (
                   <tr key={r.id} className={tableCls.row}>
                     <td className={tableCls.td}>
-                      <Link to={`/books/${r.bookId}`} className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
+                      <Link to={`/books/${r.bookId}`} dir="auto" className="font-medium hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
                       <RejectionReason record={r} />
+                      <CancelledNote record={r} />
                     </td>
                     <td className={tableCls.td}>{fmtDate(r.requestedAt)}</td>
                     <td className={tableCls.td}>{fmtDate(r.returnedAt)}</td>
@@ -131,12 +166,14 @@ export default function MyRequestsPage() {
           </div>
         </Panel>
       )}
+
+      <WithdrawDialog target={target} onOpenChange={(open) => !open && setTarget(null)} onConfirm={(what) => withdraw.mutate(what)} />
     </Container>
   );
 }
 
 /** One current request/loan, with the date that matters most for its state. */
-function ActiveRow({ r }: { r: BorrowRecord }) {
+function ActiveRow({ r, onWithdraw }: { r: BorrowRecord; onWithdraw: (kind: "request" | "hold") => void }) {
   const { t } = useI18n();
   const overdue = r.status === "OVERDUE";
   const days = daysFrom(r.dueDate);
@@ -160,7 +197,7 @@ function ActiveRow({ r }: { r: BorrowRecord }) {
   return (
     <li className={cn("grid gap-x-6 gap-y-3 p-4 sm:grid-cols-[minmax(0,1fr)_14rem_auto] sm:items-center", overdue && "bg-danger-soft/50")}>
       <div className="min-w-0">
-        <Link to={`/books/${r.bookId}`} className="font-semibold text-ink hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
+        <Link to={`/books/${r.bookId}`} dir="auto" className="font-semibold text-ink hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
           <StatusBadge status={r.status} />
           <span>{t("field.shelf")} <span dir="ltr" className="font-mono text-[13px] text-ink/80">{r.bookShelf || "—"}</span></span>
@@ -170,7 +207,15 @@ function ActiveRow({ r }: { r: BorrowRecord }) {
         <div>{keyValue}</div>
         <div className="text-sm text-muted-foreground">{keyLabel}</div>
       </div>
-      <div className="sm:text-end"><RequestDocButton record={r} /></div>
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 sm:justify-end">
+        {r.status === "PENDING" && (
+          <Button size="sm" variant="outline" onClick={() => onWithdraw("request")}>{t("req.cancelRequest")}</Button>
+        )}
+        {r.status === "READY" && (
+          <Button size="sm" variant="outline" onClick={() => onWithdraw("hold")}>{t("req.releaseHold")}</Button>
+        )}
+        <RequestDocButton record={r} />
+      </div>
     </li>
   );
 }
@@ -185,4 +230,11 @@ function RejectionReason({ record }: { record: BorrowRecord }) {
       <span dir="auto">{record.rejectionReason}</span>
     </p>
   );
+}
+
+/** Tells a withdrawn request apart from one that expired or staff turned down. */
+function CancelledNote({ record }: { record: BorrowRecord }) {
+  const { t } = useI18n();
+  if (record.status !== "CANCELLED" || !record.cancelledByMember) return null;
+  return <p className="mt-1.5 text-sm text-muted-foreground">{t("req.cancelledByYou")}</p>;
 }

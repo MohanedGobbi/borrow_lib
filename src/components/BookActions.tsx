@@ -12,14 +12,17 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Book } from "@/types";
 
+/** What a request or a waiting-list sign-up came back with, so the page can confirm it inline. */
+export type BookActionResult = { kind: "requested" } | { kind: "queued"; position: number | null };
+
 /**
  * The borrowing controls for one book, by role:
  * visitor → sign in; student → request / add to list, or join the waiting list; staff → edit.
  */
 export function BookActions({
-  book, onEdit, size = "sm", className,
+  book, onEdit, onDone, size = "sm", className,
 }: {
-  book: Book; onEdit?: () => void; size?: "sm" | "default"; className?: string;
+  book: Book; onEdit?: () => void; onDone?: (result: BookActionResult) => void; size?: "sm" | "default"; className?: string;
 }) {
   const { me } = useAuth();
   const { t } = useI18n();
@@ -29,9 +32,17 @@ export function BookActions({
 
   // A request or reservation changes free copies, queues and the member's lists everywhere.
   const action = useMutation({
-    mutationFn: ({ fn }: { fn: () => Promise<unknown>; ok: string }) => fn(),
-    onSuccess: (_data, { ok }) => {
-      toast.success(ok);
+    mutationFn: async (kind: "request" | "reserve"): Promise<BookActionResult> => {
+      if (kind === "request") {
+        await apiRecords.create(book.id);
+        return { kind: "requested" };
+      }
+      const reservation = await apiReservations.create(book.id);
+      return { kind: "queued", position: reservation.position };
+    },
+    onSuccess: (result) => {
+      toast.success(t(result.kind === "requested" ? "toast.requested" : "toast.reserved"));
+      onDone?.(result);
       return invalidateCirculation(qc);
     },
     onError: (e) => {
@@ -39,7 +50,6 @@ export function BookActions({
     },
   });
   const busy = action.isPending;
-  const run = (fn: () => Promise<unknown>, ok: string) => action.mutate({ fn, ok });
 
   if (!me) {
     return (
@@ -68,7 +78,7 @@ export function BookActions({
     return (
       <Button
         size={size} variant="outline" disabled={busy} className={className}
-        onClick={() => run(() => apiReservations.create(book.id), t("toast.reserved"))}
+        onClick={() => action.mutate("reserve")}
       >
         {t("catalog.reserve")}
       </Button>
@@ -80,7 +90,7 @@ export function BookActions({
     <div className={cn("flex gap-2", size === "default" && "flex-col", className)}>
       <Button
         size={size} disabled={busy} className="flex-1"
-        onClick={() => run(() => apiRecords.create(book.id), t("toast.requested"))}
+        onClick={() => action.mutate("request")}
       >
         {size === "default" ? t("book.request") : t("catalog.request")}
       </Button>

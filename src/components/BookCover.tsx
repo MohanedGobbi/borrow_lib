@@ -31,13 +31,13 @@ export function BookCover({ book, className, size = "md" }: { book: Book; classN
       {size !== "sm" && (
         <div className={cn("relative flex flex-1 flex-col ps-[16%] pe-[9%]", size === "lg" ? "pt-[18%]" : "pt-[16%]")}>
           <span className="block h-px w-6 bg-white/50" />
-          <span className={cn(
+          <span dir="auto" className={cn(
             "mt-2 font-semibold leading-tight line-clamp-4",
             size === "lg" ? "text-base sm:text-lg" : "text-[11px]",
           )}>
             {book.title}
           </span>
-          <span className={cn("mt-auto pb-[14%] leading-tight text-white/85 line-clamp-2", size === "lg" ? "text-[13px] sm:text-sm" : "text-[9px]")}>
+          <span dir="auto" className={cn("mt-auto pb-[14%] leading-tight text-white/85 line-clamp-2", size === "lg" ? "text-[13px] sm:text-sm" : "text-[9px]")}>
             {book.author}
           </span>
         </div>

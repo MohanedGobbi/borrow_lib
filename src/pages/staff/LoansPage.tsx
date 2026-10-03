@@ -72,9 +72,9 @@ export default function LoansPage() {
                   const days = daysFrom(r.dueDate);
                   return (
                     <tr key={r.id} className={cn(tableCls.row, overdue && "bg-danger-soft/40 hover:bg-danger-soft/60")}>
-                      <td className={tableCls.td}><span className="font-medium">{r.bookTitle}</span></td>
+                      <td className={tableCls.td}><span dir="auto" className="font-medium">{r.bookTitle}</span></td>
                       <td className={tableCls.td}>
-                        <Link to={`/staff/users/${r.userProfileId}`} className="hover:text-brand-dark hover:underline">{r.userName}</Link>
+                        <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="hover:text-brand-dark hover:underline">{r.userName}</Link>
                       </td>
                       <td className={cn(tableCls.td, "whitespace-nowrap text-muted-foreground")}>{fmtDate(r.borrowedAt)}</td>
                       <td className={cn(tableCls.td, "whitespace-nowrap")}>

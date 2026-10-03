@@ -105,6 +105,8 @@ export const apiRecords = {
   },
   create: (bookId: number) =>
     api<BorrowRecord>("/borrow-records", { method: "POST", body: { bookId } }),
+  /** The student takes back their own pending request or ready hold. */
+  withdraw: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/withdraw`, { method: "POST" }),
   approve: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/approve`, { method: "POST" }),
   /** The reason (up to 300 characters) is optional and is shown to the student. */
   reject: (id: number, reason = "") =>
@@ -155,6 +157,8 @@ export async function downloadFile(url: string, filename: string) {
 export const apiReservations = {
   mine: () => api<Reservation[]>("/reservations"),
   create: (bookId: number) => api<Reservation>("/reservations", { method: "POST", body: { bookId } }),
+  /** The student leaves a waiting list; everyone behind moves up. */
+  leave: (id: number) => api<void>(`/reservations/${id}`, { method: "DELETE" }),
   forBook: (bookId: number) => api<Reservation[]>(`/books/${bookId}/reservations`),
   all: () => api<Reservation[]>("/reservations/all"),
 };

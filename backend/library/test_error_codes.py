@@ -175,6 +175,12 @@ class TranslationCoverageTests(TestCase):
             found.update(re.findall(pattern, path.read_text(encoding="utf-8")))
         return found
 
+    def scan_groups(self, pattern):
+        found = []
+        for path in self.source_files():
+            found += re.findall(pattern, path.read_text(encoding="utf-8"))
+        return found
+
     def assertTranslated(self, prefix, codes):
         text = I18N.read_text(encoding="utf-8")
         missing = {c: text.count(f'"{prefix}.{c}"') for c in sorted(codes) if text.count(f'"{prefix}.{c}"') < 3}
@@ -189,3 +195,12 @@ class TranslationCoverageTests(TestCase):
         codes = self.scan(r'notify\(\s*[\w.]+,\s*"([a-z_]+)"')
         self.assertEqual(len(codes), 7)
         self.assertTranslated("notif", codes)
+
+    def test_activity_codes_are_translated(self):
+        # log_activity(actor, "ACTION", ...) or log_activity(actor, "A" if x else "B", ...): the code is the action in lower case.
+        found = self.scan_groups(
+            r'log_activity\(\s*(?:"System"|[\w.]+(?:\([\w.]*\))?),\s*"([A-Z_]+)"(?:\s+if\s+[\w.]+\s+else\s+"([A-Z_]+)")?')
+        codes = {a.lower() for pair in found for a in pair if a}
+        self.assertGreaterEqual(len(codes), 21, "the scan stopped finding the backend's activity actions")
+        self.assertIn("account_deactivated", codes)
+        self.assertTranslated("activity", codes)

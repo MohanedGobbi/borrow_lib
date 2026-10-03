@@ -144,7 +144,7 @@ export default function UsersPage() {
                 {filtered.map((u) => (
                   <tr key={u.id} className={tableCls.row}>
                     <td className={tableCls.td}>
-                      <Link to={`/staff/users/${u.id}`} className="font-medium hover:text-brand-dark hover:underline">{u.name}</Link>
+                      <Link dir="auto" to={`/staff/users/${u.id}`} className="font-medium hover:text-brand-dark hover:underline">{u.name}</Link>
                       <div dir="ltr" className="text-xs text-muted-foreground rtl:text-end">{u.email}</div>
                     </td>
                     <td className={tableCls.td}><span dir="ltr" className="font-mono text-[13px]">{u.studentOrStaffId}</span></td>

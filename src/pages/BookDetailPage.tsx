@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
-import { BookX, ChevronRight } from "lucide-react";
+import { BookX, CheckCircle2, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiBooks, apiRecords, apiReservations } from "@/api";
 import { qk } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { BookCover } from "@/components/BookCover";
-import { Availability, BookActions } from "@/components/BookActions";
+import { Availability, BookActions, type BookActionResult } from "@/components/BookActions";
 import { BookEditDialog } from "@/components/BookEditDialog";
 import { BookCopies } from "@/components/BookCopies";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -23,6 +23,7 @@ export default function BookDetailPage() {
   const { t } = useI18n();
   const { id } = useParams();
   const [editOpen, setEditOpen] = useState(false);
+  const [done, setDone] = useState<BookActionResult | null>(null);
   const { data: book, isPending, isError } = useQuery({ queryKey: qk.books.detail(id!), queryFn: () => apiBooks.get(id!) });
   const isStaff = !!me && me.role !== "MEMBER";
 
@@ -60,8 +61,8 @@ export default function BookDetailPage() {
   const meta: [string, React.ReactNode][] = [
     [t("field.isbn"), <span dir="ltr" className="font-mono text-[13px]">{book.isbn}</span>],
     [t("field.shelf"), <span dir="ltr" className="font-mono text-[13px]">{book.shelfLocation || "—"}</span>],
-    [t("field.category"), book.category.name],
-    [t("field.publisher"), book.publisher || "—"],
+    [t("field.category"), <span dir="auto">{book.category.name}</span>],
+    [t("field.publisher"), <span dir="auto">{book.publisher || "—"}</span>],
     [t("field.year"), book.year ?? "—"],
     [t("field.copies"), <span className="tabular">{book.totalCopies}</span>],
   ];
@@ -82,11 +83,11 @@ export default function BookDetailPage() {
         </div>
 
         <div className="min-w-0">
-          <h1 className="text-[1.75rem] font-bold leading-tight tracking-tight sm:text-3xl">{book.title}</h1>
-          <p className="mt-1.5 text-[17px] text-muted-foreground">{t("book.by")} <span className="text-ink">{book.author}</span></p>
+          <h1 dir="auto" className="text-[1.75rem] font-bold leading-tight tracking-tight sm:text-3xl">{book.title}</h1>
+          <p className="mt-1.5 text-[17px] text-muted-foreground">{t("book.by")} <span dir="auto" className="text-ink">{book.author}</span></p>
 
           {book.description && (
-            <p className="mt-6 max-w-[65ch] text-[15px] leading-relaxed text-ink/90">{book.description}</p>
+            <p dir="auto" className="mt-6 max-w-[65ch] text-[15px] leading-relaxed text-ink/90">{book.description}</p>
           )}
 
           <h2 className="mt-8 text-sm font-semibold text-ink">{t("book.details")}</h2>
@@ -112,12 +113,19 @@ export default function BookDetailPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {t("field.shelf")} <span dir="ltr" className="font-mono text-[13px] text-ink">{book.shelfLocation || "—"}</span>
           </p>
-          <BookActions
-            book={book}
-            size="default"
-            className="mt-5 w-full"
-            onEdit={isStaff ? () => setEditOpen(true) : undefined}
-          />
+          {/* The confirmation replaces the buttons: asking again would only say "already requested". */}
+          <div role="status">
+            {done ? <ActionConfirmation result={done} /> : null}
+          </div>
+          {!done && (
+            <BookActions
+              book={book}
+              size="default"
+              className="mt-5 w-full"
+              onEdit={isStaff ? () => setEditOpen(true) : undefined}
+              onDone={setDone}
+            />
+          )}
           <p className="mt-4 border-t pt-4 text-sm leading-relaxed text-muted-foreground">{t("book.rules")}</p>
         </aside>
       </div>
@@ -148,7 +156,7 @@ export default function BookDetailPage() {
                     {active.map((r) => (
                       <tr key={r.id} className={tableCls.row}>
                         <td className={tableCls.td}>
-                          <Link to={`/staff/users/${r.userProfileId}`} className="font-medium text-ink hover:text-brand-dark hover:underline">{r.userName}</Link>
+                          <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="font-medium text-ink hover:text-brand-dark hover:underline">{r.userName}</Link>
                         </td>
                         <td className={tableCls.td}>{fmtDate(r.requestedAt)}</td>
                         <td className={tableCls.td}>{fmtDate(r.dueDate)}</td>
@@ -169,7 +177,7 @@ export default function BookDetailPage() {
                 {(queue ?? []).map((q) => (
                   <li key={q.id} className="flex items-center gap-3 px-4 py-3 text-sm">
                     <span className="tabular flex size-6 items-center justify-center rounded-full bg-surface text-xs font-semibold">{q.position}</span>
-                    <Link to={`/staff/users/${q.userProfileId}`} className="flex-1 font-medium hover:text-brand-dark hover:underline">{q.userName}</Link>
+                    <Link dir="auto" to={`/staff/users/${q.userProfileId}`} className="flex-1 font-medium hover:text-brand-dark hover:underline">{q.userName}</Link>
                     <span className="text-muted-foreground">{fmtDate(q.reservedAt)}</span>
                   </li>
                 ))}
@@ -181,5 +189,26 @@ export default function BookDetailPage() {
 
       <BookEditDialog book={book} open={editOpen} onOpenChange={setEditOpen} />
     </Container>
+  );
+}
+
+/** What happens next, right where the student just acted (a toast alone is gone before it is read). */
+function ActionConfirmation({ result }: { result: BookActionResult }) {
+  const { t } = useI18n();
+  const queued = result.kind === "queued";
+  const text =
+    result.kind === "requested" ? t("book.requestedInline")
+      : result.position != null ? t("book.queuedInline", { position: result.position })
+        : t("book.queuedInlinePlain");
+  return (
+    <div className="mt-5 rounded-md bg-brand-soft p-4">
+      <p className="flex gap-2.5 text-sm leading-relaxed text-ink">
+        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand-dark" aria-hidden />
+        <span>{text}</span>
+      </p>
+      <Link to="/my-requests" className="mt-3 inline-block ps-[26px] text-sm font-medium text-brand-dark underline-offset-4 hover:underline">
+        {t(queued ? "book.viewWaitingList" : "book.viewMyLoans")}
+      </Link>
+    </div>
   );
 }

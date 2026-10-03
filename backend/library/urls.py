@@ -37,9 +37,11 @@ urlpatterns = [
     path("borrow-records/<int:pk>/reject", views.RejectView.as_view()),
     path("borrow-records/<int:pk>/confirm-pickup", views.ConfirmPickupView.as_view()),
     path("borrow-records/<int:pk>/confirm-return", views.ConfirmReturnView.as_view()),
+    path("borrow-records/<int:pk>/withdraw", views.WithdrawView.as_view()),
     path("borrow-records/<int:pk>/document", views.BorrowDocumentView.as_view()),
     # reservations
     path("reservations", views.ReservationListCreateView.as_view()),
+    path("reservations/<int:pk>", views.ReservationDetailView.as_view()),
     path("reservations/all", views.AllReservationsView.as_view()),
     # users (staff/admin)
     path("users", views.UserListView.as_view()),

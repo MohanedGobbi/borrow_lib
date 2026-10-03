@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, Clock, RefreshCcw } from "lucide-react";
 import { apiMisc, apiRecords } from "@/api";
 import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
-import { errorMessage } from "@/lib/errors";
+import { activityText, actorLabel, errorMessage } from "@/lib/errors";
 import { Countdown } from "@/components/Countdown";
 import { DeferredRowAction } from "@/components/DeferredRowAction";
 import { useDeferredAction } from "@/hooks/useDeferredAction";
@@ -101,9 +101,9 @@ export default function OverviewPage() {
                 <li key={`o${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
                   <AlertTriangle className="size-4 shrink-0 text-danger" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{r.bookTitle}</p>
+                    <p dir="auto" className="truncate text-sm font-medium">{r.bookTitle}</p>
                     <p className="text-sm text-muted-foreground">
-                      <Link to={`/staff/users/${r.userProfileId}`} className="hover:text-ink hover:underline">{r.userName}</Link>
+                      <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="hover:text-ink hover:underline">{r.userName}</Link>
                       {" · "}{t("req.due")} {fmtDate(r.dueDate)}
                     </p>
                   </div>
@@ -115,9 +115,9 @@ export default function OverviewPage() {
                 <li key={`r${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
                   <Clock className="size-4 shrink-0 text-warning" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{r.bookTitle}</p>
+                    <p dir="auto" className="truncate text-sm font-medium">{r.bookTitle}</p>
                     <p className="text-sm text-muted-foreground">
-                      <Link to={`/staff/users/${r.userProfileId}`} className="hover:text-ink hover:underline">{r.userName}</Link>
+                      <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="hover:text-ink hover:underline">{r.userName}</Link>
                       {" · "}{t("dash.closesSoon")}
                     </p>
                   </div>
@@ -137,8 +137,8 @@ export default function OverviewPage() {
           <ol className="divide-y">
             {(activity ?? []).slice(0, 7).map((a) => (
               <li key={a.id} className="px-4 py-3">
-                <p className="text-sm leading-snug text-ink/90">{a.detail}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{a.actorName} · {timeAgo(a.at)}</p>
+                <p dir="auto" className="text-sm leading-snug text-ink/90">{activityText(t, a)}</p>
+                <p className="mt-1 text-xs text-muted-foreground"><span dir="auto">{actorLabel(t, a.actorName)}</span> · {timeAgo(a.at)}</p>
               </li>
             ))}
           </ol>

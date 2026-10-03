@@ -60,8 +60,8 @@ export default function CartPage() {
               <li key={b.id} className="flex items-center gap-4 p-4">
                 <div className="w-12 shrink-0"><BookCover book={b} size="sm" /></div>
                 <div className="min-w-0 flex-1">
-                  <Link to={`/books/${b.id}`} className="font-semibold text-ink hover:text-brand-dark hover:underline">{b.title}</Link>
-                  <p className="text-sm text-muted-foreground">{b.author}</p>
+                  <Link dir="auto" to={`/books/${b.id}`} className="font-semibold text-ink hover:text-brand-dark hover:underline">{b.title}</Link>
+                  <p dir="auto" className="text-sm text-muted-foreground">{b.author}</p>
                   <Availability book={b} className="mt-1" />
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => cart.remove(b.id)} className="text-muted-foreground hover:text-danger">

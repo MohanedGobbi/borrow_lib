@@ -4,11 +4,12 @@ import { fmtDate } from "@/lib/time";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 
-/** Turn API params into placeholder values: ISO dates are formatted for the active language. */
-function toVars(params: Record<string, unknown> | undefined): Record<string, string | number> {
+/** Turn API params into placeholder values: ISO dates and role names are shown in the active language. */
+function toVars(t: T, params: Record<string, unknown> | undefined): Record<string, string | number> {
   const vars: Record<string, string | number> = {};
   for (const [key, value] of Object.entries(params ?? {})) {
     if (key === "dueDate" && typeof value === "string") vars[key] = fmtDate(value);
+    else if (key === "role" && typeof value === "string" && hasKey(`role.${value}`)) vars[key] = t(`role.${value}`);
     else if (typeof value === "number") vars[key] = value;
     else if (value != null) vars[key] = String(value);
   }
@@ -17,11 +18,11 @@ function toVars(params: Record<string, unknown> | undefined): Record<string, str
 
 /** Translate `prefix.code` with its params, or return null when there is no such translation. */
 export function translateCode(
-  t: T, prefix: "err" | "notif", code: string | undefined, params?: Record<string, unknown>,
+  t: T, prefix: "err" | "notif" | "activity", code: string | undefined, params?: Record<string, unknown>,
 ): string | null {
   const key = code ? `${prefix}.${code}` : "";
   if (!key || !hasKey(key)) return null;
-  const vars = toVars(params);
+  const vars = toVars(t, params);
   const missing = [...t(key).matchAll(/\{(\w+)\}/g)].some((m) => !(m[1] in vars));
   return missing ? null : t(key, vars); // a param the server did not send: let the next fallback answer
 }
@@ -52,6 +53,16 @@ export function errorMessage(t: T, e: unknown, fallbackKey = "toast.failed"): st
     fromFields() ??
     translateCode(t, "err", STATUS_CODES[e.status] ?? (e.status >= 500 ? "server" : undefined));
   return text ?? t(fallbackKey);
+}
+
+/** A staff-desk activity row in the active language; rows from before codes existed keep their English sentence. */
+export function activityText(t: T, a: { code?: string; params?: Record<string, unknown>; detail: string }): string {
+  return translateCode(t, "activity", a.code, a.params) ?? a.detail;
+}
+
+/** Who did it: the jobs and sign-ups are logged as "System", which is not a name to leave in English. */
+export function actorLabel(t: T, actorName: string): string {
+  return actorName === "System" ? t("activity.actorSystem") : actorName;
 }
 
 /** A notification in the active language; rows from before codes existed keep their English text. */

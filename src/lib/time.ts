@@ -15,9 +15,14 @@ function unit(value: number, u: "day" | "hour") {
   return new Intl.NumberFormat(locale(), { style: "unit", unit: u, unitDisplay: "narrow" }).format(value);
 }
 
+/** True for the digits-only HH:MM:SS form (under a day). Longer ones carry unit words and read in the page direction. */
+export function isClockCountdown(ms: number): boolean {
+  return Math.floor(ms / 3_600_000) < 24;
+}
+
 export function formatCountdown(ms: number): string {
   const h = Math.floor(ms / 3_600_000);
-  if (h >= 24) return `${unit(Math.floor(h / 24), "day")} ${unit(h % 24, "hour")}`;
+  if (!isClockCountdown(ms)) return `${unit(Math.floor(h / 24), "day")} ${unit(h % 24, "hour")}`;
   const m = Math.floor((ms % 3_600_000) / 60_000);
   const s = Math.floor((ms % 60_000) / 1000);
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");

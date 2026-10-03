@@ -63,7 +63,7 @@ class PasswordResetConfirmView(SessionView):
         # A reset is how people recover from a stolen password: end every session.
         for outstanding in OutstandingToken.objects.filter(user=user):
             BlacklistedToken.objects.get_or_create(token=outstanding)
-        log_activity(display_name(user), "PASSWORD_RESET", f"{display_name(user)} reset their password.")
+        log_activity(display_name(user), "PASSWORD_RESET", f"{display_name(user)} reset their password.", member=display_name(user))
         return Response(status=http.HTTP_204_NO_CONTENT)
 
 
@@ -111,7 +111,8 @@ class InviteListCreateView(APIView):
         token = secrets.token_urlsafe(32)
         invite = s.save(email=email, token_hash=StaffInvite.hash_token(token), created_by=request.user)
         emails.send_staff_invite(invite, token)  # a failed send is logged; the admin can copy the link below
-        log_activity(display_name(request.user), "INVITE_SENT", f"Invited {email} as {invite.role.lower()}.")
+        log_activity(display_name(request.user), "INVITE_SENT", f"Invited {email} as {invite.role.lower()}.",
+                     email=email, role=invite.role)
         return Response({**StaffInviteSerializer(invite).data, "link": emails.invite_link(token)},
                         status=http.HTTP_201_CREATED)
 

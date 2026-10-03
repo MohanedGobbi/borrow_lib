@@ -2,17 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { apiMisc } from "@/api";
 import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
+import { activityText, actorLabel } from "@/lib/errors";
 import { fmtDateTime, timeAgo } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/Page";
 import { FullPageLoader } from "@/auth/guards";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
-
-/** Turns an ACTION_CODE into readable words ("PICKUP_CONFIRMED" → "Pickup confirmed"). */
-function humanize(action: string) {
-  const s = action.replaceAll("_", " ").toLowerCase();
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 export default function ActivityPage() {
   const { t } = useI18n();
@@ -41,12 +36,9 @@ export default function ActivityPage() {
                   <td className={cn(tableCls.td, "whitespace-nowrap align-top")}>
                     <span title={fmtDateTime(a.at)}>{timeAgo(a.at)}</span>
                   </td>
-                  <td className={cn(tableCls.td, "whitespace-nowrap align-top font-medium")}>{a.actorName}</td>
+                  <td className={cn(tableCls.td, "whitespace-nowrap align-top font-medium")}><span dir="auto">{actorLabel(t, a.actorName)}</span></td>
                   <td className={cn(tableCls.td, "align-top")}>
-                    <span className="me-2 inline-block rounded bg-surface px-1.5 py-0.5 text-xs font-medium text-muted-foreground" dir="ltr">
-                      {humanize(a.action)}
-                    </span>
-                    <span className="text-ink/90">{a.detail}</span>
+                    <span dir="auto" className="text-ink/90">{activityText(t, a)}</span>
                   </td>
                 </tr>
               ))}
