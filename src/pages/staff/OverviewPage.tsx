@@ -83,9 +83,10 @@ export default function OverviewPage() {
               <CheckCircle2 className="size-4 text-brand" aria-hidden /> {t("dash.attentionNone")}
             </p>
           ) : (
-            <ul className="divide-y">
+            // One column template for every row, so the countdowns and the actions line up whatever the row holds.
+            <ul className="divide-y sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:gap-x-4">
               {late.map((r) => (
-                <li key={`o${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+                <li key={`o${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:col-span-4 sm:grid sm:grid-cols-subgrid">
                   <AlertTriangle className="size-4 shrink-0 text-danger" aria-hidden />
                   <div className="min-w-0 flex-1 basis-48">
                     <p className="line-clamp-2 break-words text-sm font-medium"><bdi>{r.bookTitle}</bdi></p>
@@ -95,11 +96,11 @@ export default function OverviewPage() {
                     </p>
                   </div>
                   <span className="text-sm font-semibold text-danger">{t("time.daysOverdue", { n: Math.abs(daysFrom(r.dueDate)) })}</span>
-                  <DeferredRowAction kind="return" record={r} deferred={deferred} />
+                  <div className="flex min-w-0 flex-col items-end sm:max-w-[12rem]"><DeferredRowAction kind="return" record={r} deferred={deferred} /></div>
                 </li>
               ))}
               {urgent.map((r) => (
-                <li key={`r${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+                <li key={`r${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:col-span-4 sm:grid sm:grid-cols-subgrid">
                   <Clock className="size-4 shrink-0 text-ink" aria-hidden />
                   <div className="min-w-0 flex-1 basis-48">
                     <p className="line-clamp-2 break-words text-sm font-medium"><bdi>{r.bookTitle}</bdi></p>
@@ -110,7 +111,7 @@ export default function OverviewPage() {
                     <RecordStanding record={r} pickup />
                   </div>
                   <Countdown deadline={r.pickupDeadline!} className="tabular text-sm font-semibold text-ink" />
-                  <DeferredRowAction kind="pickup" record={r} deferred={deferred} />
+                  <div className="flex min-w-0 flex-col items-end sm:max-w-[12rem]"><DeferredRowAction kind="pickup" record={r} deferred={deferred} /></div>
                 </li>
               ))}
             </ul>

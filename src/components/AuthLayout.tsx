@@ -16,7 +16,7 @@ export function AuthLayout({ children, wide }: { children: ReactNode; wide?: boo
   return (
     <div className="grid lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
       <div className="relative hidden overflow-hidden bg-ink lg:block">
-        <SitePhoto slot="auth" sizes="42vw" className="absolute inset-0 size-full object-cover grayscale" />
+        <SitePhoto slot="auth" sizes="42vw" className="absolute inset-0 size-full object-cover" />
         <div aria-hidden className="panel-scrim absolute inset-0" />
         <div className="absolute inset-x-0 bottom-0 p-12 xl:p-16">
           <Wordmark size="display" tone="white" />

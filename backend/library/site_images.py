@@ -3,6 +3,7 @@
 The upload is untrusted. What it claims to be (extension, content type) is ignored: Pillow opens it and decides.
 Only JPEG, PNG and WebP pass, at most 8 MB and 40 megapixels. Every rendition is built from the decoded
 pixels alone, so EXIF (GPS, camera, owner) and any other embedded metadata never reaches the disk.
+Every photograph is stored in black and white (the site is green, white and red), whatever slot it is for.
 """
 import warnings
 from io import BytesIO
@@ -78,7 +79,7 @@ def decode(upload, slot: str) -> Image.Image:
 
 
 def _plain_rgb(img: Image.Image) -> Image.Image:
-    """RGB pixels in sRGB, transparency flattened onto white, and a fresh image object that carries no `info`."""
+    """Greyscale pixels (as RGB, so R == G == B) from sRGB, transparency flattened onto white, in a fresh image that carries no `info`."""
     profile = img.info.get("icc_profile")
     if img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info):
         rgba = img.convert("RGBA")
@@ -93,6 +94,7 @@ def _plain_rgb(img: Image.Image) -> Image.Image:
                 img, ImageCms.ImageCmsProfile(BytesIO(profile)), ImageCms.createProfile("sRGB"), outputMode="RGB")
         except Exception:
             pass  # a profile Pillow cannot apply: keep the pixels as they are
+    img = ImageOps.grayscale(img).convert("RGB")  # black and white for every slot, after the colour profile is applied
     return Image.frombytes("RGB", img.size, img.tobytes())
 
 

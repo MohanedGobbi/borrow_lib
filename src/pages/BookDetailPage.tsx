@@ -98,10 +98,9 @@ export default function BookDetailPage() {
         </div>
 
         <aside className="col-span-2 row-start-2 mt-8 h-fit rounded-lg border bg-white p-6 shadow-[0_1px_2px_rgb(16_24_20/0.04),0_8px_24px_-16px_rgb(16_24_20/0.18)] md:col-start-1 md:row-start-3 md:mt-10 lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:mt-0">
-          <h2 className="text-[13px] font-semibold text-muted-foreground">{t("book.availability")}</h2>
-          <p className={out ? "mt-2 font-display text-2xl font-semibold leading-tight text-ink" : "mt-2 font-display text-2xl font-semibold leading-tight text-brand-dark"}>
+          <h2 className={out ? "font-display text-2xl font-semibold leading-tight text-ink" : "font-display text-2xl font-semibold leading-tight text-brand-dark"}>
             {out ? t("book.allOut") : t("book.onShelf")}
-          </p>
+          </h2>
           {!out && <Availability book={book} className="mt-2" />}
           {out && nextBack && (
             <p className="mt-1 text-sm text-ink">{t("copies.nextBack", { date: fmtDate(nextBack) })}</p>

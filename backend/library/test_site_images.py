@@ -6,7 +6,7 @@ from pathlib import Path
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
-from PIL import Image
+from PIL import Image, ImageChops
 from rest_framework.test import APIClient
 
 from .models import ActivityLog, Role, SiteImage
@@ -137,6 +137,27 @@ class SiteImageTests(TestCase):
         self.put("auth", upload(jpeg_with_exif(1600, 1000, orientation=6), "p.jpg", "image/jpeg"))
         auth = SiteImage.objects.get(slot="auth")
         self.assertEqual((auth.width, auth.height), (1000, 1600))
+
+    def test_every_slot_is_stored_in_black_and_white(self):
+        # Saturated colour in, greyscale out: every pixel of every stored rendition has R == G == B.
+        buf = BytesIO()
+        img = Image.new("RGB", (1600, 1000), (200, 40, 40))
+        img.paste((30, 160, 60), (0, 500, 1600, 1000))
+        img.paste((40, 60, 220), (800, 0, 1600, 500))
+        img.save(buf, format="PNG")
+        self.as_user(self.admin)
+        for slot in ("hero", "feature", "auth"):
+            res = self.put(slot, upload(buf.getvalue()))
+            self.assertEqual(res.status_code, 200, res.data)
+            row = SiteImage.objects.get(slot=slot)
+            for field in (row.image_2000, row.image_1200, row.image_640):
+                with field.open("rb") as f:
+                    stored = Image.open(BytesIO(f.read())).convert("RGB")
+                r, g, b = stored.split()
+                self.assertEqual(ImageChops.difference(r, g).getextrema()[1], 0, (slot, field.name))
+                self.assertEqual(ImageChops.difference(g, b).getextrema()[1], 0, (slot, field.name))
+                # and it is still a picture, not a flat fill: the three colour blocks became different greys
+                self.assertGreater(len({stored.getpixel((x, y)) for x, y in ((10, 10), (stored.width - 10, 10), (10, stored.height - 10))}), 1)
 
     def test_replacing_a_photo_deletes_the_old_files(self):
         self.as_user(self.admin)

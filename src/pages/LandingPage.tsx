@@ -130,7 +130,7 @@ export default function LandingPage() {
                     <BookCover
                       book={b}
                       size="lg"
-                      className="transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 group-hover:shadow-[0_14px_28px_-12px_rgb(16_24_20/0.45)]"
+                      className="transition-[transform,border-color] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 group-hover:border-ink/40"
                     />
                     <span dir="auto" className="mt-4 line-clamp-2 font-display text-[17px] font-semibold leading-snug text-ink group-hover:underline">
                       {b.title}

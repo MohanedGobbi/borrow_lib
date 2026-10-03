@@ -97,7 +97,8 @@ export default function MyRequestsPage() {
             </EmptyState>
           </div>
         ) : (
-          <ul className="mt-3 divide-y overflow-hidden rounded-md border bg-white">
+          // One column template for the whole list (the rows are subgrids), so the time and the actions line up whatever a row holds.
+          <ul className="mt-3 grid grid-cols-[minmax(0,1fr)] divide-y overflow-hidden rounded-md border bg-white sm:grid-cols-[minmax(0,1fr)_16rem_auto] sm:gap-x-8">
             {active.map((r, i) => (
               <ActiveRow
                 key={r.id} r={r} lead={i === 0}
@@ -219,8 +220,9 @@ function ActiveRow({ r, lead, onWithdraw }: { r: BorrowRecord; lead: boolean; on
   return (
     <li
       className={cn(
-        "grid gap-x-8 gap-y-4 p-4 sm:grid-cols-[minmax(0,1fr)_16rem_auto] sm:items-center",
-        lead && "p-5 sm:p-7",
+        // the same horizontal padding on every row keeps the shared columns aligned; only the lead row is taller
+        "grid gap-y-4 px-4 py-4 sm:col-span-3 sm:grid-cols-subgrid sm:items-center sm:px-6",
+        lead && "py-5 sm:py-7",
         overdue ? "bg-danger-soft/50" : lead && (r.status === "READY" ? "bg-brand-soft/50" : "bg-surface/70"),
       )}
     >

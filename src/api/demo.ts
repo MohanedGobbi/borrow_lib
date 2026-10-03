@@ -1383,7 +1383,8 @@ function filterBooks(ctx: Ctx): DBook[] {
 
 // ---------------------------- site photographs ----------------------------
 // The server re-encodes with Pillow (library/site_images.py); the demo has no server, so the browser does it with a
-// canvas. Drawing to a canvas drops EXIF and every other kind of metadata, as the server does.
+// canvas. Drawing to a canvas drops EXIF and every other kind of metadata, as the server does, and the pixels are
+// converted to greyscale.
 
 const SITE_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const SITE_IMAGE_MAX_PIXELS = 40_000_000;
@@ -1443,6 +1444,13 @@ async function encodeSiteImage(file: unknown, slot: SiteSlot) {
       ctx.fillStyle = "#fff"; // transparency is flattened onto white
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      // Black and white for every slot, as on the server (ImageOps.grayscale: the same Rec. 601 weights).
+      const px = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < px.data.length; i += 4) {
+        const grey = Math.round(0.299 * px.data[i] + 0.587 * px.data[i + 1] + 0.114 * px.data[i + 2]);
+        px.data[i] = px.data[i + 1] = px.data[i + 2] = grey;
+      }
+      ctx.putImageData(px, 0, 0);
       return canvas.toDataURL("image/webp", 0.82);
     };
     return { src1200: render(1200), src640: render(640), width: bitmap.width, height: bitmap.height };

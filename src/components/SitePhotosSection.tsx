@@ -69,7 +69,7 @@ export function SitePhotosSection() {
                     <img
                       src={fallbackSrc(image)} alt={t("photos.previewAlt", { slot: slotName })}
                       width={image.width} height={image.height} loading="lazy" decoding="async"
-                      className={cn("block size-full object-cover", slot === "auth" && "grayscale")}
+                      className="block size-full object-cover"
                       style={{ aspectRatio: `${image.width} / ${image.height}`, objectPosition: image.position }}
                     />
                   </div>
@@ -206,18 +206,19 @@ function ReplaceDialog({ slot, current, onClose }: { slot: SiteImageSlot; curren
             <Label htmlFor="photo-file">{t("photos.file")}</Label>
             <Input
               id="photo-file" type="file" accept={SITE_IMAGE_TYPES.join(",")} className="h-auto py-2"
-              aria-describedby="photo-file-help" aria-invalid={!!fileProblem || undefined}
+              aria-describedby="photo-file-help photo-file-bw" aria-invalid={!!fileProblem || undefined}
               disabled={upload.isPending}
               onChange={(e) => choose(e.target.files?.[0] ?? null)}
             />
             <p id="photo-file-help" className="text-xs text-muted-foreground">{t("photos.requirements", { min: minWidth })}</p>
+            <p id="photo-file-bw" className="text-xs text-muted-foreground">{t("photos.bwNote")}</p>
             {fileProblem && <p role="alert" className="text-sm font-medium text-danger">{fileProblem}</p>}
             {file && previewUrl && !unreadable && (
               <img
                 src={previewUrl} alt={t("photos.localPreview")}
                 onLoad={(e) => setNaturalWidth(e.currentTarget.naturalWidth)}
                 onError={() => setUnreadable(true)}
-                className="mt-1 max-h-48 w-auto max-w-full rounded-sm border bg-surface object-contain"
+                className="mt-1 max-h-48 w-auto max-w-full rounded-sm border bg-surface object-contain grayscale"
               />
             )}
           </div>

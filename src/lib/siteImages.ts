@@ -57,11 +57,11 @@ function bundled(
 }
 
 export const DEFAULTS: Record<SiteImageSlot, SiteImage> = {
-  // Black-and-white architecture, so the palette stays green, white and red.
+  // Every photograph is black and white, so the palette stays green, white and red (uploads are converted the same way).
   hero: bundled("zurich", 2000, 1333, "62% 45%", "Ilia Bronskiy", "HKwQsyTNRoI"),
-  // Warm reading room with green lamps: the one colour photograph, for the feature section.
+  // A reader at a long desk, for the feature section.
   feature: bundled("study-desk", 2000, 1333, "40% 50%", "Tat Linh Nguyen", "SFUgDVSkfUM"),
-  // Portrait, for the side panel of the sign-in pages (shown in black and white).
+  // Portrait, for the side panel of the sign-in pages.
   auth: bundled("vaulted-aisle", 1333, 2000, "50% 40%", "Frank Huang", "ziEKw11ck_U"),
 };
 

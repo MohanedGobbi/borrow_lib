@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { SearchX, Search } from "lucide-react";
 import { apiBooks, apiCategories } from "@/api";
 import { qk } from "@/api/queryKeys";
+import { useAuth } from "@/auth/AuthContext";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { BookCover } from "@/components/BookCover";
@@ -10,8 +11,7 @@ import { BorrowNotice } from "@/components/BorrowNotice";
 import { Availability, BookActions } from "@/components/BookActions";
 import { Container } from "@/components/Layout";
 import { Pager } from "@/components/Pager";
-import { EmptyState, ErrorState, PageHeader, RowsSkeleton } from "@/components/Page";
-import { Input } from "@/components/ui/input";
+import { EmptyState, ErrorState, RowsSkeleton } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 export default function CatalogPage() {
   const { t } = useI18n();
+  const { me, loading: authLoading } = useAuth();
   const [params, setParams] = useSearchParams();
   const search = params.get("q") ?? "";
   const category = params.get("category") ?? "";
@@ -51,8 +52,8 @@ export default function CatalogPage() {
   const hasFilters = !!(search || category || availableOnly);
 
   const categoryList = [
-    { name: "", label: t("catalog.all"), count: (categories ?? []).reduce((n, c) => n + (c.bookCount ?? 0), 0), color: null as string | null },
-    ...(categories ?? []).map((c) => ({ name: c.name, label: c.name, count: c.bookCount ?? 0, color: c.color })),
+    { name: "", label: t("catalog.all"), count: (categories ?? []).reduce((n, c) => n + (c.bookCount ?? 0), 0) },
+    ...(categories ?? []).map((c) => ({ name: c.name, label: c.name, count: c.bookCount ?? 0 })),
   ];
 
   const availableToggle = (
@@ -67,23 +68,33 @@ export default function CatalogPage() {
 
   return (
     <Container>
-      <PageHeader
-        title={t("catalog.title")}
-        description={result ? <span className="tabular">{result.count} {t("catalog.titles")}</span> : null}
-      />
+      {/* The public side speaks in the serif: a display title, then one wide white search field, as on the landing page. */}
+      <header className="pt-2 lg:pt-6">
+        <h1 className="type-display text-ink">{t("catalog.title")}</h1>
+        {result && <p className="tabular mt-3 text-[15px] text-muted-foreground">{result.count} {t("catalog.titles")}</p>}
+      </header>
 
       <BorrowNotice className="mt-6" />
 
-      {/* Search first: one wide field, the way the landing page asks for it. */}
-      <div className="relative mt-8">
-        <Search className="pointer-events-none absolute start-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <Input
+      {/* Signed out: one note for the whole list instead of a button on every row. */}
+      {!authLoading && !me && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-md border bg-surface px-4 py-3">
+          <p className="text-[15px] font-medium text-ink">{t("catalog.signinNote")}</p>
+          <Button asChild size="sm">
+            <Link to="/login" state={{ from: "/catalog" }}>{t("nav.signin")}</Link>
+          </Button>
+        </div>
+      )}
+
+      <div className="mt-8 flex h-[3.75rem] items-center rounded-lg border bg-white p-1.5 shadow-[0_18px_40px_-26px_rgb(16_24_20/0.4)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-[3px] focus-within:outline-brand">
+        <Search className="ms-3 size-5 shrink-0 text-muted-foreground" aria-hidden />
+        <input
           type="search"
           value={search}
           onChange={(e) => setParam("q", e.target.value)}
           placeholder={t("catalog.search")}
           aria-label={t("catalog.search")}
-          className="h-14 rounded-lg bg-white ps-12 text-base shadow-[0_1px_2px_rgb(16_24_20/0.05)] md:text-[17px]"
+          className="h-full min-w-0 flex-1 bg-transparent px-3 text-base text-ink placeholder:text-muted-foreground focus-visible:outline-none sm:text-[17px]"
         />
       </div>
 
@@ -119,9 +130,6 @@ export default function CatalogPage() {
                       category === c.name ? "bg-brand-soft font-medium text-brand-dark" : "text-ink/75 hover:bg-surface hover:text-ink",
                     )}
                   >
-                    {c.color
-                      ? <span className="size-2 shrink-0 rounded-[2px]" style={{ backgroundColor: c.color }} aria-hidden />
-                      : <span className="size-2 shrink-0" aria-hidden />}
                     <span className="flex-1 truncate">{c.label}</span>
                     <span className="tabular text-[13px] text-muted-foreground">{c.count}</span>
                   </button>
@@ -161,10 +169,19 @@ export default function CatalogPage() {
           {result && result.results.length > 0 && (
             <ul className="border-t">
               {result.results.map((b) => (
-                <li key={b.id} className="relative grid grid-cols-[4.25rem_minmax(0,1fr)] gap-x-5 border-b py-6 transition-colors active:bg-surface sm:grid-cols-[5rem_minmax(0,1fr)_auto] sm:gap-x-7 sm:active:bg-transparent">
-                  <Link to={`/books/${b.id}`} tabIndex={-1} aria-hidden className="self-start">
-                    <BookCover book={b} size="sm" />
-                  </Link>
+                <li
+                  key={b.id}
+                  className={cn(
+                    "relative grid gap-x-5 border-b py-6 transition-colors active:bg-surface sm:gap-x-7 sm:active:bg-transparent",
+                    // A title plate this small only repeats the title beside it, so a row has a thumbnail only for a real cover.
+                    b.coverImage ? "grid-cols-[4.25rem_minmax(0,1fr)] sm:grid-cols-[5rem_minmax(0,1fr)_auto]" : "grid-cols-[minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_auto]",
+                  )}
+                >
+                  {b.coverImage && (
+                    <Link to={`/books/${b.id}`} tabIndex={-1} aria-hidden className="self-start">
+                      <BookCover book={b} size="sm" />
+                    </Link>
+                  )}
                   <div className="min-w-0 self-center">
                     <Link to={`/books/${b.id}`} className="type-heading text-ink decoration-ink/30 after:absolute after:inset-0 hover:underline sm:after:hidden">
                       <bdi>{b.title}</bdi>
@@ -177,15 +194,14 @@ export default function CatalogPage() {
                       <span className="text-muted-foreground">
                         {t("field.shelf")} <span dir="ltr" className="font-mono text-[13px] text-ink/80">{b.shelfLocation || "—"}</span>
                       </span>
-                      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                        <span className="size-2 rounded-[2px]" style={{ backgroundColor: b.category.color }} aria-hidden />
-                        {b.category.name}
-                      </span>
+                      <span className="text-muted-foreground">{b.category.name}</span>
                     </p>
                   </div>
-                  <div className="hidden sm:col-start-3 sm:block sm:self-center">
-                    <BookActions book={b} className="w-full sm:w-44" />
-                  </div>
+                  {me && (
+                    <div className="hidden sm:block sm:self-center">
+                      <BookActions book={b} className="w-full sm:w-44" />
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

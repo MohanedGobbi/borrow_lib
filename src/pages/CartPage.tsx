@@ -63,7 +63,8 @@ export default function CartPage() {
           <ul className="mt-8 divide-y overflow-hidden rounded-md border bg-white">
             {items.map((b) => (
               <li key={b.id} className="flex items-center gap-5 p-4 sm:p-5">
-                <div className="w-14 shrink-0"><BookCover book={b} size="sm" /></div>
+                {/* a title plate this small repeats the title beside it: only a real cover earns the thumbnail */}
+                {b.coverImage && <div className="w-14 shrink-0"><BookCover book={b} size="sm" /></div>}
                 <div className="min-w-0 flex-1">
                   <Link to={`/books/${b.id}`} className="type-heading text-ink hover:text-brand-dark hover:underline"><bdi>{b.title}</bdi></Link>
                   <p className="mt-0.5 text-[15px] text-muted-foreground"><bdi>{b.author}</bdi></p>
