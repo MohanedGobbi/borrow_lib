@@ -799,8 +799,8 @@ const IMPORT_ALIASES: Record<ImportField, string[]> = {
 const BINDINGS = ["#1F4D3A", "#6E2A2A", "#2B3F52", "#4A4E45", "#5C4630", "#29463F"];
 
 function headerKey(header: string): string {
-  const ascii = header.normalize("NFKD").replace(/[^\x20-\x7E]/g, "");
-  const text = (ascii || header).toLowerCase().replace(/[_\-./’'()]/g, " ");
+  // Drop accents (and Arabic vowel marks) but keep the letters, so Arabic headers stay distinct from each other.
+  const text = header.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/[_\-./’'()]/g, " ");
   return text.split(/\s+/).filter(Boolean).join(" ");
 }
 const HEADER_LOOKUP = new Map<string, ImportField>(
@@ -941,6 +941,188 @@ function runImport(rows: Record<string, unknown>[], mode: string, dryRun: boolea
   return { dryRun, columns, missingColumns: [], newCategories, rows: results, summary };
 }
 
+// ------------------------- bulk student import -------------------------
+// Port of backend/library/student_import.py: same aliases, error codes and statuses.
+
+const STUDENT_FIELDS = ["name", "firstName", "lastName", "email", "studentId", "phone", "language"] as const;
+type StudentField = typeof STUDENT_FIELDS[number];
+const STUDENT_ALIASES: Record<StudentField, string[]> = {
+  name: ["name", "full name", "fullname", "student name", "student", "nom", "nom complet", "nom et prenom",
+    "nom prenom", "etudiant", "الاسم", "الاسم الكامل", "اسم الطالب"],
+  firstName: ["first name", "firstname", "given name", "forename", "prenom", "الاسم الاول", "الاسم الأول"],
+  lastName: ["last name", "lastname", "surname", "family name", "nom de famille", "اللقب", "اسم العائلة"],
+  email: ["email", "e mail", "email address", "mail", "courriel", "adresse email", "adresse e mail",
+    "adresse mail", "البريد", "البريد الالكتروني", "البريد الإلكتروني"],
+  studentId: ["student id", "studentid", "id", "student number", "student no", "member id", "matricule",
+    "numero etudiant", "numero d etudiant", "n etudiant", "code etudiant", "الرقم الجامعي",
+    "رقم الطالب", "رقم التسجيل", "رقم الطالب الجامعي"],
+  phone: ["phone", "phone number", "telephone", "tel", "mobile", "portable", "الهاتف", "رقم الهاتف"],
+  language: ["language", "lang", "langue", "اللغة"],
+};
+const STUDENT_LOOKUP = new Map<string, StudentField>(
+  (Object.entries(STUDENT_ALIASES) as [StudentField, string[]][]).flatMap(([f, as]) => as.map((a) => [headerKey(a), f] as const)),
+);
+const STUDENT_LANGUAGES: Record<string, Lang> = {
+  en: "en", english: "en", anglais: "en", "الانجليزية": "en", "الإنجليزية": "en",
+  fr: "fr", french: "fr", francais: "fr", "français": "fr", "الفرنسية": "fr",
+  ar: "ar", arabic: "ar", arabe: "ar", "العربية": "ar",
+};
+/** A password nobody can type (Django's unusable password): the student chooses one from the welcome email. */
+const UNUSABLE_PASSWORD = "\0unusable";
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function runStudentImport(rows: Record<string, unknown>[], dryRun: boolean, actor: string, source: string) {
+  if (rows.length > 5000) throw bad("import_too_many_rows", "A single import is limited to 5000 rows; split the file.", { max: 5000 });
+  const headers = [...new Set(rows.flatMap((r) => Object.keys(r)).filter((h) => !h.startsWith("__")))];
+  const columns = Object.fromEntries(headers.map((h) => [h, STUDENT_LOOKUP.get(headerKey(h)) ?? null]));
+  const mapped = new Set(Object.values(columns));
+  const missing = [
+    ["name", mapped.has("name") || mapped.has("firstName") || mapped.has("lastName")],
+    ["email", mapped.has("email")],
+    ["studentId", mapped.has("studentId")],
+  ].filter(([, ok]) => !ok).map(([f]) => f as string);
+  const summarize = (list: { status: string }[]) => ({
+    total: list.length, create: list.filter((r) => r.status === "create").length,
+    exists: list.filter((r) => r.status === "exists").length, error: list.filter((r) => r.status === "error").length,
+  });
+  if (rows.length && missing.length) {
+    return { dryRun, columns, missingColumns: missing, rows: [], summary: summarize([]), emailsSent: 0 };
+  }
+
+  const existingEmails = new Set(state.users.map((u) => u.email.toLowerCase()));
+  const takenIds = new Set(state.users.map((u) => u.idNumber));
+  const seenEmails = new Map<string, number>();
+  const seenIds = new Map<string, number>();
+  type Plan = { first: string; last: string; email: string; studentId: string; phone: string; language: Lang };
+  const results: { row: number; status: string; name: string; email: string; studentId: string; language: string; errors: Record<string, string | number>[] }[] = [];
+  const plans: { res: typeof results[number]; plan: Plan }[] = [];
+
+  for (const [index, raw] of rows.entries()) {
+    const data = Object.fromEntries(STUDENT_FIELDS.map((f) => [f, null])) as Record<StudentField, unknown>;
+    for (const [h, v] of Object.entries(raw)) {
+      const f = columns[h];
+      if (f && cell(data[f as StudentField]) === "") data[f as StudentField] = v;
+    }
+    if (!STUDENT_FIELDS.some((f) => cell(data[f]))) continue; // blank line
+    const row = Number(raw.__row) || index + 1;
+    let first = cell(data.firstName), last = cell(data.lastName);
+    if (first && !last) last = cell(data.name); // "Nom" next to "Prénom" is the family name, not the full name
+    else if (!first && !last) {
+      const full = cell(data.name);
+      const space = full.indexOf(" ");
+      first = space < 0 ? full : full.slice(0, space);
+      last = space < 0 ? "" : full.slice(space + 1).trim();
+    }
+    const email = cell(data.email).toLowerCase();
+    const studentId = cell(data.studentId);
+    const phone = cell(data.phone);
+    const langText = cell(data.language);
+    const errors: Record<string, string | number>[] = [];
+    const res = { row, status: "error", name: `${first} ${last}`.trim(), email, studentId, language: "", errors };
+
+    if (!first && !last) errors.push({ code: "name_missing" });
+    else if (first.length > 150 || last.length > 150) errors.push({ code: "name_too_long" });
+
+    let emailOk = false;
+    if (!email) errors.push({ code: "email_missing" });
+    else {
+      emailOk = EMAIL_SHAPE.test(email) && email.length <= 150; // the email is the username
+      if (!emailOk) errors.push({ code: "email_invalid" });
+    }
+    if (emailOk) {
+      if (seenEmails.has(email)) errors.push({ code: "email_duplicate", row: seenEmails.get(email)! });
+      if (!seenEmails.has(email)) seenEmails.set(email, row);
+    }
+
+    if (!studentId) errors.push({ code: "student_id_missing" });
+    else if (studentId.length > 30) errors.push({ code: "student_id_too_long" });
+    else {
+      const key = studentId.toLowerCase();
+      if (seenIds.has(key)) errors.push({ code: "student_id_duplicate", row: seenIds.get(key)! });
+      if (!seenIds.has(key)) seenIds.set(key, row);
+    }
+    if (phone.length > 40) errors.push({ code: "phone_invalid" });
+
+    let language: Lang | undefined = "en";
+    if (langText) {
+      language = STUDENT_LANGUAGES[langText.toLowerCase()];
+      if (!language) errors.push({ code: "language_invalid" });
+    }
+    res.language = language ?? langText;
+
+    if (!errors.length && existingEmails.has(email)) res.status = "exists"; // already has an account: left alone
+    else if (!errors.length && takenIds.has(studentId)) errors.push({ code: "student_id_taken" });
+    if (!errors.length && res.status !== "exists") {
+      res.status = "create";
+      plans.push({ res, plan: { first, last, email, studentId, phone, language: language! } });
+    }
+    results.push(res);
+  }
+
+  let emailsSent = 0;
+  if (!dryRun && plans.length) {
+    const created: DUser[] = [];
+    for (const { plan } of plans) {
+      const user: DUser = {
+        id: nextId(), uuid: uuid(), name: `${plan.first} ${plan.last}`.trim(), email: plan.email,
+        password: UNUSABLE_PASSWORD, idNumber: plan.studentId, phone: plan.phone, address: "", role: "MEMBER",
+        since: Date.now(), active: true, maxLimit: null, language: plan.language, emailVerified: false,
+      };
+      state.users.push(user);
+      created.push(user);
+    }
+    const existing = results.filter((r) => r.status === "exists").length;
+    log(actor, "STUDENTS_IMPORTED",
+      `Imported ${created.length} students${source ? ` from ${source}` : ""} (${existing} already had an account).`,
+      { created: created.length, existing, source });
+    // After the "commit": the welcome email carries the password-reset link.
+    for (const user of created) {
+      sendMail("welcome", user.language, user.email, user.name.split(" ")[0],
+        `/reset-password?uid=${user.id}&token=${issueToken("reset", user)}`, VALIDITY.hour[user.language]);
+      emailsSent++;
+    }
+  }
+  return { dryRun, columns, missingColumns: [], rows: results, summary: summarize(results), emailsSent };
+}
+
+// ------------------------------ exports ------------------------------
+// Port of backend/library/exports.py. The demo build has no XLSX writer, so only CSV is offered.
+
+const BOOK_COLUMNS = ["isbn", "title", "author", "category", "publisher", "year", "total_copies", "shelf_location",
+  "description", "available_copies", "free_copies"];
+const LOAN_COLUMNS = ["member", "student_id", "email", "title", "isbn", "shelf_location", "status", "requested_at",
+  "borrowed_at", "due_date", "returned_at", "renewals"];
+
+/** A text cell that starts like a formula gets a leading apostrophe, so Excel and Sheets show it as text. */
+function safeCell(value: unknown): unknown {
+  return typeof value === "string" && /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
+/** CSV with a BOM (Excel then opens Arabic correctly), CRLF line ends and minimal quoting, like Python's csv module. */
+function csvDownload(columns: string[], rows: unknown[][]): Blob {
+  const line = (cells: unknown[]) => cells.map((v) => {
+    const text = v == null ? "" : String(safeCell(v));
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }).join(",") + "\r\n";
+  return new Blob(["\uFEFF" + line(columns) + rows.map(line).join("")], { type: "text/csv;charset=utf-8" });
+}
+
+function exportFormat(ctx: Ctx) {
+  const fmt = (ctx.query.get("format") || "csv").toLowerCase();
+  if (fmt !== "csv") throw bad("export_bad_format", "format must be 'csv' (the demo has no Excel export).");
+}
+
+function exportDay(ctx: Ctx, name: "from" | "to"): number | null {
+  const raw = ctx.query.get(name);
+  if (!raw) return null;
+  const ms = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? Date.parse(`${raw}T00:00:00Z`) : NaN;
+  if (Number.isNaN(ms)) throw bad("export_bad_date", `'${name}' must be a date like 2026-10-03.`, { field: name });
+  return ms;
+}
+
+/** `YYYY-MM-DD HH:MM` in the library's time zone (UTC in the demo), or blank. */
+const stamp = (ms: number | null) => (ms == null ? "" : new Date(ms).toISOString().slice(0, 16).replace("T", " "));
+
 // The demo has no real cookies: the refresh token sits in localStorage under DEMO_REFRESH_KEY,
 // which plays the part of the httpOnly cookie jar.
 const readRefreshToken = () => {
@@ -968,7 +1150,7 @@ function requireCsrfHeader(ctx: Ctx) {
 // The demo cannot send mail, so messages land in state.outbox and are listed at /demo/mailbox.
 // The wording mirrors backend/library/emails.py.
 
-type MailKind = "reset" | "verify" | "invite" | "ready" | "due_soon" | "overdue";
+type MailKind = "reset" | "verify" | "invite" | "welcome" | "ready" | "due_soon" | "overdue";
 const MAIL: Record<MailKind, Record<Lang, [string, string]>> = {
   reset: {
     en: ["Reset your {library} password",
@@ -993,6 +1175,14 @@ const MAIL: Record<MailKind, Record<Lang, [string, string]>> = {
       "Vous êtes invité(e) à créer un compte {role} à {library}. Ouvrez ce lien pour vous inscrire avec cette adresse e-mail :\n\n{link}\n\nLe lien est valable {validity} et ne peut être utilisé qu'une fois."],
     ar: ["دعوة للانضمام إلى {library} بصفة {role}",
       "تمت دعوتك لإنشاء حساب {role} في {library}. افتح هذا الرابط للتسجيل بهذا البريد الإلكتروني:\n\n{link}\n\nالرابط صالح لمدة {validity} ويمكن استخدامه مرة واحدة فقط."],
+  },
+  welcome: {
+    en: ["Your {library} account is ready: set your password",
+      "An account has been created for you at {library}. Set your password to start borrowing books:\n\n{link}\n\nThe link is valid for {validity} and works once. If it has expired, open the sign-in page and choose “Forgot password?” to get a new one."],
+    fr: ["Votre compte {library} est prêt : choisissez votre mot de passe",
+      "Un compte a été créé pour vous à {library}. Choisissez votre mot de passe pour commencer à emprunter des livres :\n\n{link}\n\nLe lien est valable {validity} et ne fonctionne qu'une fois. S'il a expiré, ouvrez la page de connexion et choisissez « Mot de passe oublié ? » pour en recevoir un nouveau."],
+    ar: ["حسابك في {library} جاهز: اختر كلمة مرورك",
+      "تم إنشاء حساب لك في {library}. اختر كلمة مرورك لتبدأ باستعارة الكتب:\n\n{link}\n\nالرابط صالح لمدة {validity} ويعمل مرة واحدة فقط. إذا انتهت صلاحيته، افتح صفحة تسجيل الدخول واختر «نسيت كلمة المرور؟» للحصول على رابط جديد."],
   },
   ready: {
     en: ["“{title}” is ready for pickup",
@@ -1123,12 +1313,29 @@ function passwordErrors(pw: string, email: string): [message: string, code: stri
   return [];
 }
 
+/** The catalog filters (filters.BookFilter): the list and the export share them. */
+function filterBooks(ctx: Ctx): DBook[] {
+  const search = ctx.query.get("search")?.toLowerCase();
+  const category = ctx.query.get("category");
+  const author = ctx.query.get("author")?.toLowerCase();
+  const isbn = ctx.query.get("isbn")?.toLowerCase();
+  const available = ["1", "true", "yes"].includes((ctx.query.get("available") ?? "").toLowerCase());
+  const ids = ctx.query.has("ids") ? csvNumbers(ctx.query.get("ids")) : null;
+  return state.books
+    .filter((b) => !search || [b.title, b.author, b.isbn, b.shelfLocation].some((f) => f.toLowerCase().includes(search)))
+    .filter((b) => !category || state.categories.find((c) => c.id === b.categoryId)?.name === category)
+    .filter((b) => !author || b.author.toLowerCase().includes(author))
+    .filter((b) => !isbn || b.isbn.toLowerCase().includes(isbn))
+    .filter((b) => !available || freeCopies(b) > 0)
+    .filter((b) => !ids || ids.includes(b.id));
+}
+
 const ROUTES: [string, RegExp, Handler][] = [
   // ------------------------------ auth ------------------------------
   ["POST", /^\/auth\/login$/, (ctx) => {
     const email = String(ctx.body.username ?? "").trim().toLowerCase();
     const u = state.users.find((x) => x.email === email);
-    if (!u || u.password !== ctx.body.password || !u.active) {
+    if (!u || u.password === UNUSABLE_PASSWORD || u.password !== ctx.body.password || !u.active) {
       throw new HttpError(401, "No active account found with the given credentials", "no_active_account");
     }
     setRefreshToken(u.id);
@@ -1214,6 +1421,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     const errors = passwordErrors(String(ctx.body.password ?? ""), user.email);
     if (errors.length) throw invalid(...errors.map(([message, code]): [string, string, string] => ["password", message, code]));
     user.password = String(ctx.body.password);
+    user.emailVerified = true; // the link went to the address on file, so using it proves the address
     spendTokens("reset", user);
     user.sessionsRevokedAt = Date.now() + 1; // every session ends; the next sign-in starts a new one
     log(user.name, "PASSWORD_RESET", `${user.name} reset their password.`, { member: user.name });
@@ -1290,19 +1498,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   }],
   // ------------------------------ books ------------------------------
   ["GET", /^\/books$/, (ctx) => {
-    const search = ctx.query.get("search")?.toLowerCase();
-    const category = ctx.query.get("category");
-    const author = ctx.query.get("author")?.toLowerCase();
-    const isbn = ctx.query.get("isbn")?.toLowerCase();
-    const available = ["1", "true", "yes"].includes((ctx.query.get("available") ?? "").toLowerCase());
-    const ids = ctx.query.has("ids") ? csvNumbers(ctx.query.get("ids")) : null;
-    const matches = state.books
-      .filter((b) => !search || [b.title, b.author, b.isbn, b.shelfLocation].some((f) => f.toLowerCase().includes(search)))
-      .filter((b) => !category || state.categories.find((c) => c.id === b.categoryId)?.name === category)
-      .filter((b) => !author || b.author.toLowerCase().includes(author))
-      .filter((b) => !isbn || b.isbn.toLowerCase().includes(isbn))
-      .filter((b) => !available || freeCopies(b) > 0)
-      .filter((b) => !ids || ids.includes(b.id));
+    const matches = filterBooks(ctx);
     const sorted = orderBy(matches, ctx, { title: (b) => b.title, year: (b) => b.year, author: (b) => b.author }, "title");
     return paginate(sorted, ctx, sBook);
   }],
@@ -1348,6 +1544,39 @@ const ROUTES: [string, RegExp, Handler][] = [
     if (!Array.isArray(rows) || !rows.every((r) => r && typeof r === "object")) throw bad("import_bad_rows", "Expected a list of rows.");
     return runImport(rows as Record<string, unknown>[], String(ctx.body.mode ?? "skip"), ctx.body.dryRun !== false,
       staff.name, String(ctx.body.filename ?? "").slice(0, 120));
+  }],
+  ["GET", /^\/exports\/books$/, (ctx) => {
+    requireStaff(ctx);
+    exportFormat(ctx);
+    const sorted = [...filterBooks(ctx)].sort((a, b) => a.title.localeCompare(b.title) || a.id - b.id);
+    return csvDownload(BOOK_COLUMNS, sorted.map((b) => [
+      b.isbn, b.title, b.author, state.categories.find((c) => c.id === b.categoryId)?.name ?? "", b.publisher, b.year,
+      b.totalCopies, b.shelfLocation, b.description, b.availableCopies, freeCopies(b),
+    ]));
+  }],
+  ["GET", /^\/exports\/loans$/, (ctx) => {
+    requireStaff(ctx);
+    exportFormat(ctx);
+    const statuses = (ctx.query.get("status") ?? "").split(",").map((v) => v.trim().toUpperCase()).filter(Boolean);
+    const from = exportDay(ctx, "from");
+    const to = exportDay(ctx, "to");
+    const list = recordsNewestFirst(state.records)
+      .filter((r) => !statuses.length || statuses.includes(r.status))
+      .filter((r) => from === null || r.requestedAt >= from)
+      .filter((r) => to === null || r.requestedAt < to + D); // inclusive of the last day
+    return csvDownload(LOAN_COLUMNS, list.map((r) => {
+      const u = userById(r.userId)!;
+      const b = bookById(r.bookId)!;
+      return [u.name, u.idNumber, u.email, b.title, b.isbn, b.shelfLocation, r.status, stamp(r.requestedAt),
+        stamp(r.borrowedAt), stamp(r.dueDate), stamp(r.returnedAt), r.renewalCount ?? 0];
+    }));
+  }],
+  ["POST", /^\/users\/import$/, (ctx) => {
+    const admin = requireAdmin(ctx);
+    const rows = ctx.body.rows;
+    if (!Array.isArray(rows) || !rows.every((r) => r && typeof r === "object")) throw bad("import_bad_rows", "Expected a list of rows.");
+    return runStudentImport(rows as Record<string, unknown>[], ctx.body.dryRun !== false, admin.name,
+      String(ctx.body.filename ?? "").slice(0, 120));
   }],
   ["GET", /^\/books\/(\d+)\/copies$/, (ctx, [id]) => {
     // Where every copy is; borrower names only for staff (mirrors BookCopiesView).

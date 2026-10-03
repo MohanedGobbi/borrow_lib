@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.contrib.auth.tokens import PasswordResetTokenGenerator, default_token_generator
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage, get_connection, send_mail
 from django.utils import timezone, translation
 from django.utils.encoding import force_bytes
 from django.utils.formats import date_format
@@ -68,6 +68,20 @@ MESSAGES = {
         "ar": ("تأكيد عنوان بريدك الإلكتروني في {library}",
                "مرحبًا بك في {library}. أكّد أن هذا العنوان لك لتتمكن من استعارة الكتب:\n\n{link}\n\n"
                "الرابط صالح لمدة {validity}. يمكنك طلب رابط جديد من الإشعار في أعلى الموقع."),
+    },
+    "welcome": {
+        "en": ("Your {library} account is ready: set your password",
+               "An account has been created for you at {library}. Set your password to start borrowing books:\n\n{link}\n\n"
+               "The link is valid for {validity} and works once. If it has expired, open the sign-in page and "
+               "choose “Forgot password?” to get a new one."),
+        "fr": ("Votre compte {library} est prêt : choisissez votre mot de passe",
+               "Un compte a été créé pour vous à {library}. Choisissez votre mot de passe pour commencer à emprunter des livres :\n\n{link}\n\n"
+               "Le lien est valable {validity} et ne fonctionne qu'une fois. S'il a expiré, ouvrez la page de "
+               "connexion et choisissez « Mot de passe oublié ? » pour en recevoir un nouveau."),
+        "ar": ("حسابك في {library} جاهز: اختر كلمة مرورك",
+               "تم إنشاء حساب لك في {library}. اختر كلمة مرورك لتبدأ باستعارة الكتب:\n\n{link}\n\n"
+               "الرابط صالح لمدة {validity} ويعمل مرة واحدة فقط. إذا انتهت صلاحيته، افتح صفحة تسجيل الدخول "
+               "واختر «نسيت كلمة المرور؟» للحصول على رابط جديد."),
     },
     "staff_invite": {
         "en": ("You are invited to join {library} as {role}",
@@ -169,13 +183,18 @@ def user_link(path: str, user, token: str) -> str:
     return frontend_link(path, uid=urlsafe_base64_encode(force_bytes(user.pk)), token=token)
 
 
-def deliver(kind: str, lang: str, to: str, name: str | None, **values) -> bool:
+def compose(kind: str, lang: str, name: str | None, **values) -> tuple[str, str]:
+    """The (subject, body) of one email in one language."""
     subject, body = MESSAGES[kind][lang]
     values.setdefault("library", settings.LIBRARY_NAME)
     greeting = GREETING[lang][0].format(name=name) if name else GREETING[lang][1]
+    return subject.format(**values), f"{greeting}\n\n{body.format(**values)}\n\n{values['library']}"
+
+
+def deliver(kind: str, lang: str, to: str, name: str | None, **values) -> bool:
+    subject, text = compose(kind, lang, name, **values)
     try:
-        send_mail(subject.format(**values), f"{greeting}\n\n{body.format(**values)}\n\n{values['library']}",
-                  settings.DEFAULT_FROM_EMAIL, [to])
+        send_mail(subject, text, settings.DEFAULT_FROM_EMAIL, [to])
         return True
     except Exception:  # SMTP down, bad credentials…: the request must still answer as specced
         log.exception("Could not send the %s email to %s", kind, to)
@@ -194,6 +213,29 @@ def send_verification(user) -> bool:
     link = user_link("/verify-email", user, email_verification_token.make_token(user))
     return deliver("verification", lang, user.email, user.first_name or None, link=link,
                    validity=duration(settings.PASSWORD_RESET_TIMEOUT, lang))
+
+
+def send_welcome_batch(users) -> int:
+    """The welcome email of freshly imported students, over one SMTP connection. Returns how many went out.
+
+    The link is the password-reset link: it lets the student choose a first password, and using it also
+    verifies the address. Never raises (see the module docstring).
+    """
+    users = [u for u in users if u.email]
+    if not users:
+        return 0
+    messages = []
+    for user in users:
+        lang = language_of(user)
+        link = user_link("/reset-password", user, default_token_generator.make_token(user))
+        subject, text = compose("welcome", lang, user.first_name or None, link=link,
+                                validity=duration(settings.PASSWORD_RESET_TIMEOUT, lang))
+        messages.append(EmailMessage(subject, text, settings.DEFAULT_FROM_EMAIL, [user.email]))
+    try:
+        return get_connection().send_messages(messages) or 0
+    except Exception:  # SMTP down: the accounts exist, and "Forgot password?" still works
+        log.exception("Could not send the welcome emails")
+        return 0
 
 
 def invite_link(token: str) -> str:

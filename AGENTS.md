@@ -58,8 +58,11 @@ src/components/Page.tsx     PageHeader, Panel, EmptyState, ErrorState
 src/components/             BookCover, BookActions (+ Availability), StatusBadge, MemberStanding, Countdown, dialogs
 src/lib/time.ts         localized dates, relative times, countdown formatting
 src/lib/table.ts        shared table classes for staff lists
-src/lib/importFile.ts   reads .xlsx / .csv / .json for the bulk book import (validation is server-side)
+src/lib/importFile.ts   reads .xlsx / .csv / .json for the bulk imports (validation is server-side)
+src/hooks/useImportFlow.ts + src/components/ImportParts.tsx   the shared flow and pieces of the book and student import pages
+src/components/ExportControls.tsx   inventory export menu and loans export dialog
 backend/library/importing.py  bulk import rules (header aliases, ISBN checks, dry run); mirrored in demo.ts
+backend/library/student_import.py  bulk student import (admin; accounts + welcome emails); exports.py  CSV/XLSX exports (formula-injection guard)
 src/pages/              landing, auth, catalog, book, request list, my loans, profile, scan lookup
 src/pages/staff/        staff desk: StaffLayout (sidebar + counts) and one page per function
 src/components/ui/      shadcn/ui (generated; excluded from lint)

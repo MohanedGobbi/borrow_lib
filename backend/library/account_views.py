@@ -60,6 +60,10 @@ class PasswordResetConfirmView(SessionView):
             raise ValidationError({"password": get_error_detail(e)})
         user.set_password(password)  # also what makes the token single-use
         user.save(update_fields=["password"])
+        # The link went to the address on file, so using it proves the address (also the welcome email's link).
+        if not user.profile.email_verified:
+            user.profile.email_verified = True
+            user.profile.save(update_fields=["email_verified"])
         # A reset is how people recover from a stolen password: end every session.
         for outstanding in OutstandingToken.objects.filter(user=user):
             BlacklistedToken.objects.get_or_create(token=outstanding)

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { BookOpen, Clock, SearchX } from "lucide-react";
+import { BookOpen, Clock, Download, SearchX } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRecords } from "@/api";
 import { qk } from "@/api/queryKeys";
@@ -8,6 +8,7 @@ import { useDebounced } from "@/hooks/useDebounced";
 import { useDeferredAction } from "@/hooks/useDeferredAction";
 import { useI18n } from "@/i18n";
 import { DeferredRowAction } from "@/components/DeferredRowAction";
+import { LoansExportDialog } from "@/components/ExportControls";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pager } from "@/components/Pager";
 import { QueueFilter } from "@/components/QueueFilter";
@@ -15,6 +16,7 @@ import { RenewAction } from "@/components/RenewAction";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { daysFrom, fmtDate, msLeft } from "@/lib/time";
 import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
+import { Button } from "@/components/ui/button";
 import { fetchPage } from "@/lib/paging";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
@@ -37,12 +39,21 @@ export default function LoansPage() {
     refetchInterval: 45_000,
   });
   const deferred = useDeferredAction();
+  const [exporting, setExporting] = useState(false);
 
   const loans = result?.results ?? [];
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("staff.loans")} />
+      <PageHeader
+        title={t("staff.loans")}
+        actions={
+          <Button size="sm" variant="outline" onClick={() => setExporting(true)}>
+            <Download className="size-4" aria-hidden /> {t("export.button")}
+          </Button>
+        }
+      />
+      <LoansExportDialog open={exporting} onOpenChange={setExporting} />
       <Panel
         title={t("desk.loansOut")} count={result?.count ?? 0} flush
         actions={<QueueFilter value={filter} onChange={setFilter} />}

@@ -126,6 +126,8 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "library.errors.exception_handler",
+    # `?format=csv` on the export endpoints is a file format, not a content-negotiation hint.
+    "URL_FORMAT_OVERRIDE": None,
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),

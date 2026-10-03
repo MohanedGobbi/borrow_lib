@@ -359,6 +359,39 @@ class BookImportView(APIView):
         return Response(report)
 
 
+class BookExportView(APIView):
+    """Staff-only: the whole catalogue (or the `search` / `category` filtered part) as CSV or XLSX, in the import format."""
+    permission_classes = [IsStaffOrAdmin]
+
+    def get(self, request):
+        from . import exports
+        fmt = exports.parse_format(request.query_params.get("format"))
+        books = BookFilter(request.query_params, queryset=with_ready_count(Book.objects.select_related("category")),
+                           request=request).qs.order_by("title", "pk")
+        return exports.export_response("books", fmt, exports.BOOK_COLUMNS, exports.book_rows(books.iterator(chunk_size=500)))
+
+
+class LoanExportView(APIView):
+    """Staff-only: borrow records as CSV or XLSX, filtered by status (comma list) and a requested_at date range."""
+    permission_classes = [IsStaffOrAdmin]
+
+    def get(self, request):
+        from datetime import timedelta
+        from . import exports
+        params = request.query_params
+        fmt = exports.parse_format(params.get("format"))
+        first, last = exports.parse_day(params.get("from"), "from"), exports.parse_day(params.get("to"), "to")
+        records = BorrowRecord.objects.select_related("user", "user__profile", "book").order_by("-requested_at", "pk")
+        statuses = [s.strip().upper() for s in params.get("status", "").split(",") if s.strip()]
+        if statuses:
+            records = records.filter(status__in=statuses)
+        if first:
+            records = records.filter(requested_at__gte=exports.day_start(first))
+        if last:  # inclusive: up to the end of that day in the library's time zone
+            records = records.filter(requested_at__lt=exports.day_start(last + timedelta(days=1)))
+        return exports.export_response("loans", fmt, exports.LOAN_COLUMNS, exports.loan_rows(records.iterator(chunk_size=500)))
+
+
 class BookCopiesView(APIView):
     """Where every copy of a book is: on loan (with due date), held for pickup, or on the shelf.
 
@@ -510,6 +543,24 @@ class UserListView(generics.ListAPIView):
                                      filter=Q(user__borrow_records__status__in=services.ACTIVE_STATUSES)),
             has_overdue_flag=Exists(BorrowRecord.objects.filter(user=OuterRef("user"), status=Status.OVERDUE)),
         ).order_by("user__first_name")
+
+
+class UserImportView(APIView):
+    """Admin-only bulk import of student accounts. Body: {rows: [{header: value, "__row": n}], dryRun: bool,
+    filename: str}. A dry run returns the preview; nothing is written and nothing is sent."""
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        from .student_import import run_student_import
+        rows = request.data.get("rows")
+        if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
+            raise BusinessRuleError("import_bad_rows", "Expected a list of rows.")
+        return Response(run_student_import(
+            rows,
+            dry_run=bool(request.data.get("dryRun", True)),
+            actor_name=display_name(request.user),
+            source=str(request.data.get("filename", ""))[:120],
+        ))
 
 
 class UserDetailView(APIView):

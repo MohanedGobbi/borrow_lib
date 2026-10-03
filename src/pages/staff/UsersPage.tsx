@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
-import { MailPlus, Search, UserX } from "lucide-react";
+import { MailPlus, Search, Upload, UserX } from "lucide-react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiInvites, apiUsers } from "@/api";
 import { invalidateInvites, qk } from "@/api/queryKeys";
@@ -62,7 +62,12 @@ export default function UsersPage() {
       <PageHeader
         title={t("users.title")}
         actions={isAdmin && (
-          <Button onClick={() => setInviting(true)}><MailPlus aria-hidden /> {t("invite.button")}</Button>
+          <>
+            <Button asChild variant="outline">
+              <Link to="/staff/users/import"><Upload aria-hidden /> {t("sImport.title")}</Link>
+            </Button>
+            <Button onClick={() => setInviting(true)}><MailPlus aria-hidden /> {t("invite.button")}</Button>
+          </>
         )}
       />
       {isAdmin && (

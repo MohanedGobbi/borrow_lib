@@ -28,6 +28,7 @@ const PickupsPage = lazy(() => import("@/pages/staff/PickupsPage"));
 const LoansPage = lazy(() => import("@/pages/staff/LoansPage"));
 const InventoryPage = lazy(() => import("@/pages/staff/InventoryPage"));
 const ImportBooksPage = lazy(() => import("@/pages/staff/ImportBooksPage"));
+const ImportStudentsPage = lazy(() => import("@/pages/staff/ImportStudentsPage"));
 const ReservationsPage = lazy(() => import("@/pages/staff/ReservationsPage"));
 const UsersPage = lazy(() => import("@/pages/staff/UsersPage"));
 const UserDetailPage = lazy(() => import("@/pages/staff/UserDetailPage"));
@@ -71,6 +72,7 @@ export default function App() {
             <Route path="/staff/inventory/import" element={<Suspense fallback={<FullPageLoader />}><ImportBooksPage /></Suspense>} />
             <Route path="/staff/reservations" element={<Suspense fallback={<FullPageLoader />}><ReservationsPage /></Suspense>} />
             <Route path="/staff/users" element={<Suspense fallback={<FullPageLoader />}><UsersPage /></Suspense>} />
+            <Route path="/staff/users/import" element={<RequireAdmin><Suspense fallback={<FullPageLoader />}><ImportStudentsPage /></Suspense></RequireAdmin>} />
             <Route path="/staff/users/:id" element={<Suspense fallback={<FullPageLoader />}><UserDetailPage /></Suspense>} />
             <Route path="/staff/analytics" element={<Suspense fallback={<FullPageLoader />}><AnalyticsPage /></Suspense>} />
             <Route path="/staff/activity" element={<Suspense fallback={<FullPageLoader />}><ActivityPage /></Suspense>} />

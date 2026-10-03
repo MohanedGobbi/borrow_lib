@@ -1,4 +1,4 @@
-import { api, authFetch, API_ROOT } from "@/api/client";
+import { api, ApiError, authFetch, API_ROOT } from "@/api/client";
 import type { Lang } from "@/i18n/locales";
 import type {
   ActivityEntry,
@@ -15,6 +15,7 @@ import type {
   Page,
   Profile,
   Reservation,
+  StudentImportReport,
   CreatedInvite,
   DemoMail,
   ScanResult,
@@ -149,6 +150,9 @@ export const apiDemo = {
 };
 
 export const apiUsers = {
+  /** Bulk student import (admin). A dry run returns the preview without saving or emailing anything. */
+  importRows: (body: { rows: Record<string, unknown>[]; dryRun: boolean; filename: string }) =>
+    api<StudentImportReport>("/users/import", { method: "POST", body }),
   list: (params: PageParams & { search?: string; role?: string } = {}) =>
     api<Page<Profile>>(`/users${query(params)}`),
   get: (id: number) => api<UserDetail>(`/users/${id}`),
@@ -167,6 +171,38 @@ export async function downloadFile(url: string, filename: string) {
   a.click();
   URL.revokeObjectURL(obj);
 }
+
+export type ExportFormat = "csv" | "xlsx";
+
+/** Download an authenticated spreadsheet export (staff). The server names the file; `fallback` is used when it does not. */
+async function downloadExport(path: string, params: Record<string, string | undefined>, fallback: string) {
+  const res = await authFetch(`${API_ROOT}${path}${query(params)}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, data.detail || `Export failed (${res.status})`, [], { code: data.code, params: data.params });
+  }
+  const named = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1];
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = named ?? fallback;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+export const apiExports = {
+  /** The whole catalogue (or the filtered part) in the import format. */
+  books: (format: ExportFormat, filters: { search?: string; category?: string } = {}) =>
+    downloadExport("/exports/books", { format, ...filters }, `libborrow-books-${today()}.${format}`),
+  /** Borrow records; `from` / `to` are YYYY-MM-DD dates on the request date, `status` a list of statuses. */
+  loans: (format: ExportFormat, filters: { status?: string[]; from?: string; to?: string } = {}) =>
+    downloadExport("/exports/loans", {
+      format, status: filters.status?.join(","), from: filters.from, to: filters.to,
+    }, `libborrow-loans-${today()}.${format}`),
+};
 
 export const apiReservations = {
   mine: () => api<Reservation[]>("/reservations"),

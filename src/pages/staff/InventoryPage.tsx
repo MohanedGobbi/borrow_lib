@@ -9,6 +9,7 @@ import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { BookEditDialog } from "@/components/BookEditDialog";
+import { BooksExportMenu } from "@/components/ExportControls";
 import { Availability } from "@/components/BookActions";
 import { Pager } from "@/components/Pager";
 import { PageHeader, Panel, RowsSkeleton } from "@/components/Page";
@@ -56,6 +57,7 @@ export default function InventoryPage() {
         title={t("staff.inventory")}
         actions={
           <>
+            <BooksExportMenu search={search} />
             <Button asChild size="sm" variant="outline">
               <Link to="/staff/inventory/import"><Upload className="size-4" aria-hidden /> {t("import.title")}</Link>
             </Button>

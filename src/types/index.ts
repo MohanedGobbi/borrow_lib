@@ -74,6 +74,30 @@ export interface ImportReport {
   summary: Record<ImportStatus | "total" | "newCategories", number>;
 }
 
+export type StudentImportStatus = "create" | "exists" | "error";
+
+/** One row of a bulk student import, as validated by the server. */
+export interface StudentImportRow {
+  row: number;
+  status: StudentImportStatus;
+  name: string;
+  email: string;
+  studentId: string;
+  language: string;
+  errors: ({ code: string } & Record<string, string | number>)[];
+}
+
+export interface StudentImportReport {
+  dryRun: boolean;
+  /** raw file header → field name, or null when the column is ignored */
+  columns: Record<string, string | null>;
+  missingColumns: string[];
+  rows: StudentImportRow[];
+  summary: Record<StudentImportStatus | "total", number>;
+  /** Welcome emails that went out (0 in a preview). */
+  emailsSent: number;
+}
+
 export interface Profile {
   id: number;
   uuid: string;

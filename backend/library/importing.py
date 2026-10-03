@@ -74,8 +74,8 @@ _ALIASES = {
 
 def _key(header: str) -> str:
     """Lowercase, strip accents and separators: 'Nombre d’exemplaires' → 'nombre d exemplaires'."""
-    text = unicodedata.normalize("NFKD", str(header)).encode("ascii", "ignore").decode() or str(header)
-    text = text.lower()
+    # Drop accents (and Arabic vowel marks) but keep the letters, so Arabic headers stay distinct from each other.
+    text = "".join(ch for ch in unicodedata.normalize("NFKD", str(header)) if not unicodedata.combining(ch)).lower()
     for ch in "_-./’'()":
         text = text.replace(ch, " ")
     return " ".join(text.split())
@@ -297,9 +297,9 @@ def read_rows(filename: str, content: bytes) -> list[dict]:
     if name.endswith(".json"):
         data = json.loads(content.decode("utf-8-sig"))
         if isinstance(data, dict):
-            data = data.get("books", data.get("rows", []))
+            data = data.get("books", data.get("students", data.get("rows", [])))
         if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):
-            raise ValueError("A JSON file must contain an array of book objects (or {\"books\": [...]}).")
+            raise ValueError("A JSON file must contain an array of row objects (or {\"books\": [...]}).")
         return [{**r, "__row": i + 1} for i, r in enumerate(data)]
     if name.endswith(".csv"):
         text = content.decode("utf-8-sig")

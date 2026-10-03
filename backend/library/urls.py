@@ -16,6 +16,7 @@ urlpatterns = [
     path("invites", account_views.InviteListCreateView.as_view()),
     path("invites/lookup", account_views.InviteLookupView.as_view()),
     path("invites/<int:pk>", account_views.InviteDetailView.as_view()),
+    path("users/import", views.UserImportView.as_view()),
     path("users/me", views.MeView.as_view()),
     path("users/me/id-card", views.MyIdCardView.as_view()),
     path("users/<uuid:uuid>/scan", views.ScanLookupView.as_view()),
@@ -27,6 +28,9 @@ urlpatterns = [
     path("books/<int:pk>", views.BookDetailView.as_view()),
     path("books/<int:pk>/reservations", views.BookReservationsView.as_view()),
     path("books/<int:pk>/copies", views.BookCopiesView.as_view()),
+    # exports (staff)
+    path("exports/books", views.BookExportView.as_view()),
+    path("exports/loans", views.LoanExportView.as_view()),
     # categories
     path("categories", views.CategoryListCreateView.as_view()),
     path("categories/<int:pk>", views.CategoryDetailView.as_view()),

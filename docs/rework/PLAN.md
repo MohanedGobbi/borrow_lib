@@ -60,7 +60,7 @@ Never switch models mid-WP: the prompt cache is per model.
 | 21a | Loan renewal: once per loan, +14 days, blocked by a waiting list or an overdue loan ([spec](F1.md)) | Opus tests → Sonnet | done with WP-22 as F1, Opus-reviewed |
 | 21b | Email reminders: ready for pickup, due in 2 days, overdue (scheduled job, per-language, idempotent) ([spec](F2.md)) | Sonnet · medium | done, Opus-reviewed |
 | 22 | Circulation rules (hold hours, loan days, limits) editable by admin in the DB | Sonnet · high | done in F1 (`/staff/settings`) |
-| 23 | Catalogue/loan export to Excel/CSV; bulk student import | Sonnet · low | |
+| 23 | Catalogue/loan export to Excel/CSV; bulk student import ([spec](F3.md)) | Sonnet · medium | done, Opus-reviewed: formula-injection guard tested; fixed Arabic multi-word import headers. Open for WP-25: count strings need real plural forms ("Create 1 accounts", "Import 1 books") |
 
 Deferred: barcode/copy-level tracking (WP-18–20).
 
@@ -86,7 +86,7 @@ Deferred: barcode/copy-level tracking (WP-18–20).
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
 | 22 | Circulation rules (hold hours, loan days, limits) editable by admin in the DB | Sonnet · high | done in F1 (`/staff/settings`) |
-| 23 | Catalogue/loan export to Excel/CSV; bulk student import | Sonnet · low | |
+| 23 | Catalogue/loan export to Excel/CSV; bulk student import ([spec](F3.md)) | Sonnet · medium | done, Opus-reviewed: formula-injection guard tested; fixed Arabic multi-word import headers. Open for WP-25: count strings need real plural forms ("Create 1 accounts", "Import 1 books") |
 | 24 | Accessibility pass (focus traps, live regions, table semantics) | Sonnet · medium | |
 | 25 | FR/AR copy cleanup (Haiku drafts; a native speaker reviews) | Haiku | |
 | 26 | README, fresh screenshots, `AGENTS.md` update | Haiku | |
