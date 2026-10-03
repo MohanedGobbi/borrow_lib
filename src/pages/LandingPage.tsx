@@ -130,10 +130,10 @@ export default function LandingPage() {
                 {onShelf.map((b) => (
                   <li key={b.id} className="border-t border-ink/70">
                     <Link to={`/books/${b.id}`} className="group block rounded-sm py-6 lg:py-7">
-                      <span dir="auto" className="block font-display text-[1.375rem] font-semibold leading-snug text-ink group-hover:underline sm:text-[1.5rem]">
-                        {b.title}
+                      <span className="block font-display text-[1.375rem] font-semibold leading-snug text-ink group-hover:underline sm:text-[1.5rem]">
+                        <bdi>{b.title}</bdi>
                       </span>
-                      <span dir="auto" className="mt-1.5 block text-[15px] text-muted-foreground">{b.author}</span>
+                      <span className="mt-1.5 block text-[15px] text-muted-foreground"><bdi>{b.author}</bdi></span>
                       <Availability book={b} className="mt-4 text-[13px]" />
                     </Link>
                   </li>
@@ -149,10 +149,10 @@ export default function LandingPage() {
                       size="lg"
                       className="transition-[transform,border-color] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 group-hover:border-ink/40"
                     />
-                    <span dir="auto" className="mt-4 line-clamp-2 font-display text-[17px] font-semibold leading-snug text-ink group-hover:underline">
-                      {b.title}
+                    <span className="mt-4 line-clamp-2 font-display text-[17px] font-semibold leading-snug text-ink group-hover:underline">
+                      <bdi>{b.title}</bdi>
                     </span>
-                    <span dir="auto" className="mt-1 line-clamp-1 text-sm text-muted-foreground">{b.author}</span>
+                    <span className="mt-1 line-clamp-1 text-sm text-muted-foreground"><bdi>{b.author}</bdi></span>
                   </Link>
                   <Availability book={b} className="mt-2.5 text-[13px]" />
                 </li>
