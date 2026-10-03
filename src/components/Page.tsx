@@ -71,3 +71,25 @@ export function ErrorState({ onRetry, message }: { onRetry?: () => void; message
     </div>
   );
 }
+
+/**
+ * Quiet placeholder rows (hairline-divided, no spinner) for a list that is still loading.
+ * Lives inside the page shell, under the PageHeader, so the page does not blank out while data arrives.
+ */
+export function RowsSkeleton({ rows = 4, className }: { rows?: number; className?: string }) {
+  const { t } = useI18n();
+  return (
+    <div role="status" className={cn("divide-y", className)}>
+      <span className="sr-only">{t("common.loading")}</span>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} aria-hidden className="flex items-center gap-6 px-4 py-4">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3.5 w-3/5 max-w-sm animate-pulse rounded-sm bg-border/60" />
+            <div className="h-3 w-2/5 max-w-xs animate-pulse rounded-sm bg-border/40" />
+          </div>
+          <div className="hidden h-3.5 w-20 animate-pulse rounded-sm bg-border/60 sm:block" />
+        </div>
+      ))}
+    </div>
+  );
+}

@@ -67,6 +67,10 @@ module.exports = {
         sans: ['"Public Sans"', '"Noto Sans Arabic"', "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
       },
+      fontSize: {
+        // Lead paragraphs and the wordmark: one step between body (15px) and the section titles.
+        lead: ["17px", { lineHeight: "1.6" }],
+      },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
         lg: "var(--radius)",

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { AlertTriangle, BookOpen } from "lucide-react";
+import { AlertTriangle, BookOpen, QrCode } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiRecords, apiReservations } from "@/api";
@@ -14,7 +14,7 @@ import { Countdown } from "@/components/Countdown";
 import { daysFrom, fmtDate, fmtDateTime } from "@/lib/time";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { Container } from "@/components/Layout";
-import { EmptyState, PageHeader, Panel } from "@/components/Page";
+import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { FullPageLoader } from "@/auth/guards";
 import { Button } from "@/components/ui/button";
 import { tableCls } from "@/lib/table";
@@ -49,7 +49,7 @@ export default function MyRequestsPage() {
     onSettled: () => invalidateCirculation(qc),
   });
 
-  if (isPending || !me) return <FullPageLoader />;
+  if (!me) return <FullPageLoader />;
 
   // most urgent first: overdue, ready for pickup, on loan, pending
   const active = (records ?? [])
@@ -80,7 +80,9 @@ export default function MyRequestsPage() {
 
       <section className="mt-8" aria-labelledby="active-h">
         <h2 id="active-h" className="text-base font-semibold">{t("req.active")}</h2>
-        {active.length === 0 ? (
+        {isPending ? (
+          <div className="mt-3 rounded-md border bg-white"><RowsSkeleton rows={3} /></div>
+        ) : active.length === 0 ? (
           <div className="mt-3 rounded-md border">
             <EmptyState icon={BookOpen} title={t("req.none")}>
               <Button asChild size="sm"><Link to="/catalog">{t("cart.browse")}</Link></Button>
@@ -212,7 +214,12 @@ function ActiveRow({ r, onWithdraw }: { r: BorrowRecord; onWithdraw: (kind: "req
           <Button size="sm" variant="outline" onClick={() => onWithdraw("request")}>{t("req.cancelRequest")}</Button>
         )}
         {r.status === "READY" && (
-          <Button size="sm" variant="outline" onClick={() => onWithdraw("hold")}>{t("req.releaseHold")}</Button>
+          <>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/profile#card"><QrCode aria-hidden /> {t("req.showCard")}</Link>
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onWithdraw("hold")}>{t("req.releaseHold")}</Button>
+          </>
         )}
         <RequestDocButton record={r} />
       </div>

@@ -10,9 +10,8 @@ import { Countdown } from "@/components/Countdown";
 import { DeferredRowAction } from "@/components/DeferredRowAction";
 import { useDeferredAction } from "@/hooks/useDeferredAction";
 import { daysFrom, fmtDate, msLeft, timeAgo } from "@/lib/time";
-import { PageHeader, Panel } from "@/components/Page";
+import { PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { Button } from "@/components/ui/button";
-import { FullPageLoader } from "@/auth/guards";
 import { cn } from "@/lib/utils";
 import { URGENT_PICKUP_MS } from "@/types";
 
@@ -48,7 +47,26 @@ export default function OverviewPage() {
     },
   });
 
-  if (isPending) return <FullPageLoader />;
+  const header = (
+    <PageHeader
+      title={t("staff.overview")}
+      description={t("dash.runJobsHelp")}
+      actions={
+        <Button variant="outline" size="sm" disabled={runJobs.isPending} onClick={() => runJobs.mutate()}>
+          <RefreshCcw className="size-4" aria-hidden /> {t("dash.runJobs")}
+        </Button>
+      }
+    />
+  );
+
+  if (isPending) {
+    return (
+      <div className="space-y-8">
+        {header}
+        <div className="rounded-md border bg-white"><RowsSkeleton rows={3} /></div>
+      </div>
+    );
+  }
 
   const vitals = [
     { label: t("dash.pending"), value: pending?.count, to: "/staff/approvals" },
@@ -64,15 +82,7 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title={t("staff.overview")}
-        description={t("dash.runJobsHelp")}
-        actions={
-          <Button variant="outline" size="sm" disabled={runJobs.isPending} onClick={() => runJobs.mutate()}>
-            <RefreshCcw className="size-4" aria-hidden /> {t("dash.runJobs")}
-          </Button>
-        }
-      />
+      {header}
 
       <dl className="grid grid-cols-2 overflow-hidden rounded-md border bg-white sm:grid-cols-3 xl:grid-cols-6">
         {vitals.map((v) => (
@@ -100,8 +110,8 @@ export default function OverviewPage() {
               {late.map((r) => (
                 <li key={`o${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
                   <AlertTriangle className="size-4 shrink-0 text-danger" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p dir="auto" className="truncate text-sm font-medium">{r.bookTitle}</p>
+                  <div className="min-w-0 flex-1 basis-48">
+                    <p dir="auto" className="line-clamp-2 break-words text-sm font-medium">{r.bookTitle}</p>
                     <p className="text-sm text-muted-foreground">
                       <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="hover:text-ink hover:underline">{r.userName}</Link>
                       {" · "}{t("req.due")} {fmtDate(r.dueDate)}
@@ -114,8 +124,8 @@ export default function OverviewPage() {
               {urgent.map((r) => (
                 <li key={`r${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
                   <Clock className="size-4 shrink-0 text-warning" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p dir="auto" className="truncate text-sm font-medium">{r.bookTitle}</p>
+                  <div className="min-w-0 flex-1 basis-48">
+                    <p dir="auto" className="line-clamp-2 break-words text-sm font-medium">{r.bookTitle}</p>
                     <p className="text-sm text-muted-foreground">
                       <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="hover:text-ink hover:underline">{r.userName}</Link>
                       {" · "}{t("dash.closesSoon")}

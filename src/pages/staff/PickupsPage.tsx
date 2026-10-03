@@ -13,8 +13,7 @@ import { QueueFilter } from "@/components/QueueFilter";
 import { fmtDateTime, msLeft } from "@/lib/time";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { ShowingNote } from "@/components/Pager";
-import { EmptyState, PageHeader, Panel } from "@/components/Page";
-import { FullPageLoader } from "@/auth/guards";
+import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
 import { URGENT_PICKUP_MS } from "@/types";
@@ -32,7 +31,6 @@ export default function PickupsPage() {
   });
   const deferred = useDeferredAction();
 
-  if (isPending) return <FullPageLoader />;
   const ready = result?.results ?? [];
 
   return (
@@ -42,7 +40,7 @@ export default function PickupsPage() {
         title={t("dash.awaiting")} count={result?.count ?? 0} flush
         actions={<QueueFilter value={filter} onChange={setFilter} />}
       >
-        {ready.length === 0 ? (
+        {isPending ? <RowsSkeleton /> : ready.length === 0 ? (
           search
             ? <EmptyState icon={SearchX} title={t("desk.noFilterMatch", { q: search })} />
             : <EmptyState icon={PackageCheck} title={t("dash.noPickups")} />

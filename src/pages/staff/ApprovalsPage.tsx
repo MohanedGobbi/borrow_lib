@@ -13,9 +13,8 @@ import { RejectDialog } from "@/components/RejectDialog";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { ShowingNote } from "@/components/Pager";
 import { fmtDateTimeAgo } from "@/lib/time";
-import { EmptyState, PageHeader, Panel } from "@/components/Page";
+import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { Button } from "@/components/ui/button";
-import { FullPageLoader } from "@/auth/guards";
 import { useStaffAction } from "@/pages/staff/staffContext";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
@@ -36,7 +35,6 @@ export default function ApprovalsPage() {
   const { run, busyId } = useStaffAction(invalidateCirculation);
   const [rejecting, setRejecting] = useState<BorrowRecord | null>(null);
 
-  if (isPending) return <FullPageLoader />;
   const pending = result?.results ?? [];
 
   return (
@@ -46,7 +44,7 @@ export default function ApprovalsPage() {
         title={t("desk.awaitingDecision")} count={result?.count ?? 0} flush
         actions={<QueueFilter value={filter} onChange={setFilter} />}
       >
-        {pending.length === 0 ? (
+        {isPending ? <RowsSkeleton /> : pending.length === 0 ? (
           search
             ? <EmptyState icon={SearchX} title={t("desk.noFilterMatch", { q: search })} />
             : <EmptyState icon={ClipboardCheck} title={t("dash.nothingPending")} />

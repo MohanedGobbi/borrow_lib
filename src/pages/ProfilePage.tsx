@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { Download, LibraryBig } from "lucide-react";
@@ -15,6 +16,13 @@ export default function ProfilePage() {
   const { me, loading } = useAuth();
   const { t } = useI18n();
   const [downloading, setDownloading] = useState(false);
+  const { hash } = useLocation();
+  const ready = !loading && !!me;
+
+  // "Show my card" on My loans links here: the card is not on the page until the profile has loaded.
+  useEffect(() => {
+    if (ready && hash === "#card") document.getElementById("card")?.scrollIntoView({ block: "start" });
+  }, [ready, hash]);
 
   if (loading || !me) return <FullPageLoader />;
   const scanUrl = `${window.location.origin}/scan/${me.uuid}`;
@@ -39,7 +47,9 @@ export default function ProfilePage() {
     [t("profile.address"), me.address || "—"],
     [t("profile.role"), t(`role.${me.role}`)],
     [t("profile.since"), fmtDate(me.membershipStartDate)],
-    [t("profile.limit"), <span><span className="tabular">{me.activeLoans} / {me.maxBorrowLimit}</span> {t("profile.inuse")}</span>],
+    ...(me.role === "MEMBER"
+      ? [[t("profile.limit"), <span><span className="tabular">{me.activeLoans} / {me.maxBorrowLimit}</span> {t("profile.inuse")}</span>] as [string, React.ReactNode]]
+      : []), // staff and admins cannot borrow, so a loan limit means nothing to them
   ];
 
   return (
@@ -58,7 +68,7 @@ export default function ProfilePage() {
           </dl>
         </Panel>
 
-        <section aria-labelledby="card-h">
+        <section id="card" aria-labelledby="card-h" className="order-first scroll-mt-24 lg:order-none">
           <h2 id="card-h" className="text-[15px] font-semibold">{t("profile.card")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t("profile.cardHelp")}</p>
 
@@ -82,7 +92,7 @@ export default function ProfilePage() {
                 <QRCodeSVG value={scanUrl} size={76} level="M" fgColor="#121A16" />
               </div>
             </div>
-            <div className="h-1.5 bg-danger" aria-hidden />
+            <div className="h-1.5 bg-brand" aria-hidden />
           </div>
 
           <Button onClick={download} disabled={downloading} variant="outline" className="mt-4 w-full">

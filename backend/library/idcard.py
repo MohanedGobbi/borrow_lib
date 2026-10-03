@@ -29,17 +29,16 @@ def build_id_card_pdf(user: User) -> bytes:
 
     ink = HexColor("#121A16")
     green = HexColor("#0E6B3C")
-    red = HexColor("#B42318")
     muted = HexColor("#5B6660")
     border = HexColor("#DCE2DE")
 
-    # white card, green header band, red foot rule (matches the on-screen card)
+    # white card, green header band and foot rule (matches the on-screen card)
     c.setFillColor(HexColor("#FFFFFF"))
     c.setStrokeColor(border)
     c.rect(0, 0, CARD_W, CARD_H, stroke=1, fill=1)
     c.setFillColor(green)
     c.rect(0, CARD_H - 15 * mm, CARD_W, 15 * mm, stroke=0, fill=1)
-    c.setFillColor(red)
+    c.setFillColor(green)
     c.rect(0, 0, CARD_W, 2 * mm, stroke=0, fill=1)
 
     # header

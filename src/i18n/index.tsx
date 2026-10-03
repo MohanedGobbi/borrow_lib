@@ -120,6 +120,9 @@ const en: Dict = {
   "users.deleteConfirm": "Delete this account permanently?",
   "users.deleteBody": "This removes the account and its borrowing history. It cannot be undone.",
   "users.goodStanding": "In good standing", "users.blocked": "Overdue, requests blocked", "users.inactive": "Inactive",
+  "users.noLimit": "Staff accounts have no loan limit", "req.showCard": "Show my card",
+  "dash.searchInventoryShort": "Title, author, ISBN, shelf",
+  "analytics.fulfillmentHelp": "Share of requests that became loans",
   "users.back": "All members", "users.allRoles": "All roles",
 
   "analytics.monthly": "Loans and returns per month", "analytics.category": "Requests by category",
@@ -512,6 +515,9 @@ const fr: Dict = {
   "users.deleteConfirm": "Supprimer définitivement ce compte ?",
   "users.deleteBody": "Le compte et son historique d'emprunt seront supprimés. Cette action est irréversible.",
   "users.goodStanding": "En règle", "users.blocked": "En retard, demandes bloquées", "users.inactive": "Inactif",
+  "users.noLimit": "Les comptes du personnel n'ont pas de limite de prêt", "req.showCard": "Afficher ma carte",
+  "dash.searchInventoryShort": "Titre, auteur, ISBN, cote",
+  "analytics.fulfillmentHelp": "Part des demandes devenues des prêts",
   "users.back": "Tous les lecteurs", "users.allRoles": "Tous les rôles",
 
   "analytics.monthly": "Prêts et retours par mois", "analytics.category": "Demandes par catégorie",
@@ -904,6 +910,9 @@ const ar: Dict = {
   "users.deleteConfirm": "حذف هذا الحساب نهائيًا؟",
   "users.deleteBody": "سيُحذف الحساب وسجل إعاراته. لا يمكن التراجع عن ذلك.",
   "users.goodStanding": "وضعه سليم", "users.blocked": "متأخر، الطلبات موقوفة", "users.inactive": "غير نشط",
+  "users.noLimit": "حسابات الموظفين بلا حد للإعارة", "req.showCard": "عرض بطاقتي",
+  "dash.searchInventoryShort": "العنوان، المؤلف، ISBN، الرف",
+  "analytics.fulfillmentHelp": "نسبة الطلبات التي تحولت إلى إعارات",
   "users.back": "كل القراء", "users.allRoles": "كل الأدوار",
 
   "analytics.monthly": "الإعارات والإرجاعات شهريًا", "analytics.category": "الطلبات حسب التصنيف",

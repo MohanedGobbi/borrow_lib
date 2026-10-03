@@ -5,8 +5,7 @@ import { apiReservations } from "@/api";
 import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { fmtDate } from "@/lib/time";
-import { EmptyState, PageHeader, Panel } from "@/components/Page";
-import { FullPageLoader } from "@/auth/guards";
+import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import type { Reservation } from "@/types";
 
 export default function ReservationsPage() {
@@ -15,7 +14,6 @@ export default function ReservationsPage() {
     queryKey: qk.reservations.list, queryFn: apiReservations.all, refetchInterval: 45_000,
   });
 
-  if (isPending) return <FullPageLoader />;
 
   const byBook = new Map<number, Reservation[]>();
   (reservations ?? []).forEach((q) => byBook.set(q.bookId, [...(byBook.get(q.bookId) ?? []), q]));
@@ -23,7 +21,9 @@ export default function ReservationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("staff.reservations")} />
-      {byBook.size === 0 ? (
+      {isPending ? (
+        <div className="rounded-md border bg-white"><RowsSkeleton /></div>
+      ) : byBook.size === 0 ? (
         <div className="rounded-md border bg-white"><EmptyState icon={ListOrdered} title={t("dash.noReservations")} /></div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">

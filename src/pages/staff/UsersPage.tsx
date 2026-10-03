@@ -12,10 +12,9 @@ import { errorMessage } from "@/lib/errors";
 import { InviteStaffDialog } from "@/components/InviteStaffDialog";
 import { MemberStanding } from "@/components/MemberStanding";
 import { Pager } from "@/components/Pager";
-import { EmptyState, PageHeader, Panel } from "@/components/Page";
+import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FullPageLoader } from "@/auth/guards";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -56,7 +55,6 @@ export default function UsersPage() {
     refetchInterval: 60_000,
   });
 
-  if (isPending) return <FullPageLoader />;
   const filtered = result?.results ?? [];
 
   return (
@@ -126,7 +124,7 @@ export default function UsersPage() {
           </>
         }
       >
-        {filtered.length === 0 ? (
+        {isPending ? <RowsSkeleton /> : filtered.length === 0 ? (
           <EmptyState icon={UserX} title={t("users.noUsers")} />
         ) : (
           <div className={tableCls.wrap}>
@@ -149,7 +147,11 @@ export default function UsersPage() {
                     </td>
                     <td className={tableCls.td}><span dir="ltr" className="font-mono text-[13px]">{u.studentOrStaffId}</span></td>
                     <td className={tableCls.td}>{t(`role.${u.role}`)}</td>
-                    <td className={tableCls.td}><span className="tabular">{u.activeLoans} / {u.maxBorrowLimit}</span></td>
+                    <td className={tableCls.td}>
+                      {u.role === "MEMBER"
+                        ? <span dir="ltr" className="tabular inline-block">{u.activeLoans} / {u.maxBorrowLimit}</span>
+                        : <span className="text-muted-foreground"><span aria-hidden>—</span><span className="sr-only">{t("users.noLimit")}</span></span>}
+                    </td>
                     <td className={tableCls.td}><MemberStanding member={u} /></td>
                   </tr>
                 ))}

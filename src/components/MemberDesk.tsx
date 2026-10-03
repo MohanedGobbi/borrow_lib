@@ -50,7 +50,9 @@ export function MemberDesk({
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
             <span dir="ltr" className="font-mono text-[13px]">{member.studentOrStaffId}</span>
             <span>{t(`role.${member.role}`)}</span>
-            <span className="tabular">{t("desk.slots", { n: member.activeLoans, max: member.maxBorrowLimit })}</span>
+            {member.role === "MEMBER" && (
+              <span className="tabular">{t("desk.slots", { n: member.activeLoans, max: member.maxBorrowLimit })}</span>
+            )}
             <MemberStanding member={member} />
           </span>
         }

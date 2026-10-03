@@ -63,7 +63,9 @@ export default function UserDetailPage() {
     [t("profile.phone"), member.phoneNumber ? <span dir="ltr">{member.phoneNumber}</span> : "—"],
     [t("profile.role"), t(`role.${member.role}`)],
     [t("profile.since"), fmtDate(member.membershipStartDate)],
-    [t("profile.limit"), <span><span className="tabular">{member.activeLoans} / {member.maxBorrowLimit}</span> {t("profile.inuse")}</span>],
+    ...(member.role === "MEMBER"
+      ? [[t("profile.limit"), <span><span className="tabular">{member.activeLoans} / {member.maxBorrowLimit}</span> {t("profile.inuse")}</span>] as [string, React.ReactNode]]
+      : []), // staff and admins cannot borrow
   ];
 
   return (

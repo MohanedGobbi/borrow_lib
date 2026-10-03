@@ -34,7 +34,7 @@ export default function LandingPage() {
             <h1 className="text-[2rem] font-bold leading-[1.15] tracking-tight text-ink sm:text-[2.6rem]">
               {t("landing.title")}
             </h1>
-            <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-muted-foreground">{t("landing.sub")}</p>
+            <p className="mt-4 max-w-xl text-lead text-muted-foreground">{t("landing.sub")}</p>
 
             <form onSubmit={search} role="search" className="mt-8">
               <label htmlFor="hero-search" className="text-sm font-medium text-ink">{t("landing.searchLabel")}</label>
@@ -66,7 +66,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <aside className="rounded-md border bg-white p-6 shadow-[0_1px_3px_rgb(16_24_20/0.06)]" aria-labelledby="how-title">
+          <aside aria-labelledby="how-title">
             <h2 id="how-title" className="text-base font-semibold text-ink">{t("landing.how")}</h2>
             <ol className="mt-5 space-y-5">
               {steps.map((s) => (
@@ -113,7 +113,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-4 py-12 sm:px-6">
           <div className="max-w-2xl">
             <h2 className="text-lg font-semibold">{t("landing.staffTitle")}</h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">{t("landing.staffBody")}</p>
+            <p className="mt-2 max-w-prose text-[15px] leading-relaxed text-muted-foreground">{t("landing.staffBody")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline"><Link to="/login">{t("landing.staffSignin")}</Link></Button>

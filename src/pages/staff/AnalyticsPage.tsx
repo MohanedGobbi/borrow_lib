@@ -6,8 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiMisc } from "@/api";
 import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
-import { PageHeader, Panel } from "@/components/Page";
-import { FullPageLoader } from "@/auth/guards";
+import { PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { cn } from "@/lib/utils";
 
 // Chart palette follows the UI: green for healthy flow, red only for overdue, neutrals for the rest.
@@ -30,7 +29,14 @@ export default function AnalyticsPage() {
   const { t } = useI18n();
   const { data } = useQuery({ queryKey: qk.analytics, queryFn: apiMisc.analytics, refetchInterval: 60_000 });
 
-  if (!data) return <FullPageLoader />;
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t("staff.analytics")} />
+        <div className="rounded-md border bg-white"><RowsSkeleton rows={3} /></div>
+      </div>
+    );
+  }
 
   const statusData = Object.entries(data.statusDistribution).map(([status, n]) => ({
     status, label: t(`status.${status}`), count: n, fill: STATUS_COLORS[status] ?? MUTED,
@@ -38,7 +44,7 @@ export default function AnalyticsPage() {
   const categoryData = [...data.categoryLoans].sort((a, b) => b.loans - a.loans);
 
   const kpis = [
-    { label: t("analytics.fulfillment"), value: `${data.fulfillmentRate}%` },
+    { label: t("analytics.fulfillment"), value: `${data.fulfillmentRate}%`, help: t("analytics.fulfillmentHelp") },
     { label: t("dash.onLoan"), value: data.statusDistribution.BORROWED ?? 0 },
     { label: t("dash.overdue"), value: data.statusDistribution.OVERDUE ?? 0, danger: (data.statusDistribution.OVERDUE ?? 0) > 0 },
     { label: t("analytics.reservations"), value: data.activeReservations },
@@ -53,6 +59,7 @@ export default function AnalyticsPage() {
           <div key={k.label} className={cn("p-4", i % 2 === 0 && "border-e", i < 2 && "border-b lg:border-b-0", i === 1 && "lg:border-e", i === 2 && "lg:border-e")}>
             <dt className="text-sm text-muted-foreground">{k.label}</dt>
             <dd className={cn("tabular mt-1 text-[1.75rem] font-semibold leading-none", k.danger ? "text-danger" : "text-ink")}>{k.value}</dd>
+            {k.help && <dd className="mt-1.5 text-xs text-muted-foreground">{k.help}</dd>}
           </div>
         ))}
       </dl>

@@ -77,31 +77,19 @@ export default function BookDetailPage() {
         </Link>
       </nav>
 
-      <div className="mt-6 grid gap-8 md:grid-cols-[12rem_minmax(0,1fr)] lg:grid-cols-[14rem_minmax(0,1fr)_20rem] lg:gap-10">
-        <div className="max-w-[14rem]">
-          <BookCover book={book} size="lg" />
+      {/* Phones: title beside a thumbnail cover, then availability and the request buttons, the copies, the details.
+          md and up: cover, content and availability side by side, the copies below. */}
+      <div className="mt-6 grid grid-cols-[6rem_minmax(0,1fr)] gap-x-4 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-x-8 lg:grid-cols-[14rem_minmax(0,1fr)_20rem] lg:gap-x-10">
+        <div className="col-start-1 row-start-1 md:row-span-2 md:max-w-[14rem]">
+          <BookCover book={book} size="hero" />
         </div>
 
-        <div className="min-w-0">
-          <h1 dir="auto" className="text-[1.75rem] font-bold leading-tight tracking-tight sm:text-3xl">{book.title}</h1>
-          <p className="mt-1.5 text-[17px] text-muted-foreground">{t("book.by")} <span dir="auto" className="text-ink">{book.author}</span></p>
-
-          {book.description && (
-            <p dir="auto" className="mt-6 max-w-[65ch] text-[15px] leading-relaxed text-ink/90">{book.description}</p>
-          )}
-
-          <h2 className="mt-8 text-sm font-semibold text-ink">{t("book.details")}</h2>
-          <dl className="mt-3 grid max-w-xl grid-cols-[auto_1fr] gap-x-8 border-t text-[15px]">
-            {meta.map(([k, v]) => (
-              <div key={k} className="col-span-2 grid grid-cols-subgrid border-b py-2.5">
-                <dt className="text-muted-foreground">{k}</dt>
-                <dd className="text-ink">{v}</dd>
-              </div>
-            ))}
-          </dl>
+        <div className="col-start-2 row-start-1 min-w-0">
+          <h1 dir="auto" className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{book.title}</h1>
+          <p className="mt-1.5 text-lead text-muted-foreground">{t("book.by")} <span dir="auto" className="text-ink">{book.author}</span></p>
         </div>
 
-        <aside className="h-fit rounded-md border bg-white p-5 md:col-span-2 lg:col-span-1">
+        <aside className="col-span-2 row-start-2 mt-6 h-fit rounded-md border bg-white p-5 md:col-start-1 md:row-start-3 md:mt-8 lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:mt-0">
           <h2 className="text-sm font-semibold text-ink">{t("book.availability")}</h2>
           <p className={out ? "mt-2 text-lg font-semibold text-ink" : "mt-2 text-lg font-semibold text-brand-dark"}>
             {out ? t("book.allOut") : t("book.onShelf")}
@@ -128,13 +116,29 @@ export default function BookDetailPage() {
           )}
           <p className="mt-4 border-t pt-4 text-sm leading-relaxed text-muted-foreground">{t("book.rules")}</p>
         </aside>
-      </div>
 
-      {(copies ?? []).length > 0 && (
-        <div className="mt-10">
-          <BookCopies copies={copies!} />
+        {(copies ?? []).length > 0 && (
+          <div className="col-span-full row-start-3 mt-8 md:row-start-4 md:mt-10 lg:row-start-3">
+            <BookCopies copies={copies!} />
+          </div>
+        )}
+
+        <div className="col-span-full row-start-4 min-w-0 md:col-span-1 md:col-start-2 md:row-start-2 lg:row-start-2">
+          {book.description && (
+            <p dir="auto" className="mt-8 max-w-[65ch] text-[15px] leading-relaxed text-ink/90 md:mt-6">{book.description}</p>
+          )}
+
+          <h2 className="mt-8 text-sm font-semibold text-ink">{t("book.details")}</h2>
+          <dl className="mt-3 grid max-w-xl grid-cols-[auto_1fr] gap-x-8 border-t text-[15px]">
+            {meta.map(([k, v]) => (
+              <div key={k} className="col-span-2 grid grid-cols-subgrid border-b py-2.5">
+                <dt className="text-muted-foreground">{k}</dt>
+                <dd className="text-ink">{v}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
-      )}
+      </div>
 
       {isStaff && (
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">

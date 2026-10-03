@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router";
-import { Toaster } from "sonner";
+import { AppToaster } from "@/components/AppToaster";
 import { Layout } from "@/components/Layout";
 import { FullPageLoader, RequireAuth, RequireStaff } from "@/auth/guards";
 import LandingPage from "@/pages/LandingPage";
@@ -41,7 +41,7 @@ const DemoMailbox = import.meta.env.VITE_DEMO === "true" ? lazy(() => import("@/
 export default function App() {
   return (
     <>
-      <Toaster position="bottom-right" richColors />
+      <AppToaster />
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<LandingPage />} />

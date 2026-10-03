@@ -9,11 +9,10 @@ import { BookCover } from "@/components/BookCover";
 import { Availability, BookActions } from "@/components/BookActions";
 import { Container } from "@/components/Layout";
 import { Pager } from "@/components/Pager";
-import { EmptyState, ErrorState, PageHeader } from "@/components/Page";
+import { EmptyState, ErrorState, PageHeader, RowsSkeleton } from "@/components/Page";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FullPageLoader } from "@/auth/guards";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -124,7 +123,7 @@ export default function CatalogPage() {
 
         {/* results */}
         <div className="min-w-0">
-          {isPending && <FullPageLoader />}
+          {isPending && <div className="rounded-md border bg-white"><RowsSkeleton rows={6} /></div>}
           {isError && <ErrorState message={t("catalog.loadError")} onRetry={() => refetch()} />}
 
           {result && !isError && result.results.length === 0 && (
@@ -142,12 +141,12 @@ export default function CatalogPage() {
           {result && result.results.length > 0 && (
             <ul className="divide-y rounded-md border bg-white">
               {result.results.map((b) => (
-                <li key={b.id} className="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-4 gap-y-3 p-4 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:gap-x-5">
-                  <Link to={`/books/${b.id}`} tabIndex={-1} aria-hidden className="row-span-2 sm:row-span-1">
+                <li key={b.id} className="relative grid grid-cols-[4rem_minmax(0,1fr)] gap-x-4 gap-y-3 p-4 transition-colors active:bg-surface sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:gap-x-5 sm:active:bg-transparent">
+                  <Link to={`/books/${b.id}`} tabIndex={-1} aria-hidden>
                     <BookCover book={b} size="sm" />
                   </Link>
                   <div className="min-w-0">
-                    <Link dir="auto" to={`/books/${b.id}`} className="text-base font-semibold leading-snug text-ink hover:text-brand-dark hover:underline">
+                    <Link dir="auto" to={`/books/${b.id}`} className="text-base font-semibold leading-snug text-ink after:absolute after:inset-0 hover:text-brand-dark hover:underline sm:after:hidden">
                       {b.title}
                     </Link>
                     <p dir="auto" className="mt-0.5 text-sm text-muted-foreground">
@@ -164,7 +163,7 @@ export default function CatalogPage() {
                       </span>
                     </p>
                   </div>
-                  <div className="col-start-2 sm:col-start-3 sm:self-center">
+                  <div className="hidden sm:col-start-3 sm:block sm:self-center">
                     <BookActions book={b} className="w-full sm:w-44" />
                   </div>
                 </li>

@@ -4,8 +4,7 @@ import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
 import { activityText, actorLabel } from "@/lib/errors";
 import { fmtDateTime, timeAgo } from "@/lib/time";
-import { PageHeader, Panel } from "@/components/Page";
-import { FullPageLoader } from "@/auth/guards";
+import { PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
 
@@ -15,12 +14,12 @@ export default function ActivityPage() {
     queryKey: qk.activity, queryFn: apiMisc.activity, refetchInterval: 45_000,
   });
 
-  if (isPending) return <FullPageLoader />;
 
   return (
     <div className="space-y-6">
       <PageHeader title={t("staff.activity")} />
       <Panel title={t("dash.recent")} count={(activity ?? []).length} flush>
+        {isPending ? <RowsSkeleton rows={6} /> : (
         <div className={tableCls.wrap}>
           <table className={tableCls.table}>
             <thead>
@@ -45,6 +44,7 @@ export default function ActivityPage() {
             </tbody>
           </table>
         </div>
+        )}
       </Panel>
     </div>
   );

@@ -11,7 +11,7 @@ import { errorMessage } from "@/lib/errors";
 import { BookEditDialog } from "@/components/BookEditDialog";
 import { Availability } from "@/components/BookActions";
 import { Pager } from "@/components/Pager";
-import { PageHeader, Panel } from "@/components/Page";
+import { PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { GuardedButton } from "@/components/GuardedButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { FullPageLoader } from "@/auth/guards";
 import { useStaffAction } from "@/pages/staff/staffContext";
 import { fetchPage } from "@/lib/paging";
 import { tableCls } from "@/lib/table";
@@ -43,7 +42,6 @@ export default function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState<Book | null>(null);
 
-  if (isPending) return <FullPageLoader />;
 
   const openEdit = (b: Book | null) => {
     setEditBook(b);
@@ -77,12 +75,13 @@ export default function InventoryPage() {
             <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <Input
               type="search" value={filter} onChange={(e) => setFilter(e.target.value)}
-              placeholder={t("dash.searchInventory")} aria-label={t("dash.searchInventory")}
+              placeholder={t("dash.searchInventoryShort")} aria-label={t("dash.searchInventory")}
               className="h-9 ps-8"
             />
           </div>
         }
       >
+        {isPending ? <RowsSkeleton rows={6} /> : (
         <div className={tableCls.wrap}>
           <table className={tableCls.table}>
             <thead>
@@ -137,6 +136,7 @@ export default function InventoryPage() {
             </tbody>
           </table>
         </div>
+        )}
         {result && (
           <Pager
             page={result.page} pageSize={result.pageSize} count={result.count}

@@ -41,7 +41,7 @@ export function BrandMark({ className }: { className?: string }) {
         <LibraryBig className="size-5" aria-hidden />
       </span>
       <span className="leading-tight">
-        <span className="block text-[17px] font-bold tracking-tight text-ink">LibBorrow</span>
+        <span className="block text-lead font-bold leading-tight tracking-tight text-ink">LibBorrow</span>
         <span className="block whitespace-nowrap text-xs text-muted-foreground">{t("brand.library")}</span>
       </span>
     </span>
@@ -107,7 +107,8 @@ export function Layout() {
                   cn(
                     "relative flex items-center px-3 text-[15px] font-medium text-ink/70 transition-colors hover:text-ink",
                     "after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-transparent",
-                    isActive && "text-brand-dark after:bg-brand",
+                    // the member workstation (/scan/:uuid) is part of the staff desk
+                    (isActive || (n.to === "/staff" && isStaffArea)) && "text-brand-dark after:bg-brand",
                   )
                 }
               >
@@ -142,7 +143,7 @@ export function Layout() {
                   <Link to="/cart" className={cn(iconBtn, "hidden sm:inline-flex")} aria-label={`${t("nav.cart")} (${bookIds.length})`}>
                     <ClipboardList className="size-5" aria-hidden />
                     {bookIds.length > 0 && (
-                      <span className="tabular absolute end-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
+                      <span className="tabular absolute end-1 top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand px-1 text-xs font-semibold text-white">
                         {bookIds.length}
                       </span>
                     )}
@@ -157,7 +158,7 @@ export function Layout() {
                   <DropdownMenuTrigger className={iconBtn} aria-label={`${t("nav.notifications")} (${unread})`}>
                     <Bell className="size-5" aria-hidden />
                     {unread > 0 && (
-                      <span className="tabular absolute end-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
+                      <span className="tabular absolute end-1 top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1 text-xs font-semibold text-white">
                         {unread}
                       </span>
                     )}
@@ -221,7 +222,7 @@ export function Layout() {
                 <Button asChild variant="ghost" className="hidden sm:inline-flex">
                   <Link to="/login">{t("nav.signin")}</Link>
                 </Button>
-                <Button asChild className="hidden sm:inline-flex">
+                <Button asChild variant="outline" className="hidden sm:inline-flex">
                   <Link to="/signup">{t("nav.join")}</Link>
                 </Button>
               </>
@@ -275,7 +276,7 @@ export function Layout() {
       </main>
 
       <footer className="border-t bg-surface">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-muted-foreground sm:px-6">
+        <div className={cn("mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-muted-foreground sm:px-6", isStaffArea ? "max-w-[1440px]" : "max-w-7xl")}>
           <span>LibBorrow · {t("brand.library")}</span>
           <span>{t("footer.rules")}</span>
         </div>

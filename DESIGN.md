@@ -32,6 +32,11 @@ typography:
     fontSize: "15px"
     fontWeight: 600
     lineHeight: 1.4
+  lead:
+    fontFamily: "Public Sans, Noto Sans Arabic, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "17px"
+    fontWeight: 400
+    lineHeight: 1.6
   body:
     fontFamily: "Public Sans, Noto Sans Arabic, ui-sans-serif, system-ui, sans-serif"
     fontSize: "15px"
@@ -171,7 +176,7 @@ The palette is a restrained green-white-red institutional scheme, as the owner r
 ### Tertiary
 - **Overdue Red** (#B42318): overdue durations, the overdue badge, blocked standing, the overdue sidebar count (solid), destructive buttons and menu items ("Sign out"), and error states. Charts use it only for the OVERDUE series.
 - **Overdue Wash** (#FDEDEB): the background of the overdue badge, the "new requests blocked" banner, overdue loan cards and error panels, paired with a red border at 30% opacity.
-- **Deadline Amber** (#A34A06): pickup-window countdowns and the clock icon next to them in staff queues. It means "closing soon, not yet late". Keep it for time pressure only.
+- **Deadline Amber** (#A34A06): pickup-window countdowns and the clock icon next to them in staff queues. It means "closing soon, not yet late" and belongs to pickup windows only. A loan that is due within three days is not amber: staff Loans shows it in ink with a Clock icon, so amber keeps one meaning. Keep it for time pressure only.
 
 ### Neutral
 - **Ink** (#121A16): headings, body text, table cell text. The chart axis ink.
@@ -201,9 +206,10 @@ The palette is a restrained green-white-red institutional scheme, as the owner r
 - **Headline** (600, 1.5rem rising to 1.75rem, tight tracking): the page title in every PageHeader ("Catalog", "Overview"). Followed by a 15px muted description capped at about 42rem.
 - **Section title** (600, 1.125 to 1.25rem): h2 sections on member pages ("On the shelf now").
 - **Title** (600, 15px): panel headers, book titles in lists, step titles.
-- **Body** (400, 15px, 1.5): member-page prose, nav links, buttons. Lead paragraphs step up to 17px with relaxed leading.
+- **Lead** (400, 17px, 1.6; Tailwind `text-lead`): the landing sub-headline, the author line on the book page, and the wordmark (at 700). The only step between body and the section titles.
+- **Body** (400, 15px, 1.5): member-page prose, nav links, buttons.
 - **Body dense** (400, 14px): table cells, metadata lines, staff lists, secondary panel copy.
-- **Label** (500, 12px): table headers, badges, counts and timestamps. The sidebar and catalog filter group headings are the one uppercase use: 12px semibold with 0.025em tracking.
+- **Label** (500, 12px): table headers, badges, counts and timestamps, and the smallest text anywhere: nothing is set below 12px. The sidebar and catalog filter group headings are the one uppercase use: 12px semibold with 0.025em tracking.
 - **Stat** (600, 1.75rem, line-height 1, tabular): numerals in the staff vitals strip.
 - **Identifier** (JetBrains Mono 400, 13px): ISBNs, shelf marks (FIC-A-03), member ID numbers and receipt references, always `dir="ltr"`.
 
@@ -211,6 +217,8 @@ The palette is a restrained green-white-red institutional scheme, as the owner r
 **The Tabular Rule.** Tables, counts, stat numerals, dates in columns and countdowns use tabular figures (tables globally, the `.tabular` utility elsewhere) so digits never jitter while a countdown ticks.
 
 **The Mono Is For Codes Rule.** JetBrains Mono appears only on machine identifiers that a person matches character by character. Never use it for labels, headings or decoration.
+
+**The Scale Rule.** Type sizes come from the ramp above (display, headline, section title, lead, title/body, body dense, label, stat, identifier). No arbitrary sizes such as `text-[17px]`; if a new step is needed, add it to `tailwind.config.js` and to this list first.
 
 **The Three Weights Rule.** Use 400 for reading, 500 for interactive and label text, and 600 for titles. Keep 700 for the display headline and the wordmark.
 
@@ -220,9 +228,9 @@ Two containers share one header. Member pages use a centered 1280px column (max-
 
 Spacing follows a 4px grid. Typical steps are 12px (cell and list-row padding), 16px (panel padding, gutters), 24px (grid gaps between panels), 32px (stack between page blocks) and 56px (landing section bands). Page structure is PageHeader, then an optional vitals strip, then Panels in a two-column grid at xl (about 1.3fr and 1fr).
 
-The landing page is search-first. The headline and a 48px search field sit beside a 26rem "How borrowing works" panel with four numbered steps, over a desk-grey band. Below that come a six-up shelf of covers (two-up on mobile) and a quiet staff band. The catalog is a 240px filter column plus a single bordered list of book rows, each with the cover, title, metadata, availability and shelf mark, and its action aligned to the end.
+The landing page is search-first. The headline and a 48px search field sit beside a 26rem "How borrowing works" column of four numbered steps, set straight on the desk-grey band (no card of its own). Below that come a six-up shelf of covers (two-up on mobile) and a quiet staff band. The catalog is a 240px filter column plus a single bordered list of book rows, each with the cover, title, metadata, availability and shelf mark, and its action aligned to the end.
 
-Mobile collapses to a single column. The top nav moves into a sheet that opens from the inline-end side (left in RTL), and panels stack.
+Mobile collapses to a single column. The top nav moves into a sheet that opens from the inline-end side (left in RTL), and panels stack. The primary action comes first on a phone: the book page runs title beside a 96px thumbnail cover, then the availability panel with Request / Join, then copies, then details; the profile opens with the library card and its QR code; catalog rows are one tap target (the title link is stretched over the row) with availability as text and no per-row button. The footer takes the same width as the header, so on staff pages it lines up with the 1440px shell.
 
 ## Elevation & Depth
 
@@ -231,7 +239,7 @@ The system is flat and uses hairlines. Depth comes from 1px borders and from the
 ### Shadow Vocabulary
 - **Hairline lift** (`box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05)`): outline buttons and inputs (Tailwind `shadow-xs`).
 - **Selected tab** (`box-shadow: 0 1px 2px rgb(16 24 20 / 0.08)` plus a 1px hairline ring): the active staff sidebar item, a white tab raised out of the grey sidebar.
-- **Resting card** (`box-shadow: 0 1px 3px rgb(16 24 20 / 0.06)`): stand-alone cards on grey, such as the landing steps panel and the auth card.
+- **Resting card** (`box-shadow: 0 1px 3px rgb(16 24 20 / 0.06)`): stand-alone cards on grey, such as the auth card and toasts.
 - **Object** (`box-shadow: 0 1px 2px rgb(0 0 0 / 0.12)`): book covers only, so a binding reads as a physical object.
 - **Overlay** (shadcn `shadow-md` / `shadow-lg`): dropdowns, dialogs and sheets only.
 
@@ -281,11 +289,14 @@ Direct and quiet. One green filled button per action group.
 - **Mobile:** a sheet from the inline-end side with 15px rows. The active row is a Green Wash pill.
 - **Demo strip:** a desk-grey band under the header with a green info icon, 13px muted text and an underlined deep-green reset link.
 
+### Toasts
+Transient messages use system tokens: a white surface, a hairline border, 6px radius (`lg`), the resting-card shadow and a leading 18px Lucide icon in green (success, info) or red (error). Sonner's `richColors` is off. They sit at the end of the reading direction, bottom-right in LTR and bottom-left in RTL. The Undo action is a secondary button.
+
 ### Tables
 - **Style:** full width with a 640px minimum and horizontal scroll inside the panel. 40px desk-grey header row with 12px/500 muted labels aligned to the start. 14px cells with 16px by 12px padding and row hairlines. The last row has no rule. Hover gives a 60% desk-grey row.
 
 ### Book Cover (signature)
-A generated library binding in the book's cloth color (muted, dark: slate, bottle green, oxblood, umber), 2:3 aspect, 3px radius, with the object shadow. A 7% darker spine hinge with a 1px light rule runs along the inline start. At md and lg sizes it shows a short white rule, the title in white semibold and the author at 85% white at the foot. At sm it is a plain cloth block. An uploaded image replaces it at the same geometry.
+A generated library binding in the book's cloth color (muted, dark: slate, bottle green, oxblood, umber), 2:3 aspect, 3px radius, with the object shadow. A 7% darker spine hinge with a 1px light rule runs along the inline start. At md and lg sizes it shows a short white rule, the title in white semibold and the author at 85% white at the foot. At sm it is a plain cloth block. On the book page the cover is a ~96px thumbnail below md that shows the title only (no author line, never smaller than 12px) and is hidden from assistive tech, because the real title sits beside it. An uploaded image replaces it at the same geometry.
 
 ### Countdown
 A live `dir="ltr"` tabular timer (HH:MM:SS) for pickup windows. Deep green on the member's own ready loans, Deadline Amber in staff "needs attention" queues, and the word "Expired" in red at zero. Overdue loans show "N days overdue" in red semibold instead.

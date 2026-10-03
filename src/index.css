@@ -49,8 +49,8 @@
     caret-color: hsl(var(--primary));
   }
   ::selection {
-    background: hsl(142 45% 85%);
-    color: hsl(150 78% 12%);
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--foreground));
   }
   a {
     text-underline-offset: 3px;

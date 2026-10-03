@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { BookOpen, SearchX } from "lucide-react";
+import { BookOpen, Clock, SearchX } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiRecords } from "@/api";
 import { qk } from "@/api/queryKeys";
@@ -13,8 +13,7 @@ import { Pager } from "@/components/Pager";
 import { QueueFilter } from "@/components/QueueFilter";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { daysFrom, fmtDate, msLeft } from "@/lib/time";
-import { EmptyState, PageHeader, Panel } from "@/components/Page";
-import { FullPageLoader } from "@/auth/guards";
+import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { fetchPage } from "@/lib/paging";
 import { tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
@@ -38,7 +37,6 @@ export default function LoansPage() {
   });
   const deferred = useDeferredAction();
 
-  if (isPending) return <FullPageLoader />;
   const loans = result?.results ?? [];
 
   return (
@@ -48,7 +46,7 @@ export default function LoansPage() {
         title={t("desk.loansOut")} count={result?.count ?? 0} flush
         actions={<QueueFilter value={filter} onChange={setFilter} />}
       >
-        {loans.length === 0 ? (
+        {isPending ? <RowsSkeleton /> : loans.length === 0 ? (
           search
             ? <EmptyState icon={SearchX} title={t("desk.noFilterMatch", { q: search })} />
             : <EmptyState icon={BookOpen} title={t("dash.noLoans")} />
@@ -78,8 +76,9 @@ export default function LoansPage() {
                       </td>
                       <td className={cn(tableCls.td, "whitespace-nowrap text-muted-foreground")}>{fmtDate(r.borrowedAt)}</td>
                       <td className={cn(tableCls.td, "whitespace-nowrap")}>
-                        <span className={cn("font-medium", overdue && "text-danger", dueSoon && "text-warning")}>{fmtDate(r.dueDate)}</span>
-                        <div className={cn("text-xs", overdue ? "text-danger" : "text-muted-foreground")}>
+                        <span className={cn("font-medium", overdue && "text-danger")}>{fmtDate(r.dueDate)}</span>
+                        <div className={cn("flex items-center gap-1 text-xs", overdue ? "text-danger" : dueSoon ? "font-medium text-ink" : "text-muted-foreground")}>
+                          {dueSoon && <Clock className="size-3.5 shrink-0" aria-hidden />}
                           {overdue ? t("time.daysOverdue", { n: Math.abs(days) }) : days <= 1 ? t("time.dayLeft") : t("time.daysLeft", { n: days })}
                         </div>
                       </td>
