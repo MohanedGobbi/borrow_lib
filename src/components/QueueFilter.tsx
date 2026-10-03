@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 export function QueueFilter({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const { t } = useI18n();
   return (
-    <div className="relative w-96 max-w-full">
+    <div className="relative w-96 max-w-full max-sm:w-full">
       <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
       <Input
         type="search" value={value} onChange={(e) => onChange(e.target.value)}

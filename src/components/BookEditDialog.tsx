@@ -116,7 +116,7 @@ export function BookEditDialog({
           <div className="col-span-2 space-y-1.5 sm:col-span-1">
             <Label>{t("field.category")} {req}</Label>
             <Select value={form.categoryId} onValueChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}>
-              <SelectTrigger aria-label={t("field.category")}><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectTrigger aria-label={t("field.category")} className="w-full data-[size=default]:h-11"><SelectValue placeholder="—" /></SelectTrigger>
               <SelectContent>
                 {(categories ?? []).map((c) => (
                   <SelectItem key={c.id} value={String(c.id)}>

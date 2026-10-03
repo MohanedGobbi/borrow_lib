@@ -87,6 +87,7 @@
   .type-hero,
   .type-display,
   .type-title,
+  .type-feature,
   .type-heading {
     font-family: "Source Serif 4", "Noto Naskh Arabic", Georgia, serif;
     font-optical-sizing: auto;
@@ -113,6 +114,13 @@
     line-height: 1.12;
     letter-spacing: -0.016em;
   }
+  /* The lead item of a list (the most urgent loan): a step above type-heading. */
+  .type-feature {
+    font-weight: 600;
+    font-size: 1.625rem;
+    line-height: 1.15;
+    letter-spacing: -0.012em;
+  }
   /* Book titles in lists and on covers' neighbours. */
   .type-heading {
     font-weight: 600;
@@ -123,12 +131,14 @@
   :lang(ar) .type-hero,
   :lang(ar) .type-display,
   :lang(ar) .type-title,
+  :lang(ar) .type-feature,
   :lang(ar) .type-heading {
     letter-spacing: 0;
   }
   :lang(ar) .type-hero { font-weight: 500; line-height: 1.32; }
   :lang(ar) .type-display { font-weight: 500; line-height: 1.35; }
   :lang(ar) .type-title { line-height: 1.4; }
+  :lang(ar) .type-feature { line-height: 1.45; }
   :lang(ar) .type-heading { line-height: 1.5; }
 
   /* The header bar on every page but the top of the landing hero: white glass with a hairline edge. */

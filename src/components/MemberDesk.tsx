@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { AlertTriangle, Check, CircleSlash, PackageCheck, BookOpen, ClipboardCheck, X } from "lucide-react";
+import { AlertTriangle, Check, CircleSlash, Clock, PackageCheck, BookOpen, ClipboardCheck, X } from "lucide-react";
 import { apiRecords } from "@/api";
 import { invalidateCirculation } from "@/api/queryKeys";
 import { useDeferredAction } from "@/hooks/useDeferredAction";
@@ -91,7 +91,10 @@ export function MemberDesk({
                   <PackageCheck className="size-4 shrink-0 text-brand" aria-hidden />
                   <BookLine record={r} />
                   <div className="text-sm">
-                    <Countdown deadline={r.pickupDeadline!} className={cn("tabular font-semibold", urgent && "text-warning")} />
+                    <span className="inline-flex items-center gap-1.5">
+                      {urgent && <Clock className="size-3.5" aria-label={t("dash.urgent")} />}
+                      <Countdown deadline={r.pickupDeadline!} className="tabular font-semibold" />
+                    </span>
                     <div className="text-xs text-muted-foreground">{fmtDateTime(r.pickupDeadline)}</div>
                   </div>
                   <DeferredRowAction kind="pickup" record={r} deferred={deferred} />

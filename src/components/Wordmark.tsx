@@ -8,11 +8,12 @@ import { cn } from "@/lib/utils";
  *
  * - `header`: 20px stacked, 22px with the line beside it from `lg`;
  * - `footer`: 30px stacked;
- * - `display`: 64px and up, for the sign-in panel.
+ * - `display`: 64px and up, for the sign-in panel;
+ * - `card`: 26px stacked, for the library card.
  */
 export function Wordmark({
   size = "header", tone = "ink", className,
-}: { size?: "header" | "footer" | "display"; tone?: "ink" | "white"; className?: string }) {
+}: { size?: "header" | "footer" | "display" | "card"; tone?: "ink" | "white"; className?: string }) {
   const { t } = useI18n();
   const white = tone === "white";
   return (
@@ -31,6 +32,7 @@ export function Wordmark({
           white ? "text-white" : "text-ink",
           size === "header" && "text-[1.25rem] tracking-[-0.004em] lg:text-[1.375rem]",
           size === "footer" && "text-[1.875rem] tracking-[-0.014em]",
+          size === "card" && "text-[1.625rem] tracking-[-0.012em]",
           size === "display" && "text-[clamp(4rem,2.5rem+3vw,5.25rem)] tracking-[-0.026em]",
         )}
       >
@@ -45,6 +47,7 @@ export function Wordmark({
           white ? "text-white/80" : "text-muted-foreground",
           size === "header" && "mt-[5px] text-xs lg:mt-0 lg:text-[13.5px] lg:font-normal",
           size === "footer" && "mt-2.5 text-[13px]",
+          size === "card" && "mt-2 text-[12.5px]",
           size === "display" && "mt-4 text-base sm:text-[17px]",
         )}
       >

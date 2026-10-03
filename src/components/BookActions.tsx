@@ -53,7 +53,7 @@ export function BookActions({
 
   if (!me) {
     return (
-      <Button asChild size={size} variant="outline" className={className}>
+      <Button asChild size={size} variant={size === "default" ? "default" : "outline"} className={className}>
         <Link to="/login" state={{ from: `/books/${book.id}` }}>{t("catalog.signinBorrow")}</Link>
       </Button>
     );

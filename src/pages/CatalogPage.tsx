@@ -127,6 +127,15 @@ export default function CatalogPage() {
             </ul>
           </nav>
           <div className="mt-8 border-t px-2.5 pt-6">{availableToggle}</div>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={() => setParams(new URLSearchParams(), { replace: true })}
+              className="mt-5 rounded-sm px-2.5 text-sm font-medium text-brand-dark underline-offset-4 hover:underline"
+            >
+              {t("catalog.clear")}
+            </button>
+          )}
         </aside>
 
         {/* results */}

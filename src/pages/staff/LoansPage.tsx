@@ -18,7 +18,7 @@ import { daysFrom, fmtDate, msLeft } from "@/lib/time";
 import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { fetchPage } from "@/lib/paging";
-import { tableCls } from "@/lib/table";
+import { stackCls, tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
 import { DUE_SOON_MS } from "@/types";
 
@@ -64,12 +64,12 @@ export default function LoansPage() {
             : <EmptyState icon={BookOpen} title={t("dash.noLoans")} />
         ) : (
           <div className={tableCls.wrap}>
-            <table className={tableCls.table}>
-              <thead>
+            <table className={cn(tableCls.table, stackCls.table)}>
+              <thead className={stackCls.head}>
                 <tr>
                   <th className={tableCls.th}>{t("col.book")}</th>
                   <th className={tableCls.th}>{t("col.member")}</th>
-                  <th className={tableCls.th}>{t("col.pickedUp")}</th>
+                  <th className={cn(tableCls.th, "max-sm:hidden")}>{t("col.pickedUp")}</th>
                   <th className={tableCls.th}>{t("col.due")}</th>
                   <th className={tableCls.th}>{t("col.status")}</th>
                   <th className={tableCls.th}>{t("col.renewal")}</th>
@@ -82,25 +82,25 @@ export default function LoansPage() {
                   const dueSoon = !overdue && msLeft(r.dueDate) < DUE_SOON_MS;
                   const days = daysFrom(r.dueDate);
                   return (
-                    <tr key={r.id} className={cn(tableCls.row, overdue && "bg-danger-soft/40 hover:bg-danger-soft/60")}>
-                      <td className={tableCls.td}><span dir="auto" className="font-medium">{r.bookTitle}</span></td>
-                      <td className={tableCls.td}>
+                    <tr key={r.id} className={cn(tableCls.row, stackCls.row, overdue && "bg-danger-soft/40 hover:bg-danger-soft/60")}>
+                      <td className={cn(tableCls.td, stackCls.cell)}><span dir="auto" className="font-medium">{r.bookTitle}</span></td>
+                      <td className={cn(tableCls.td, stackCls.cell)}>
                         <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="hover:text-brand-dark hover:underline">{r.userName}</Link>
                       </td>
-                      <td className={cn(tableCls.td, "whitespace-nowrap text-muted-foreground")}>{fmtDate(r.borrowedAt)}</td>
-                      <td className={cn(tableCls.td, "whitespace-nowrap")}>
+                      <td className={cn(tableCls.td, stackCls.cell, "whitespace-nowrap text-muted-foreground max-sm:hidden")}>{fmtDate(r.borrowedAt)}</td>
+                      <td className={cn(tableCls.td, stackCls.cell, "whitespace-nowrap")}>
                         <span className={cn("font-medium", overdue && "text-danger")}>{fmtDate(r.dueDate)}</span>
                         <div className={cn("flex items-center gap-1 text-xs", overdue ? "text-danger" : dueSoon ? "font-medium text-ink" : "text-muted-foreground")}>
                           {dueSoon && <Clock className="size-3.5 shrink-0" aria-hidden />}
                           {overdue ? t("time.daysOverdue", { n: Math.abs(days) }) : days <= 1 ? t("time.dayLeft") : t("time.daysLeft", { n: days })}
                         </div>
                       </td>
-                      <td className={tableCls.td}><StatusBadge status={r.status} /></td>
-                      <td className={cn(tableCls.td, "min-w-[11rem]")}>
+                      <td className={cn(tableCls.td, stackCls.cell)}><StatusBadge status={r.status} /></td>
+                      <td className={cn(tableCls.td, stackCls.cell, "min-w-[13rem] max-sm:min-w-0")}>
                         <RenewAction record={r} audience="staff" className="items-start" />
                       </td>
-                      <td className={tableCls.td}>
-                        <div className="flex justify-end gap-2">
+                      <td className={cn(tableCls.td, stackCls.cell)}>
+                        <div className={cn("flex flex-wrap justify-end gap-2", stackCls.actions)}>
                           <RequestDocButton record={r} />
                           <DeferredRowAction kind="return" record={r} deferred={deferred} />
                         </div>

@@ -48,21 +48,21 @@ export default function CartPage() {
       <PageHeader title={t("cart.title")} description={t("cart.sub")} />
 
       {items.length === 0 ? (
-        <div className="mt-8 rounded-md border">
+        <div className="mt-8 rounded-md border bg-white">
           <EmptyState icon={ClipboardList} title={t("cart.empty")}>
             <Button asChild size="sm"><Link to="/catalog">{t("cart.browse")}</Link></Button>
           </EmptyState>
         </div>
       ) : (
         <>
-          <ul className="mt-8 divide-y rounded-md border bg-white">
+          <ul className="mt-8 divide-y overflow-hidden rounded-md border bg-white">
             {items.map((b) => (
-              <li key={b.id} className="flex items-center gap-4 p-4">
-                <div className="w-12 shrink-0"><BookCover book={b} size="sm" /></div>
+              <li key={b.id} className="flex items-center gap-5 p-4 sm:p-5">
+                <div className="w-14 shrink-0"><BookCover book={b} size="sm" /></div>
                 <div className="min-w-0 flex-1">
-                  <Link dir="auto" to={`/books/${b.id}`} className="font-semibold text-ink hover:text-brand-dark hover:underline">{b.title}</Link>
-                  <p dir="auto" className="text-sm text-muted-foreground">{b.author}</p>
-                  <Availability book={b} className="mt-1" />
+                  <Link dir="auto" to={`/books/${b.id}`} className="type-heading text-ink hover:text-brand-dark hover:underline">{b.title}</Link>
+                  <p dir="auto" className="mt-0.5 text-[15px] text-muted-foreground">{b.author}</p>
+                  <Availability book={b} className="mt-2" />
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => cart.remove(b.id)} className="text-muted-foreground hover:text-danger">
                   <X className="size-4" aria-hidden /> {t("cart.remove")}
@@ -70,7 +70,7 @@ export default function CartPage() {
               </li>
             ))}
           </ul>
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
             <Button asChild variant="ghost"><Link to="/catalog">{t("cart.browse")}</Link></Button>
             <Button size="lg" disabled={busy} onClick={submit}>
               {busy ? t("cart.submitting") : <>{t("cart.submit")} <span className="tabular">({items.length})</span></>}

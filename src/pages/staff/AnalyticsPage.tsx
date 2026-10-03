@@ -6,8 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiMisc } from "@/api";
 import { qk } from "@/api/queryKeys";
 import { useI18n } from "@/i18n";
-import { PageHeader, Panel, RowsSkeleton } from "@/components/Page";
-import { cn } from "@/lib/utils";
+import { Figures, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 
 // Chart palette follows the UI: green for healthy flow, red only for overdue, neutrals for the rest.
 const INK = "#121A16";
@@ -54,15 +53,7 @@ export default function AnalyticsPage() {
     <div className="space-y-6">
       <PageHeader title={t("staff.analytics")} />
 
-      <dl className="grid grid-cols-2 overflow-hidden rounded-md border bg-white lg:grid-cols-4">
-        {kpis.map((k, i) => (
-          <div key={k.label} className={cn("p-4", i % 2 === 0 && "border-e", i < 2 && "border-b lg:border-b-0", i === 1 && "lg:border-e", i === 2 && "lg:border-e")}>
-            <dt className="text-sm text-muted-foreground">{k.label}</dt>
-            <dd className={cn("tabular mt-1 text-[1.75rem] font-semibold leading-none", k.danger ? "text-danger" : "text-ink")}>{k.value}</dd>
-            {k.help && <dd className="mt-1.5 text-xs text-muted-foreground">{k.help}</dd>}
-          </div>
-        ))}
-      </dl>
+      <Figures items={kpis} className="grid-cols-2 lg:grid-cols-4" />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Panel title={t("analytics.monthly")}>

@@ -132,7 +132,10 @@ export function Layout() {
         <aside aria-label={t("demo.label")} className="bg-brand-dark text-white/85">
           <div className={cn("mx-auto flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-[13px] leading-snug", width)}>
             <Info className="hidden size-4 shrink-0 text-white/70 sm:block" aria-hidden />
-            <span className="min-w-0">{t("demo.notice")}</span>
+            <span className="min-w-0">
+              <span className="sm:hidden">{t("demo.noticeShort")}</span>
+              <span className="hidden sm:inline">{t("demo.notice")}</span>
+            </span>
             <span className="flex flex-wrap gap-x-4">
               <button type="button" onClick={resetDemo} className="font-medium text-white underline decoration-white/40 underline-offset-[3px] hover:decoration-white">
                 {t("demo.reset")}

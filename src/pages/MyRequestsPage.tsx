@@ -24,6 +24,12 @@ import type { BorrowRecord } from "@/types";
 
 const ACTIVE = ["OVERDUE", "READY", "BORROWED", "PENDING"];
 
+/** When the date that matters for this record falls, as a sortable number (earlier = more urgent). */
+function urgency(r: BorrowRecord) {
+  const date = r.status === "READY" ? r.pickupDeadline : r.status === "PENDING" ? r.requestedAt : r.dueDate;
+  return date ? Date.parse(date) : Infinity;
+}
+
 export default function MyRequestsPage() {
   const { me } = useAuth();
   const { t } = useI18n();
@@ -53,9 +59,10 @@ export default function MyRequestsPage() {
   if (!me) return <FullPageLoader />;
 
   // most urgent first: overdue, ready for pickup, on loan, pending
+  // and within a state, the date that is closest first: the hold that closes soonest, the loan due soonest
   const active = (records ?? [])
     .filter((r) => ACTIVE.includes(r.status))
-    .sort((a, b) => ACTIVE.indexOf(a.status) - ACTIVE.indexOf(b.status));
+    .sort((a, b) => ACTIVE.indexOf(a.status) - ACTIVE.indexOf(b.status) || urgency(a) - urgency(b));
   const history = (records ?? []).filter((r) => !ACTIVE.includes(r.status));
 
   return (
@@ -80,7 +87,7 @@ export default function MyRequestsPage() {
       )}
 
       <section className="mt-8" aria-labelledby="active-h">
-        <h2 id="active-h" className="text-base font-semibold">{t("req.active")}</h2>
+        <h2 id="active-h" className="text-[15px] font-semibold text-ink">{t("req.active")}</h2>
         {isPending ? (
           <div className="mt-3 rounded-md border bg-white"><RowsSkeleton rows={3} /></div>
         ) : active.length === 0 ? (
@@ -90,10 +97,10 @@ export default function MyRequestsPage() {
             </EmptyState>
           </div>
         ) : (
-          <ul className="mt-3 divide-y rounded-md border bg-white">
-            {active.map((r) => (
+          <ul className="mt-3 divide-y overflow-hidden rounded-md border bg-white">
+            {active.map((r, i) => (
               <ActiveRow
-                key={r.id} r={r}
+                key={r.id} r={r} lead={i === 0}
                 onWithdraw={(kind) => setTarget({ kind, id: r.id, title: r.bookTitle })}
               />
             ))}
@@ -175,40 +182,55 @@ export default function MyRequestsPage() {
   );
 }
 
-/** One current request/loan, with the date that matters most for its state. */
-function ActiveRow({ r, onWithdraw }: { r: BorrowRecord; onWithdraw: (kind: "request" | "hold") => void }) {
+/**
+ * One current request/loan, with the date that matters most for its state set large in the serif face.
+ * The first row of the list (the most urgent) is the lead: more room, a bigger title and figure, a faint ground.
+ */
+function ActiveRow({ r, lead, onWithdraw }: { r: BorrowRecord; lead: boolean; onWithdraw: (kind: "request" | "hold") => void }) {
   const { t } = useI18n();
   const overdue = r.status === "OVERDUE";
   const days = daysFrom(r.dueDate);
+  const fig = cn("tabular font-display font-semibold leading-none", lead ? "text-[2.25rem] font-medium tracking-[-0.01em] sm:whitespace-nowrap" : "text-[1.375rem]");
 
   let keyLabel: string;
   let keyValue: React.ReactNode;
   if (r.status === "READY" && r.pickupDeadline) {
     keyLabel = `${t("req.pickupBy")} ${fmtDateTime(r.pickupDeadline)}`;
-    keyValue = <Countdown deadline={r.pickupDeadline} className="tabular text-lg font-semibold text-brand-dark" />;
+    keyValue = <Countdown deadline={r.pickupDeadline} className={cn(fig, "text-brand-dark")} />;
   } else if (overdue) {
     keyLabel = `${t("req.overdue")} ${fmtDate(r.dueDate)}`;
-    keyValue = <span className="text-lg font-semibold text-danger">{t("time.daysOverdue", { n: Math.abs(days) })}</span>;
+    keyValue = <span className={cn(fig, "text-danger")}>{t("time.daysOverdue", { n: Math.abs(days) })}</span>;
   } else if (r.status === "BORROWED") {
     keyLabel = `${t("req.due")} ${fmtDate(r.dueDate)}`;
-    keyValue = <span className="text-lg font-semibold text-ink">{days <= 1 ? t("time.dayLeft") : t("time.daysLeft", { n: days })}</span>;
+    keyValue = <span className={cn(fig, "text-ink")}>{days <= 1 ? t("time.dayLeft") : t("time.daysLeft", { n: days })}</span>;
   } else {
     keyLabel = `${t("req.requested")} ${fmtDate(r.requestedAt)}`;
     keyValue = <span className="text-[15px] text-muted-foreground">{t("req.waiting")}</span>;
   }
 
   return (
-    <li className={cn("grid gap-x-6 gap-y-3 p-4 sm:grid-cols-[minmax(0,1fr)_14rem_auto] sm:items-center", overdue && "bg-danger-soft/50")}>
+    <li
+      className={cn(
+        "grid gap-x-8 gap-y-4 p-4 sm:grid-cols-[minmax(0,1fr)_16rem_auto] sm:items-center",
+        lead && "p-5 sm:p-7",
+        overdue ? "bg-danger-soft/50" : lead && (r.status === "READY" ? "bg-brand-soft/50" : "bg-surface/70"),
+      )}
+    >
       <div className="min-w-0">
-        <Link to={`/books/${r.bookId}`} dir="auto" className="font-semibold text-ink hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        <Link
+          to={`/books/${r.bookId}`} dir="auto"
+          className={cn("text-ink hover:text-brand-dark hover:underline", lead ? "type-feature" : "font-semibold")}
+        >
+          {r.bookTitle}
+        </Link>
+        <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground", lead ? "mt-3" : "mt-1.5")}>
           <StatusBadge status={r.status} />
           <span>{t("field.shelf")} <span dir="ltr" className="font-mono text-[13px] text-ink/80">{r.bookShelf || "—"}</span></span>
         </div>
       </div>
       <div>
         <div>{keyValue}</div>
-        <div className="text-sm text-muted-foreground">{keyLabel}</div>
+        <div className={cn("text-sm text-muted-foreground", lead ? "mt-2.5" : "mt-1")}>{keyLabel}</div>
       </div>
       <div className="flex flex-wrap items-center gap-x-1 gap-y-1 sm:justify-end">
         {r.status === "PENDING" && (

@@ -17,7 +17,7 @@ import { fmtDateTimeAgo } from "@/lib/time";
 import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { useStaffAction } from "@/pages/staff/staffContext";
-import { tableCls } from "@/lib/table";
+import { stackCls, tableCls } from "@/lib/table";
 import { cn } from "@/lib/utils";
 import type { BorrowRecord } from "@/types";
 
@@ -52,8 +52,8 @@ export default function ApprovalsPage() {
             : <EmptyState icon={ClipboardCheck} title={t("dash.nothingPending")} />
         ) : (
           <div className={tableCls.wrap}>
-            <table className={tableCls.table}>
-              <thead>
+            <table className={cn(tableCls.table, stackCls.table)}>
+              <thead className={stackCls.head}>
                 <tr>
                   <th className={tableCls.th}>{t("col.member")}</th>
                   <th className={tableCls.th}>{t("col.book")}</th>
@@ -66,13 +66,13 @@ export default function ApprovalsPage() {
                   const noCopy = r.bookFreeCopies <= 0;
                   const vars = { title: r.bookTitle, member: r.userName };
                   return (
-                    <tr key={r.id} className={tableCls.row}>
-                      <td className={tableCls.td}>
+                    <tr key={r.id} className={cn(tableCls.row, stackCls.row)}>
+                      <td className={cn(tableCls.td, stackCls.cell)}>
                         <Link dir="auto" to={`/staff/users/${r.userProfileId}`} className="font-medium hover:text-brand-dark hover:underline">{r.userName}</Link>
                         <div dir="ltr" className="whitespace-nowrap font-mono text-xs text-muted-foreground rtl:text-end">{r.userIdNumber}</div>
                         <RecordStanding record={r} />
                       </td>
-                      <td className={tableCls.td}>
+                      <td className={cn(tableCls.td, stackCls.cell)}>
                         <Link dir="auto" to={`/books/${r.bookId}`} className="hover:text-brand-dark hover:underline">{r.bookTitle}</Link>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                           <span dir="ltr" className="whitespace-nowrap font-mono">{r.bookShelf}</span>
@@ -86,9 +86,9 @@ export default function ApprovalsPage() {
                           )}
                         </div>
                       </td>
-                      <td className={cn(tableCls.td, "whitespace-nowrap text-muted-foreground")}>{fmtDateTimeAgo(r.requestedAt)}</td>
-                      <td className={tableCls.td}>
-                        <div className="flex justify-end gap-2">
+                      <td className={cn(tableCls.td, stackCls.cell, "whitespace-nowrap text-muted-foreground")}>{fmtDateTimeAgo(r.requestedAt)}</td>
+                      <td className={cn(tableCls.td, stackCls.cell)}>
+                        <div className={cn("flex flex-wrap justify-end gap-2", stackCls.actions)}>
                           <RequestDocButton record={r} />
                           <Button
                             size="sm" variant="outline" disabled={busyId === r.id}

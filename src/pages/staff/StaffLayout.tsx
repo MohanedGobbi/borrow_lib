@@ -67,13 +67,13 @@ export default function StaffLayout() {
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col lg:flex-row">
       <aside className="border-b bg-surface [mask-image:linear-gradient(to_right,black_88%,transparent)] rtl:[mask-image:linear-gradient(to_left,black_88%,transparent)] lg:[mask-image:none] rtl:lg:[mask-image:none] lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:w-60 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-e">
-        <nav aria-label={t("nav.staff")} className="flex gap-1 overflow-x-auto px-3 py-2 lg:block lg:space-y-6 lg:overflow-visible lg:px-3 lg:py-6">
+        <nav aria-label={t("nav.staff")} className="flex gap-1 overflow-x-auto px-3 py-2 lg:block lg:space-y-7 lg:overflow-visible lg:px-3 lg:py-7">
           {groups.map((g) => (
             <div key={g.key} className="flex shrink-0 gap-1 lg:block">
-              <h2 className="hidden px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground lg:block">
+              <h2 className="hidden px-3 pb-2 text-[13px] font-medium text-muted-foreground lg:block">
                 {t(g.key)}
               </h2>
-              <ul className="flex gap-1 lg:block lg:space-y-0.5">
+              <ul className="flex gap-1 lg:block lg:space-y-px">
                 {g.items.map((item) => {
                   const n = item.count ? counts[item.count] : 0;
                   return (
@@ -83,22 +83,30 @@ export default function StaffLayout() {
                         end={item.end}
                         className={({ isActive }) =>
                           cn(
-                            "flex items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-[15px] font-medium transition-colors",
-                            isActive ? "bg-white text-brand-dark shadow-[0_1px_2px_rgb(16_24_20/0.08)] ring-1 ring-border" : "text-ink/75 hover:bg-white/70 hover:text-ink",
+                            "group flex items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-[15px] transition-colors lg:py-[7px]",
+                            isActive
+                              ? "bg-brand-soft font-semibold text-brand-dark"
+                              : "font-medium text-ink/75 hover:bg-ink/[0.045] hover:text-ink",
                           )
                         }
                       >
-                        <item.icon className="size-[18px] shrink-0" aria-hidden />
-                        <span className="flex-1">{t(item.key)}</span>
-                        {n > 0 && (
-                          <span
-                            className={cn(
-                              "tabular rounded-full px-2 py-px text-xs font-semibold",
-                              item.count === "overdue" ? "bg-danger text-white" : "bg-brand-soft text-brand-dark",
+                        {({ isActive }) => (
+                          <>
+                            <item.icon className={cn("size-[18px] shrink-0", isActive ? "text-brand" : "text-muted-foreground group-hover:text-ink")} aria-hidden />
+                            <span className="flex-1">{t(item.key)}</span>
+                            {n > 0 && (
+                              <span
+                                className={cn(
+                                  "tabular text-[13px]",
+                                  item.count === "overdue"
+                                    ? "rounded-full bg-danger px-2 py-px font-semibold text-white"
+                                    : cn("font-medium", isActive ? "text-brand-dark" : "text-muted-foreground"),
+                                )}
+                              >
+                                {n}
+                              </span>
                             )}
-                          >
-                            {n}
-                          </span>
+                          </>
                         )}
                       </NavLink>
                     </li>
@@ -109,8 +117,8 @@ export default function StaffLayout() {
           ))}
         </nav>
       </aside>
-      <div className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
-        <DeskSearch className="mb-6" />
+      <div className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
+        <DeskSearch className="mb-8" />
         <Outlet />
       </div>
     </div>

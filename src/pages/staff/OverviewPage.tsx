@@ -10,9 +10,8 @@ import { Countdown } from "@/components/Countdown";
 import { DeferredRowAction } from "@/components/DeferredRowAction";
 import { useDeferredAction } from "@/hooks/useDeferredAction";
 import { daysFrom, fmtDate, msLeft, timeAgo } from "@/lib/time";
-import { PageHeader, Panel, RowsSkeleton } from "@/components/Page";
+import { Figures, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { URGENT_PICKUP_MS } from "@/types";
 
 export default function OverviewPage() {
@@ -47,17 +46,7 @@ export default function OverviewPage() {
     },
   });
 
-  const header = (
-    <PageHeader
-      title={t("staff.overview")}
-      description={t("dash.runJobsHelp")}
-      actions={
-        <Button variant="outline" size="sm" disabled={runJobs.isPending} onClick={() => runJobs.mutate()}>
-          <RefreshCcw className="size-4" aria-hidden /> {t("dash.runJobs")}
-        </Button>
-      }
-    />
-  );
+  const header = <PageHeader title={t("staff.overview")} />;
 
   if (isPending) {
     return (
@@ -84,20 +73,7 @@ export default function OverviewPage() {
     <div className="space-y-8">
       {header}
 
-      <dl className="grid grid-cols-2 overflow-hidden rounded-md border bg-white sm:grid-cols-3 xl:grid-cols-6">
-        {vitals.map((v) => (
-          <Link
-            key={v.label}
-            to={v.to}
-            className="group border-b border-e p-4 transition-colors hover:bg-surface [&:nth-child(2n)]:border-e-0 sm:[&:nth-child(2n)]:border-e sm:[&:nth-child(3n)]:border-e-0 xl:border-b-0 xl:[&:nth-child(3n)]:border-e xl:[&:nth-child(6n)]:border-e-0"
-          >
-            <dt className="text-sm text-muted-foreground group-hover:text-ink">{v.label}</dt>
-            <dd className={cn("tabular mt-1 text-[1.75rem] font-semibold leading-none", v.danger ? "text-danger" : "text-ink")}>
-              {v.value ?? "—"}
-            </dd>
-          </Link>
-        ))}
-      </dl>
+      <Figures items={vitals} className="grid-cols-2 sm:grid-cols-3 xl:grid-cols-6" />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Panel title={t("dash.attention")} count={urgent.length + late.length} flush>
@@ -123,7 +99,7 @@ export default function OverviewPage() {
               ))}
               {urgent.map((r) => (
                 <li key={`r${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
-                  <Clock className="size-4 shrink-0 text-warning" aria-hidden />
+                  <Clock className="size-4 shrink-0 text-ink" aria-hidden />
                   <div className="min-w-0 flex-1 basis-48">
                     <p dir="auto" className="line-clamp-2 break-words text-sm font-medium">{r.bookTitle}</p>
                     <p className="text-sm text-muted-foreground">
@@ -131,7 +107,7 @@ export default function OverviewPage() {
                       {" · "}{t("dash.closesSoon")}
                     </p>
                   </div>
-                  <Countdown deadline={r.pickupDeadline!} className="tabular text-sm font-semibold text-warning" />
+                  <Countdown deadline={r.pickupDeadline!} className="tabular text-sm font-semibold text-ink" />
                   <DeferredRowAction kind="pickup" record={r} deferred={deferred} />
                 </li>
               ))}
@@ -153,6 +129,13 @@ export default function OverviewPage() {
             ))}
           </ol>
         </Panel>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-t pt-6">
+        <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">{t("dash.runJobsHelp")}</p>
+        <Button variant="outline" size="sm" disabled={runJobs.isPending} onClick={() => runJobs.mutate()}>
+          <RefreshCcw className="size-4" aria-hidden /> {t("dash.runJobs")}
+        </Button>
       </div>
     </div>
   );

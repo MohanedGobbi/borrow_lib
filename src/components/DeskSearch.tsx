@@ -168,7 +168,7 @@ export function DeskSearch({ className }: { className?: string }) {
         aria-expanded={listOpen} aria-controls={listId} aria-autocomplete="list"
         aria-activedescendant={listOpen && active ? active.id : undefined}
         placeholder={t(narrow ? "desk.searchShort" : "desk.searchPlaceholder")} value={value}
-        className="ps-10 pe-10"
+        className="h-11 rounded-lg bg-white ps-10 pe-10"
         onChange={(e) => {
           setValue(e.target.value);
           setOpen(true);
@@ -192,7 +192,7 @@ export function DeskSearch({ className }: { className?: string }) {
 
       <ul
         id={listId} role="listbox" aria-label={t("desk.searchPlaceholder")} hidden={!listOpen}
-        className="absolute inset-x-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-md border bg-white py-1 shadow-md"
+        className="absolute inset-x-0 top-full z-30 mt-1.5 max-h-96 overflow-y-auto rounded-lg border bg-white py-1.5 shadow-[0_18px_40px_-20px_rgb(var(--scrim)/0.4)]"
       >
         {group("m", memberOptions)}
         {group("b", bookOptions)}
