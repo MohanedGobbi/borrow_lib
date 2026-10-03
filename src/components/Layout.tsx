@@ -6,6 +6,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { useCart } from "@/cart/CartContext";
 import { flushDeferredActions } from "@/hooks/useDeferredAction";
 import { useI18n, type Lang } from "@/i18n";
+import { useRuleVars } from "@/hooks/useLibrarySettings";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiAuth, apiMisc } from "@/api";
 import { invalidateNotifications, qk } from "@/api/queryKeys";
@@ -51,6 +52,7 @@ export function BrandMark({ className }: { className?: string }) {
 export function Layout() {
   const { me, logout } = useAuth();
   const { t, lang, setLang, dir } = useI18n();
+  const ruleVars = useRuleVars();
   const { bookIds } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
@@ -278,7 +280,7 @@ export function Layout() {
       <footer className="border-t bg-surface">
         <div className={cn("mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-muted-foreground sm:px-6", isStaffArea ? "max-w-[1440px]" : "max-w-7xl")}>
           <span>LibBorrow · {t("brand.library")}</span>
-          <span>{t("footer.rules")}</span>
+          <span>{t("footer.rules", ruleVars)}</span>
         </div>
       </footer>
     </div>

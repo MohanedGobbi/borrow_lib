@@ -113,7 +113,7 @@ class Command(BaseCommand):
             )
             profile = UserProfile.objects.create(
                 user=user, student_or_staff_id=idnum, role=role,
-                phone_number=f"+1 555 010 {idnum[-4:]}", max_borrow_limit=10 if role != Role.MEMBER else 5,
+                phone_number=f"+1 555 010 {idnum[-4:]}",
                 language=LANGUAGES.get(email, "en"), email_verified=True,
             )
             UserProfile.objects.filter(pk=profile.pk).update(membership_start_date=(now - since_days * D).date())

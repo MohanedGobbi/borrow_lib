@@ -59,7 +59,7 @@ def build_id_card_pdf(user: User) -> bytes:
     c.setFillColor(muted)
     c.setFont("Helvetica", 7.5)
     c.drawString(6 * mm, 16 * mm, f"Member since {profile.membership_start_date:%d %b %Y}")
-    c.drawString(6 * mm, 11 * mm, f"Loans {active_loan_count(user)} / {profile.max_borrow_limit}")
+    c.drawString(6 * mm, 11 * mm, f"Loans {active_loan_count(user)} / {profile.effective_borrow_limit}")
 
     # QR
     c.drawImage(ImageReader(qr_buf), CARD_W - 30 * mm, 6 * mm, 24 * mm, 24 * mm)

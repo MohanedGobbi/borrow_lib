@@ -11,7 +11,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
-from .models import BorrowRecord, display_name
+from .models import BorrowRecord, LibrarySettings, display_name
 
 INK = HexColor("#121A16")
 GREEN = HexColor("#0E6B3C")
@@ -48,6 +48,7 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
     member = record.user
     profile = member.profile
     book = record.book
+    rules = LibrarySettings.get()
 
     # ---------- header ----------
     c.setFillColor(BURNT)
@@ -98,7 +99,7 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
         ("Full name", display_name(member), "Member ID", profile.student_or_staff_id),
         ("Email", member.email, "Phone", profile.phone_number),
         ("Member since", f"{profile.membership_start_date:%d %B %Y}",
-         "Borrow limit", f"{profile.max_borrow_limit} books"),
+         "Borrow limit", f"{profile.effective_borrow_limit} books"),
     ]
     for i, (l1, v1, l2, v2) in enumerate(rows):
         ry = y - 10 * mm - i * 13 * mm
@@ -172,7 +173,7 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
 
     c.setFont("Helvetica", 6.5)
     c.drawCentredString(W / 2, 24 * mm,
-                        f"{settings.LIBRARY_NAME} · 48-hour pickup window · 14-day loan from pickup · REQ-{record.pk:03d}")
+                        f"{settings.LIBRARY_NAME} · {rules.hold_hours}-hour pickup window · {rules.loan_days}-day loan from pickup · REQ-{record.pk:03d}")
 
     c.showPage()
     c.save()

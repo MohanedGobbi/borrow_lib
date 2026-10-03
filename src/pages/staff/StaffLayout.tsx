@@ -1,18 +1,19 @@
 import { NavLink, Outlet } from "react-router";
 import {
-  Activity, BarChart3, BookCopy, ClipboardCheck, LayoutDashboard, ListOrdered, PackageCheck, Undo2, Users,
+  Activity, BarChart3, BookCopy, ClipboardCheck, LayoutDashboard, ListOrdered, PackageCheck, SlidersHorizontal, Undo2, Users,
   type LucideIcon,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiMisc, apiRecords } from "@/api";
 import { qk } from "@/api/queryKeys";
+import { useAuth } from "@/auth/AuthContext";
 import { DeskSearch } from "@/components/DeskSearch";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 type CountKey = "pending" | "ready" | "overdue";
 
-const GROUPS: { key: string; items: { to: string; key: string; icon: LucideIcon; end?: boolean; count?: CountKey }[] }[] = [
+const GROUPS: { key: string; adminOnly?: boolean; items: { to: string; key: string; icon: LucideIcon; end?: boolean; count?: CountKey }[] }[] = [
   {
     key: "staff.groupDesk",
     items: [
@@ -37,11 +38,18 @@ const GROUPS: { key: string; items: { to: string; key: string; icon: LucideIcon;
       { to: "/staff/activity", key: "staff.activity", icon: Activity },
     ],
   },
+  {
+    key: "staff.groupLibrary",
+    adminOnly: true,
+    items: [{ to: "/staff/settings", key: "staff.settings", icon: SlidersHorizontal }],
+  },
 ];
 
 /** Staff area shell: grouped side navigation with live queue counts. */
 export default function StaffLayout() {
   const { t } = useI18n();
+  const { me } = useAuth();
+  const groups = GROUPS.filter((g) => !g.adminOnly || me?.role === "ADMIN");
   // Staff actions invalidate these keys, so the counts move at once instead of waiting for the poll.
   const { data: stats } = useQuery({ queryKey: qk.stats, queryFn: apiMisc.stats, refetchInterval: 45_000 });
   const { data: pending } = useQuery({
@@ -60,7 +68,7 @@ export default function StaffLayout() {
     <div className="mx-auto flex w-full max-w-[1440px] flex-col lg:flex-row">
       <aside className="border-b bg-surface [mask-image:linear-gradient(to_right,black_88%,transparent)] rtl:[mask-image:linear-gradient(to_left,black_88%,transparent)] lg:[mask-image:none] rtl:lg:[mask-image:none] lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:w-60 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-e">
         <nav aria-label={t("nav.staff")} className="flex gap-1 overflow-x-auto px-3 py-2 lg:block lg:space-y-6 lg:overflow-visible lg:px-3 lg:py-6">
-          {GROUPS.map((g) => (
+          {groups.map((g) => (
             <div key={g.key} className="flex shrink-0 gap-1 lg:block">
               <h2 className="hidden px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground lg:block">
                 {t(g.key)}

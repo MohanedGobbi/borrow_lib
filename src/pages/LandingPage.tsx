@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { ArrowRight, Search } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
+import { useRuleVars } from "@/hooks/useLibrarySettings";
 import { useQuery } from "@tanstack/react-query";
 import { apiBooks } from "@/api";
 import { qk } from "@/api/queryKeys";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 export default function LandingPage() {
   const { me } = useAuth();
   const { t } = useI18n();
+  const ruleVars = useRuleVars();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const shelfParams = { available: true, pageSize: 6 };
@@ -24,7 +26,7 @@ export default function LandingPage() {
     navigate(q ? `/catalog?q=${encodeURIComponent(q)}` : "/catalog");
   };
 
-  const steps = [1, 2, 3, 4].map((n) => ({ n, title: t(`step${n}.title`), body: t(`step${n}.body`) }));
+  const steps = [1, 2, 3, 4].map((n) => ({ n, title: t(`step${n}.title`, ruleVars), body: t(`step${n}.body`) }));
 
   return (
     <>

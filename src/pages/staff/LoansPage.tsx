@@ -11,6 +11,7 @@ import { DeferredRowAction } from "@/components/DeferredRowAction";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pager } from "@/components/Pager";
 import { QueueFilter } from "@/components/QueueFilter";
+import { RenewAction } from "@/components/RenewAction";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { daysFrom, fmtDate, msLeft } from "@/lib/time";
 import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
@@ -60,6 +61,7 @@ export default function LoansPage() {
                   <th className={tableCls.th}>{t("col.pickedUp")}</th>
                   <th className={tableCls.th}>{t("col.due")}</th>
                   <th className={tableCls.th}>{t("col.status")}</th>
+                  <th className={tableCls.th}>{t("col.renewal")}</th>
                   <th className={tableCls.th}><span className="sr-only">{t("col.actions")}</span></th>
                 </tr>
               </thead>
@@ -83,6 +85,9 @@ export default function LoansPage() {
                         </div>
                       </td>
                       <td className={tableCls.td}><StatusBadge status={r.status} /></td>
+                      <td className={cn(tableCls.td, "min-w-[11rem]")}>
+                        <RenewAction record={r} audience="staff" className="items-start" />
+                      </td>
                       <td className={tableCls.td}>
                         <div className="flex justify-end gap-2">
                           <RequestDocButton record={r} />

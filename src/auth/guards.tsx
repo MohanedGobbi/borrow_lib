@@ -22,6 +22,23 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/** The circulation rules page: admins only (staff are told so; the server enforces it too). */
+export function RequireAdmin({ children }: { children: ReactNode }) {
+  const { me, loading } = useAuth();
+  const { t } = useI18n();
+  if (loading) return <FullPageLoader />;
+  if (me?.role !== "ADMIN") {
+    return (
+      <div className="mx-auto max-w-md px-4 py-20 text-center">
+        <ShieldAlert className="mx-auto size-9 text-danger" aria-hidden />
+        <h1 className="mt-4 text-xl font-semibold">{t("common.adminOnly")}</h1>
+        <p className="mt-2 text-[15px] text-muted-foreground">{t("common.adminOnlySub")}</p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 export function RequireStaff({ children }: { children: ReactNode }) {
   const { me, loading } = useAuth();
   const { t } = useI18n();

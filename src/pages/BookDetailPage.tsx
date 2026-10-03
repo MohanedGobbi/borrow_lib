@@ -6,6 +6,7 @@ import { apiBooks, apiRecords, apiReservations } from "@/api";
 import { qk } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
+import { useRuleVars } from "@/hooks/useLibrarySettings";
 import { BookCover } from "@/components/BookCover";
 import { Availability, BookActions, type BookActionResult } from "@/components/BookActions";
 import { BookEditDialog } from "@/components/BookEditDialog";
@@ -21,6 +22,7 @@ import { tableCls } from "@/lib/table";
 export default function BookDetailPage() {
   const { me, loading: authLoading } = useAuth();
   const { t } = useI18n();
+  const ruleVars = useRuleVars();
   const { id } = useParams();
   const [editOpen, setEditOpen] = useState(false);
   const [done, setDone] = useState<BookActionResult | null>(null);
@@ -114,7 +116,7 @@ export default function BookDetailPage() {
               onDone={setDone}
             />
           )}
-          <p className="mt-4 border-t pt-4 text-sm leading-relaxed text-muted-foreground">{t("book.rules")}</p>
+          <p className="mt-4 border-t pt-4 text-sm leading-relaxed text-muted-foreground">{t("book.rules", ruleVars)}</p>
         </aside>
 
         {(copies ?? []).length > 0 && (
@@ -199,11 +201,12 @@ export default function BookDetailPage() {
 /** What happens next, right where the student just acted (a toast alone is gone before it is read). */
 function ActionConfirmation({ result }: { result: BookActionResult }) {
   const { t } = useI18n();
+  const ruleVars = useRuleVars();
   const queued = result.kind === "queued";
   const text =
-    result.kind === "requested" ? t("book.requestedInline")
-      : result.position != null ? t("book.queuedInline", { position: result.position })
-        : t("book.queuedInlinePlain");
+    result.kind === "requested" ? t("book.requestedInline", ruleVars)
+      : result.position != null ? t("book.queuedInline", { position: result.position, ...ruleVars })
+        : t("book.queuedInlinePlain", ruleVars);
   return (
     <div className="mt-5 rounded-md bg-brand-soft p-4">
       <p className="flex gap-2.5 text-sm leading-relaxed text-ink">

@@ -6,6 +6,7 @@ import { apiRecords } from "@/api";
 import { invalidateCirculation, qk } from "@/api/queryKeys";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
+import { useRuleVars } from "@/hooks/useLibrarySettings";
 import { GuardedButton } from "@/components/GuardedButton";
 import { RecordStanding } from "@/components/MemberStanding";
 import { QueueFilter } from "@/components/QueueFilter";
@@ -22,6 +23,7 @@ import type { BorrowRecord } from "@/types";
 
 export default function ApprovalsPage() {
   const { t } = useI18n();
+  const ruleVars = useRuleVars();
   const [filter, setFilter] = useState("");
   const search = useDebounced(filter.trim(), 300);
   // oldest first: first come, first served
@@ -100,7 +102,7 @@ export default function ApprovalsPage() {
                             size="sm" disabled={busyId === r.id}
                             aria-label={t("aria.approve", vars)}
                             reason={noCopy ? t("desk.approveBlocked") : undefined}
-                            onClick={() => run(r.id, () => apiRecords.approve(r.id), t("toast.approved"))}
+                            onClick={() => run(r.id, () => apiRecords.approve(r.id), t("toast.approved", ruleVars))}
                           >
                             <Check className="size-4" aria-hidden /> {t("dash.approve")}
                           </GuardedButton>

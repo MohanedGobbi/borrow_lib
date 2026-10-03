@@ -199,5 +199,5 @@ class ActivityCodeTests(TestCase):
         rows = {a["code"]: a for a in client_for(staff).get("/api/activity").data}
         self.assertEqual(rows["request_created"]["params"], {"member": "m@x.com", "title": book.title})
         self.assertEqual(rows["approved"]["actorName"], "s@x.com")
-        self.assertEqual(rows["approved"]["params"], {"member": "m@x.com", "title": book.title})
+        self.assertEqual(rows["approved"]["params"], {"member": "m@x.com", "title": book.title, "hours": 48})
         self.assertIn(book.title, rows["approved"]["detail"])  # the English sentence is still written

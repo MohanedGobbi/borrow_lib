@@ -19,6 +19,7 @@ from .models import (
     Book,
     BorrowRecord,
     Category,
+    LibrarySettings,
     Notification,
     Reservation,
     Role,
@@ -35,8 +36,10 @@ from .serializers import (
     BookSerializer,
     BorrowRecordSerializer,
     CategorySerializer,
+    LibrarySettingsSerializer,
     NotificationSerializer,
     ProfileSerializer,
+    PublicRulesSerializer,
     RegisterSerializer,
     ReservationSerializer,
 )
@@ -71,7 +74,6 @@ class RegisterView(APIView):
             UserProfile.objects.create(
                 user=user, student_or_staff_id=d["studentId"],
                 phone_number=d["phoneNumber"], address=d["address"], role=role,
-                max_borrow_limit=5 if role == Role.MEMBER else 10,
                 language=d["language"],
                 email_verified=invite is not None,  # following the invite link proved the address
             )
@@ -87,7 +89,8 @@ class RegisterView(APIView):
 
 class MeView(APIView):
     def get(self, request):
-        return Response(ProfileSerializer(request.user.profile).data)
+        # Read the row again so a change to the limit made since sign-in shows up straight away.
+        return Response(ProfileSerializer(UserProfile.objects.get(user=request.user)).data)
 
     def patch(self, request):
         profile = request.user.profile
@@ -124,6 +127,13 @@ def with_ready_count(qs):
     return qs.annotate(ready_count=Count("borrow_records", filter=Q(borrow_records__status=Status.READY)))
 
 
+def with_queue_flag(qs):
+    """Annotate borrow records with whether anyone is waiting for the book (bookHasQueue), which
+    decides whether a loan can be renewed."""
+    return qs.annotate(book_has_queue=Exists(Reservation.objects.filter(
+        book=OuterRef("book_id"), is_active=True, user__profile__active=True)))
+
+
 def with_desk_annotations(qs):
     """Annotate borrow records with what the desk shows beside each row (bookFreeCopies,
     memberHasOverdue, memberActiveLoans), so the serializer adds no query per row."""
@@ -131,7 +141,7 @@ def with_desk_annotations(qs):
                       .order_by().values("book").annotate(n=Count("pk")).values("n"))
     active_for_user = (BorrowRecord.objects.filter(user=OuterRef("user_id"), status__in=services.ACTIVE_STATUSES)
                        .order_by().values("user").annotate(n=Count("pk")).values("n"))
-    return qs.annotate(
+    return with_queue_flag(qs).annotate(
         book_ready_count=Coalesce(Subquery(ready_for_book, output_field=IntegerField()), 0),
         member_active_loans=Coalesce(Subquery(active_for_user, output_field=IntegerField()), 0),
         member_overdue_flag=Exists(BorrowRecord.objects.filter(user=OuterRef("user_id"), status=Status.OVERDUE)),
@@ -245,7 +255,7 @@ class MyBorrowRecordsView(generics.ListAPIView):
     serializer_class = BorrowRecordSerializer
 
     def get_queryset(self):
-        return self.request.user.borrow_records.select_related("book")
+        return with_queue_flag(self.request.user.borrow_records.select_related("book"))
 
 
 class _TransitionView(APIView):
@@ -278,6 +288,14 @@ class ConfirmPickupView(_TransitionView):
 
 class ConfirmReturnView(_TransitionView):
     op = "confirm_return"
+
+
+class RenewView(APIView):
+    """Push a BORROWED loan's due date back. The borrower, or staff at the desk on the member's behalf."""
+
+    def post(self, request, pk):
+        record = get_object_or_404(BorrowRecord.objects.select_related("user__profile", "book"), pk=pk)
+        return Response(BorrowRecordSerializer(services.renew(request.user, record)).data)
 
 
 class WithdrawView(APIView):
@@ -435,6 +453,44 @@ class MarkNotificationsReadView(APIView):
     def post(self, request):
         Notification.objects.filter(user=request.user, read=False).update(read=True)
         return Response({"ok": True})
+
+
+# ------------------------------ settings ------------------------------
+
+RULE_LABELS = {  # the English wording of each setting, for the activity log's `detail`
+    "holdHours": "hold hours", "loanDays": "loan days", "maxRenewals": "renewals per loan",
+    "memberBorrowLimit": "member borrow limit", "staffBorrowLimit": "staff borrow limit",
+    "reminderDaysBeforeDue": "reminder days before due",
+}
+
+
+class SettingsView(APIView):
+    """The circulation rules. Everyone reads the four that appear in interface copy; admins read and change all."""
+
+    def get_permissions(self):
+        return [IsAdmin()] if self.request.method == "PATCH" else [AllowAny()]
+
+    def get(self, request):
+        from .permissions import role_of
+        rules = LibrarySettings.get()
+        admin = role_of(request.user) == Role.ADMIN
+        data = (LibrarySettingsSerializer if admin else PublicRulesSerializer)(rules).data
+        return Response({**data, "renewWindowDays": services.RENEW_WINDOW_DAYS})
+
+    def patch(self, request):
+        with transaction.atomic():
+            rules = LibrarySettings.objects.select_for_update().get(pk=LibrarySettings.get().pk)
+            s = LibrarySettingsSerializer(rules, data=request.data, partial=True)
+            s.is_valid(raise_exception=True)
+            by_source = {f.source: name for name, f in s.fields.items()}
+            changes = {by_source[src]: value for src, value in s.validated_data.items()
+                       if getattr(rules, src) != value}
+            if changes:
+                rules = s.save(updated_by=request.user)
+                detail = ", ".join(f"{RULE_LABELS[k]} → {v}" for k, v in changes.items())
+                log_activity(display_name(request.user), "SETTINGS_CHANGED",
+                             f"Changed the library rules: {detail}.", **changes)
+        return Response({**LibrarySettingsSerializer(rules).data, "renewWindowDays": services.RENEW_WINDOW_DAYS})
 
 
 # ------------------------------- admin -------------------------------

@@ -28,6 +28,15 @@ export function formatCountdown(ms: number): string {
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
+function longUnit(value: number, u: "day" | "hour") {
+  return new Intl.NumberFormat(locale(), { style: "unit", unit: u, unitDisplay: "long" }).format(value);
+}
+
+/** "48 hours", "1 hour", "٢٤ ساعة": a length of time for sentences, in the active language. */
+export const fmtHours = (n: number) => longUnit(n, "hour");
+/** "14 days", "1 day". */
+export const fmtDays = (n: number) => longUnit(n, "day");
+
 export function timeAgo(ts: string | number): string {
   const ms = toMs(ts);
   if (ms == null) return "—";

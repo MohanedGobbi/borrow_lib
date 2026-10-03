@@ -1,6 +1,6 @@
 import { ApiError } from "@/api/client";
 import { hasKey } from "@/i18n";
-import { fmtDate } from "@/lib/time";
+import { fmtDate, fmtDays, fmtHours } from "@/lib/time";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -9,6 +9,9 @@ function toVars(t: T, params: Record<string, unknown> | undefined): Record<strin
   const vars: Record<string, string | number> = {};
   for (const [key, value] of Object.entries(params ?? {})) {
     if (key === "dueDate" && typeof value === "string") vars[key] = fmtDate(value);
+    // Lengths of time are written in full ("24 hours", "3 days") in the active language.
+    else if (key === "hours" && typeof value === "number") vars[key] = fmtHours(value);
+    else if (key === "days" && typeof value === "number") vars[key] = fmtDays(value);
     else if (key === "role" && typeof value === "string" && hasKey(`role.${value}`)) vars[key] = t(`role.${value}`);
     else if (typeof value === "number") vars[key] = value;
     else if (value != null) vars[key] = String(value);
@@ -22,7 +25,9 @@ export function translateCode(
 ): string | null {
   const key = code ? `${prefix}.${code}` : "";
   if (!key || !hasKey(key)) return null;
-  const vars = toVars(t, params);
+  // Notifications and log rows written before the rules were editable had 48 hours and 14 days built in.
+  const legacy: Record<string, string> = prefix === "err" ? {} : { hours: fmtHours(48), days: fmtDays(14) };
+  const vars = { ...legacy, ...toVars(t, params) };
   const missing = [...t(key).matchAll(/\{(\w+)\}/g)].some((m) => !(m[1] in vars));
   return missing ? null : t(key, vars); // a param the server did not send: let the next fallback answer
 }
@@ -57,6 +62,14 @@ export function errorMessage(t: T, e: unknown, fallbackKey = "toast.failed"): st
 
 /** A staff-desk activity row in the active language; rows from before codes existed keep their English sentence. */
 export function activityText(t: T, a: { code?: string; params?: Record<string, unknown>; detail: string }): string {
+  if (a.code === "settings_changed") {
+    // The params are the settings that changed (holdHours: 24, …): list them with their names.
+    const changes = Object.entries(a.params ?? {})
+      .filter(([field]) => hasKey(`settings.short.${field}`))
+      .map(([field, value]) => `${t(`settings.short.${field}`)} ${value}`)
+      .join(", ");
+    return translateCode(t, "activity", a.code, { changes }) ?? a.detail;
+  }
   return translateCode(t, "activity", a.code, a.params) ?? a.detail;
 }
 

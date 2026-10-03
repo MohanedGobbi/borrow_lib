@@ -159,7 +159,7 @@ class NotificationCodeTests(TestCase):
         client.force_authenticate(member)
         note = client.get("/api/notifications/mine").data[0]
         self.assertEqual(note["code"], "request_approved")
-        self.assertEqual(note["params"], {"title": book.title})
+        self.assertEqual(note["params"], {"title": book.title, "hours": 48})  # the hold length, from the settings
         self.assertIn(book.title, note["message"])  # the English text is still written
 
 
@@ -193,7 +193,7 @@ class TranslationCoverageTests(TestCase):
 
     def test_notification_codes_are_translated(self):
         codes = self.scan(r'notify\(\s*[\w.]+,\s*"([a-z_]+)"')
-        self.assertEqual(len(codes), 7)
+        self.assertEqual(len(codes), 8)
         self.assertTranslated("notif", codes)
 
     def test_activity_codes_are_translated(self):

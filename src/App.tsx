@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router";
 import { AppToaster } from "@/components/AppToaster";
 import { Layout } from "@/components/Layout";
-import { FullPageLoader, RequireAuth, RequireStaff } from "@/auth/guards";
+import { FullPageLoader, RequireAdmin, RequireAuth, RequireStaff } from "@/auth/guards";
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
 import CatalogPage from "@/pages/CatalogPage";
@@ -33,6 +33,7 @@ const UsersPage = lazy(() => import("@/pages/staff/UsersPage"));
 const UserDetailPage = lazy(() => import("@/pages/staff/UserDetailPage"));
 const AnalyticsPage = lazy(() => import("@/pages/staff/AnalyticsPage"));
 const ActivityPage = lazy(() => import("@/pages/staff/ActivityPage"));
+const SettingsPage = lazy(() => import("@/pages/staff/SettingsPage"));
 
 // Demo builds only: the in-browser "mail server" has no real inbox, so its messages are listed on a page.
 // The literal check lets the bundler drop the import (and the page) from real builds.
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="/staff/users/:id" element={<Suspense fallback={<FullPageLoader />}><UserDetailPage /></Suspense>} />
             <Route path="/staff/analytics" element={<Suspense fallback={<FullPageLoader />}><AnalyticsPage /></Suspense>} />
             <Route path="/staff/activity" element={<Suspense fallback={<FullPageLoader />}><ActivityPage /></Suspense>} />
+            <Route path="/staff/settings" element={<RequireAdmin><Suspense fallback={<FullPageLoader />}><SettingsPage /></Suspense></RequireAdmin>} />
           </Route>
           <Route path="*" element={<LandingPage />} />
         </Route>

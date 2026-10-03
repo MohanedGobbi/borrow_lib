@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { WithdrawDialog, type WithdrawTarget } from "@/components/WithdrawDialog";
 import { Countdown } from "@/components/Countdown";
 import { daysFrom, fmtDate, fmtDateTime } from "@/lib/time";
+import { RenewAction } from "@/components/RenewAction";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { Container } from "@/components/Layout";
 import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
@@ -221,6 +222,7 @@ function ActiveRow({ r, onWithdraw }: { r: BorrowRecord; onWithdraw: (kind: "req
             <Button size="sm" variant="outline" onClick={() => onWithdraw("hold")}>{t("req.releaseHold")}</Button>
           </>
         )}
+        {r.status === "BORROWED" && <RenewAction record={r} audience="member" className="items-start sm:items-end sm:text-end" />}
         <RequestDocButton record={r} />
       </div>
     </li>

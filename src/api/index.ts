@@ -10,12 +10,15 @@ import type {
   BorrowRecord,
   Category,
   DashboardStats,
+  LibraryRules,
+  LibrarySettings,
   Page,
   Profile,
   Reservation,
   CreatedInvite,
   DemoMail,
   ScanResult,
+  SettingsPatch,
   StaffInvite,
   UserDetail,
 } from "@/types";
@@ -115,7 +118,15 @@ export const apiRecords = {
     api<BorrowRecord>(`/borrow-records/${id}/confirm-pickup`, { method: "POST", ...opts }),
   confirmReturn: (id: number, opts: SendOptions = {}) =>
     api<BorrowRecord>(`/borrow-records/${id}/confirm-return`, { method: "POST", ...opts }),
+  /** The borrower renews their own loan; staff may renew on a member's behalf. */
+  renew: (id: number) => api<BorrowRecord>(`/borrow-records/${id}/renew`, { method: "POST" }),
   documentUrl: (id: number) => `${API_ROOT}/borrow-records/${id}/document`,
+};
+
+export const apiSettings = {
+  /** Everyone gets the public rules; a signed-in admin gets the full settings. */
+  get: () => api<LibraryRules | LibrarySettings>("/settings"),
+  update: (patch: SettingsPatch) => api<LibrarySettings>("/settings", { method: "PATCH", body: patch }),
 };
 
 export const apiInvites = {

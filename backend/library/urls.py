@@ -38,6 +38,7 @@ urlpatterns = [
     path("borrow-records/<int:pk>/confirm-pickup", views.ConfirmPickupView.as_view()),
     path("borrow-records/<int:pk>/confirm-return", views.ConfirmReturnView.as_view()),
     path("borrow-records/<int:pk>/withdraw", views.WithdrawView.as_view()),
+    path("borrow-records/<int:pk>/renew", views.RenewView.as_view()),
     path("borrow-records/<int:pk>/document", views.BorrowDocumentView.as_view()),
     # reservations
     path("reservations", views.ReservationListCreateView.as_view()),
@@ -54,4 +55,5 @@ urlpatterns = [
     path("notifications/mine", views.NotificationListView.as_view()),
     path("notifications/read", views.MarkNotificationsReadView.as_view()),
     path("jobs/run", views.RunJobsView.as_view()),
+    path("settings", views.SettingsView.as_view()),
 ]

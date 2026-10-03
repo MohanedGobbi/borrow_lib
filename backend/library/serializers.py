@@ -8,6 +8,7 @@ from .models import (
     BorrowRecord,
     Category,
     Language,
+    LibrarySettings,
     Notification,
     Reservation,
     Role,
@@ -16,6 +17,14 @@ from .models import (
     UserProfile,
     display_name,
 )
+
+
+def library_rules(serializer):
+    """The circulation settings, read once per response however many rows the serializer renders."""
+    root = serializer.root
+    if not hasattr(root, "_library_rules"):
+        root._library_rules = LibrarySettings.get()
+    return root._library_rules
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -63,7 +72,9 @@ class ProfileSerializer(serializers.ModelSerializer):
     studentOrStaffId = serializers.CharField(source="student_or_staff_id", read_only=True)
     phoneNumber = serializers.CharField(source="phone_number")
     membershipStartDate = serializers.DateField(source="membership_start_date", read_only=True)
-    maxBorrowLimit = serializers.IntegerField(source="max_borrow_limit", read_only=True)
+    # The limit that applies: a personal override, or the default for the role from the settings.
+    maxBorrowLimit = serializers.SerializerMethodField()
+    borrowLimitIsDefault = serializers.SerializerMethodField()
     emailVerified = serializers.BooleanField(source="email_verified", read_only=True)
     activeLoans = serializers.SerializerMethodField()
     hasOverdue = serializers.SerializerMethodField()
@@ -71,13 +82,19 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ["id", "uuid", "name", "email", "studentOrStaffId", "phoneNumber", "address",
-                  "role", "membershipStartDate", "maxBorrowLimit", "active", "language", "emailVerified",
+                  "role", "membershipStartDate", "maxBorrowLimit", "borrowLimitIsDefault", "active", "language", "emailVerified",
                   "activeLoans", "hasOverdue"]
         # PATCH /users/me must not let anyone promote or reactivate themselves.
         read_only_fields = ["role", "active"]
 
     def get_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
+
+    def get_maxBorrowLimit(self, obj):
+        return obj.borrow_limit_with(library_rules(self))
+
+    def get_borrowLimitIsDefault(self, obj):
+        return obj.max_borrow_limit is None
 
     def get_activeLoans(self, obj):
         # UserListView annotates this; fall back to a query for bare instances.
@@ -114,14 +131,16 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
     bookFreeCopies = serializers.SerializerMethodField()
     memberHasOverdue = serializers.SerializerMethodField()
     memberActiveLoans = serializers.SerializerMethodField()
-    memberMaxBorrowLimit = serializers.IntegerField(source="user.profile.max_borrow_limit", read_only=True)
+    memberMaxBorrowLimit = serializers.SerializerMethodField()
+    renewalCount = serializers.IntegerField(source="renewal_count", read_only=True)
+    bookHasQueue = serializers.SerializerMethodField()
 
     class Meta:
         model = BorrowRecord
         fields = ["id", "userId", "userProfileId", "bookId", "userName", "userIdNumber", "bookTitle", "bookShelf",
                   "requestedAt", "approvedAt", "pickupDeadline", "borrowedAt", "dueDate",
                   "returnedAt", "status", "rejectionReason", "cancelledByMember", "bookFreeCopies", "memberHasOverdue",
-                  "memberActiveLoans", "memberMaxBorrowLimit"]
+                  "memberActiveLoans", "memberMaxBorrowLimit", "renewalCount", "bookHasQueue"]
 
     # The desk lists annotate these (views.with_desk_annotations); other callers fall back to a query.
     def get_bookFreeCopies(self, obj):
@@ -144,8 +163,45 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
             count = active_loan_count(obj.user)
         return count
 
+    def get_memberMaxBorrowLimit(self, obj):
+        return obj.user.profile.borrow_limit_with(library_rules(self))
+
+    def get_bookHasQueue(self, obj):
+        flag = getattr(obj, "book_has_queue", None)
+        if flag is None:
+            from .services import has_waiting_list
+            flag = has_waiting_list(obj.book)
+        return flag
+
     def get_userName(self, obj):
         return obj.user.get_full_name() or obj.user.username
+
+
+class PublicRulesSerializer(serializers.Serializer):
+    """What every visitor may see: the rules that show up in the interface copy."""
+    holdHours = serializers.IntegerField(source="hold_hours")
+    loanDays = serializers.IntegerField(source="loan_days")
+    maxRenewals = serializers.IntegerField(source="max_renewals")
+
+
+class LibrarySettingsSerializer(serializers.ModelSerializer):
+    """The admin view and the PATCH body of /api/settings. The bounds are the contract in docs/rework/F1.md."""
+    holdHours = serializers.IntegerField(source="hold_hours", min_value=1, max_value=168)
+    loanDays = serializers.IntegerField(source="loan_days", min_value=1, max_value=90)
+    maxRenewals = serializers.IntegerField(source="max_renewals", min_value=0, max_value=5)
+    memberBorrowLimit = serializers.IntegerField(source="member_borrow_limit", min_value=1, max_value=50)
+    staffBorrowLimit = serializers.IntegerField(source="staff_borrow_limit", min_value=1, max_value=50)
+    reminderDaysBeforeDue = serializers.IntegerField(source="reminder_days_before_due", min_value=0, max_value=14)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    updatedBy = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LibrarySettings
+        fields = ["holdHours", "loanDays", "maxRenewals", "memberBorrowLimit", "staffBorrowLimit",
+                  "reminderDaysBeforeDue", "updatedAt", "updatedBy"]
+
+    def get_updatedBy(self, obj):
+        return display_name(obj.updated_by) if obj.updated_by else None
 
 
 class ReservationSerializer(serializers.ModelSerializer):

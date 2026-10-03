@@ -13,8 +13,8 @@ const PASSWORD = "password123";
 const LIBRARY = "University Library";
 const H = 60 * 60 * 1000;
 const D = 24 * H;
-const PICKUP_WINDOW = 48 * H;
-const LOAN_PERIOD = 14 * D;
+/** A loan can be renewed only this close to its due date (services.RENEW_WINDOW_DAYS). */
+const RENEW_WINDOW_DAYS = 3;
 const REJECTION_REASON_MAX = 300;
 const ACTIVE: BorrowStatus[] = ["PENDING", "READY", "BORROWED", "OVERDUE"];
 
@@ -26,7 +26,9 @@ interface DBook {
 }
 interface DUser {
   id: number; uuid: string; name: string; email: string; password: string; idNumber: string;
-  phone: string; address: string; role: Role; since: number; maxLimit: number; active: boolean;
+  phone: string; address: string; role: Role; since: number; active: boolean;
+  /** A personal override; null means "the default for my role" from the settings. */
+  maxLimit: number | null;
   language: Lang; emailVerified: boolean;
   /** Refresh tokens issued before this moment are dead (set by a password reset). */
   sessionsRevokedAt?: number;
@@ -39,6 +41,13 @@ interface DRecord {
   rejectionReason?: string;
   /** True when the member withdrew the request or hold themselves. */
   cancelledByMember?: boolean;
+  /** How many times the loan has been renewed. */
+  renewalCount?: number;
+}
+interface DSettings {
+  holdHours: number; loanDays: number; maxRenewals: number; memberBorrowLimit: number;
+  staffBorrowLimit: number; reminderDaysBeforeDue: number;
+  updatedAt: number; updatedBy: number | null;
 }
 interface DReservation { id: number; userId: number; bookId: number; reservedAt: number; isActive: boolean }
 interface DActivity {
@@ -58,6 +67,8 @@ interface DMail { id: number; to: string; subject: string; body: string; link: s
 
 interface DemoState {
   seq: number;
+  /** The circulation rules an admin can change (LibrarySettings). */
+  settings: DSettings;
   categories: DCategory[];
   books: DBook[];
   users: DUser[];
@@ -139,7 +150,12 @@ function uuid(): string {
 function seed(): DemoState {
   const now = Date.now();
   const s: DemoState = {
-    seq: 1000, categories: [], books: [], users: [], records: [], reservations: [], activity: [], notifications: [], revokedTokens: [],
+    seq: 1000,
+    settings: {
+      holdHours: 48, loanDays: 14, maxRenewals: 1, memberBorrowLimit: 5, staffBorrowLimit: 10,
+      reminderDaysBeforeDue: 2, updatedAt: now, updatedBy: null,
+    },
+    categories: [], books: [], users: [], records: [], reservations: [], activity: [], notifications: [], revokedTokens: [],
     emailTokens: [], invites: [], outbox: [],
   };
   CATEGORY_COLORS.forEach(([name, color], i) => s.categories.push({ id: i + 1, name, color }));
@@ -153,7 +169,7 @@ function seed(): DemoState {
     s.users.push({
       id: i + 1, uuid: uuid(), name, email, password: PASSWORD, idNumber,
       phone: `+1 555 010 ${idNumber.slice(-4)}`, address: "", role,
-      since: now - sinceDays * D, maxLimit: role === "MEMBER" ? 5 : 10, active: true,
+      since: now - sinceDays * D, maxLimit: null, active: true,
       language: SEED_LANGUAGES[email] ?? "en", emailVerified: true,
     }));
 
@@ -246,9 +262,9 @@ function seed(): DemoState {
     const p = { member: who, title: what };
     trail(r.requestedAt, who, "REQUEST_CREATED", `${who} requested “${what}”.`, p);
     if (r.status === "REJECTED") trail(r.requestedAt + 3 * H, staffName, "REJECTED", `Rejected ${who}'s request for “${what}”.`, p);
-    trail(r.approvedAt, staffName, "APPROVED", `Approved ${who}'s request for “${what}”. Pickup within 48h.`, p);
-    if (r.status === "CANCELLED") trail(r.pickupDeadline, "System", "AUTO_CANCELLED", `${who} missed the 48h pickup window for “${what}”. Request auto-cancelled.`, p);
-    trail(r.borrowedAt, staffName, "PICKUP_CONFIRMED", `${who} picked up “${what}”. Due in 14 days.`, p);
+    trail(r.approvedAt, staffName, "APPROVED", `Approved ${who}'s request for “${what}”. Pickup within 48h.`, { ...p, hours: 48 });
+    if (r.status === "CANCELLED") trail(r.pickupDeadline, "System", "AUTO_CANCELLED", `${who} missed the 48h pickup window for “${what}”. Request auto-cancelled.`, { ...p, hours: 48 });
+    trail(r.borrowedAt, staffName, "PICKUP_CONFIRMED", `${who} picked up “${what}”. Due in 14 days.`, { ...p, days: 14 });
     trail(r.returnedAt, staffName, "RETURN_CONFIRMED", `${who} returned “${what}”.`, p);
     if (r.status === "OVERDUE") trail(r.dueDate! + 12 * H, "System", "MARKED_OVERDUE", `${who}'s loan of “${what}” is now overdue.`, p);
   }
@@ -287,6 +303,34 @@ const hasOverdue = (userId: number) => state.records.some((r) => r.userId === us
 const activeLoans = (userId: number) => state.records.filter((r) => r.userId === userId && ACTIVE.includes(r.status)).length;
 const queueFor = (bookId: number) =>
   state.reservations.filter((r) => r.bookId === bookId && r.isActive).sort((a, b) => a.reservedAt - b.reservedAt);
+/** Someone with an active account is waiting for the book (services.has_waiting_list). */
+const hasWaitingList = (bookId: number) => queueFor(bookId).some((r) => userById(r.userId)?.active);
+/** A personal override if there is one, else the default for the role from the settings (UserProfile.effective_borrow_limit). */
+const effectiveLimit = (u: DUser) =>
+  u.maxLimit ?? (u.role === "MEMBER" ? state.settings.memberBorrowLimit : state.settings.staffBorrowLimit);
+
+type SettingField = "holdHours" | "loanDays" | "maxRenewals" | "memberBorrowLimit" | "staffBorrowLimit" | "reminderDaysBeforeDue";
+/** Inclusive bounds, the same as LibrarySettingsSerializer. */
+const SETTING_BOUNDS: Record<SettingField, [number, number]> = {
+  holdHours: [1, 168], loanDays: [1, 90], maxRenewals: [0, 5], memberBorrowLimit: [1, 50],
+  staffBorrowLimit: [1, 50], reminderDaysBeforeDue: [0, 14],
+};
+const SETTING_LABELS: Record<SettingField, string> = {
+  holdHours: "hold hours", loanDays: "loan days", maxRenewals: "renewals per loan",
+  memberBorrowLimit: "member borrow limit", staffBorrowLimit: "staff borrow limit",
+  reminderDaysBeforeDue: "reminder days before due",
+};
+
+/** The admin view of the settings: every rule, when it last changed and who changed it. */
+function sSettingsAdmin() {
+  const s = state.settings;
+  return {
+    holdHours: s.holdHours, loanDays: s.loanDays, maxRenewals: s.maxRenewals, renewWindowDays: RENEW_WINDOW_DAYS,
+    memberBorrowLimit: s.memberBorrowLimit, staffBorrowLimit: s.staffBorrowLimit,
+    reminderDaysBeforeDue: s.reminderDaysBeforeDue, updatedAt: iso(s.updatedAt),
+    updatedBy: s.updatedBy == null ? null : userById(s.updatedBy)?.name ?? null,
+  };
+}
 
 function sCategory(c: DCategory) {
   return { id: c.id, name: c.name, color: c.color, bookCount: state.books.filter((b) => b.categoryId === c.id).length };
@@ -306,7 +350,7 @@ function sProfile(u: DUser) {
     id: u.id, uuid: u.uuid, name: u.name, email: u.email, studentOrStaffId: u.idNumber,
     phoneNumber: u.phone, address: u.address, role: u.role,
     membershipStartDate: new Date(u.since).toISOString().slice(0, 10),
-    maxBorrowLimit: u.maxLimit, active: u.active, language: u.language, emailVerified: u.emailVerified,
+    maxBorrowLimit: effectiveLimit(u), borrowLimitIsDefault: u.maxLimit === null, active: u.active, language: u.language, emailVerified: u.emailVerified,
     activeLoans: activeLoans(u.id), hasOverdue: hasOverdue(u.id),
   };
 }
@@ -321,7 +365,7 @@ function sRecord(r: DRecord) {
     returnedAt: iso(r.returnedAt), status: r.status, rejectionReason: r.rejectionReason ?? "",
     cancelledByMember: r.cancelledByMember ?? false,
     bookFreeCopies: freeCopies(b), memberHasOverdue: hasOverdue(u.id), memberActiveLoans: activeLoans(u.id),
-    memberMaxBorrowLimit: u.maxLimit,
+    memberMaxBorrowLimit: effectiveLimit(u), renewalCount: r.renewalCount ?? 0, bookHasQueue: hasWaitingList(b.id),
   };
 }
 
@@ -394,18 +438,19 @@ function transition(op: string, r: DRecord, allowed: BorrowStatus[]) {
 /** Give a free copy to the first active member of the reservation queue (stock is not touched). */
 function handToQueue(book: DBook, now: number) {
   if (freeCopies(book) <= 0) return;
+  const hours = state.settings.holdHours;
   for (const nxt of queueFor(book.id)) {
     nxt.isActive = false;
     const nu = userById(nxt.userId)!;
     if (!nu.active) continue;
     state.records.push({
       id: nextId(), userId: nxt.userId, bookId: book.id, requestedAt: nxt.reservedAt, approvedAt: now,
-      pickupDeadline: now + PICKUP_WINDOW, borrowedAt: null, dueDate: null, returnedAt: null, status: "READY",
+      pickupDeadline: now + hours * H, borrowedAt: null, dueDate: null, returnedAt: null, status: "READY",
     });
-    log("System", "QUEUE_HANDOFF", `Reservation queue: “${book.title}” is now held for ${nu.name} (fresh 48h window).`,
-      { member: nu.name, title: book.title });
-    notify(nu.id, "queue_handoff", `Good news — “${book.title}” is now held for you. Pick it up within 48 hours.`,
-      { title: book.title });
+    log("System", "QUEUE_HANDOFF", `Reservation queue: “${book.title}” is now held for ${nu.name} (fresh ${hours}h window).`,
+      { member: nu.name, title: book.title, hours });
+    notify(nu.id, "queue_handoff", `Good news — “${book.title}” is now held for you. Pick it up within ${hours} hours.`,
+      { title: book.title, hours });
     return;
   }
 }
@@ -420,10 +465,12 @@ function runJobs() {
     const book = bookById(r.bookId)!;
     r.status = "CANCELLED";
     cancelled++;
-    log("System", "AUTO_CANCELLED", `${user.name} missed the 48h pickup window for “${book.title}”. Request auto-cancelled.`,
-      { member: user.name, title: book.title });
-    notify(user.id, "hold_expired", `Your request for “${book.title}” was auto-cancelled after the 48h pickup window expired.`,
-      { title: book.title });
+    // The window this hold actually had (the setting may have changed since it was approved).
+    const hours = r.approvedAt != null ? Math.round((r.pickupDeadline! - r.approvedAt) / H) : state.settings.holdHours;
+    log("System", "AUTO_CANCELLED", `${user.name} missed the ${hours}h pickup window for “${book.title}”. Request auto-cancelled.`,
+      { member: user.name, title: book.title, hours });
+    notify(user.id, "hold_expired", `Your request for “${book.title}” was auto-cancelled after the ${hours}h pickup window expired.`,
+      { title: book.title, hours });
     handToQueue(book, now);
   }
   for (const r of state.records.filter((x) => x.status === "BORROWED" && (x.dueDate ?? Infinity) < now)) {
@@ -611,11 +658,12 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
       if (freeCopies(book) <= 0) {
         throw bad("approve_no_free_copy", "No free copy to hold — every copy is on loan or already held for pickup.");
       }
-      Object.assign(r, { status: "READY", approvedAt: now, pickupDeadline: now + PICKUP_WINDOW });
-      log(staff.name, "APPROVED", `Approved ${user.name}'s request for “${book.title}”. Pickup within 48h.`,
-        { member: user.name, title: book.title });
-      notify(user.id, "request_approved", `Your request for “${book.title}” was approved. Pick it up within 48 hours.`,
-        { title: book.title });
+      const hours = state.settings.holdHours;
+      Object.assign(r, { status: "READY", approvedAt: now, pickupDeadline: now + hours * H });
+      log(staff.name, "APPROVED", `Approved ${user.name}'s request for “${book.title}”. Pickup within ${hours}h.`,
+        { member: user.name, title: book.title, hours });
+      notify(user.id, "request_approved", `Your request for “${book.title}” was approved. Pick it up within ${hours} hours.`,
+        { title: book.title, hours });
     } else if (op === "reject") {
       transition("reject", r, ["PENDING"]);
       const asked = ctx.body.reason;
@@ -633,10 +681,11 @@ function recordTransition(op: "approve" | "reject" | "pickup" | "return"): Handl
     } else if (op === "pickup") {
       transition("pickup", r, ["READY"]);
       if (book.availableCopies <= 0) throw bad("pickup_no_copy", "No physical copy on the shelf to hand out.");
-      Object.assign(r, { status: "BORROWED", borrowedAt: now, dueDate: now + LOAN_PERIOD });
+      const days = state.settings.loanDays;
+      Object.assign(r, { status: "BORROWED", borrowedAt: now, dueDate: now + days * D });
       book.availableCopies -= 1;
-      log(staff.name, "PICKUP_CONFIRMED", `${user.name} picked up “${book.title}”. Due in 14 days.`,
-        { member: user.name, title: book.title });
+      log(staff.name, "PICKUP_CONFIRMED", `${user.name} picked up “${book.title}”. Due in ${days} days.`,
+        { member: user.name, title: book.title, days });
       notify(user.id, "picked_up", `You picked up “${book.title}”. Due back on ${new Date(r.dueDate!).toLocaleDateString()}.`,
         { title: book.title, dueDate: iso(r.dueDate) });
     } else {
@@ -1004,7 +1053,7 @@ const ROUTES: [string, RegExp, Handler][] = [
     const u: DUser = {
       id: nextId(), uuid: uuid(), name: d.name!.trim(), email, password: d.password!, idNumber: d.studentId!.trim(),
       phone: d.phoneNumber ?? "", address: d.address ?? "", role, since: Date.now(),
-      maxLimit: role === "MEMBER" ? 5 : 10, active: true,
+      maxLimit: null, active: true,
       language: LANGS.find((l) => l === ctx.body.language) ?? "en",
       emailVerified: !!invite, // following the invite link proved the address
     };
@@ -1256,8 +1305,9 @@ const ROUTES: [string, RegExp, Handler][] = [
     if (!u.active) throw bad("account_inactive", "Your account is deactivated.");
     if (!u.emailVerified) throw bad("email_unverified", UNVERIFIED);
     if (hasOverdue(u.id)) throw bad("overdue_block", "You have an overdue loan. Resolve it before requesting new books.");
-    if (activeLoans(u.id) >= u.maxLimit) {
-      throw bad("borrow_limit", `Borrow limit reached (${u.maxLimit}). Return a book first.`, { limit: u.maxLimit });
+    const limit = effectiveLimit(u);
+    if (activeLoans(u.id) >= limit) {
+      throw bad("borrow_limit", `Borrow limit reached (${limit}). Return a book first.`, { limit });
     }
     if (freeCopies(book) <= 0) throw bad("no_free_copy", "No copies available — join the reservation queue instead.");
     if (state.records.some((r) => r.userId === u.id && r.bookId === book.id && (r.status === "PENDING" || r.status === "READY"))) {
@@ -1287,6 +1337,39 @@ const ROUTES: [string, RegExp, Handler][] = [
     r.cancelledByMember = true;
     log(u.name, "REQUEST_WITHDRAWN", `${u.name} withdrew their request for “${book.title}”.`, { member: u.name, title: book.title });
     if (wasReady) handToQueue(book, Date.now());
+    return sRecord(r);
+  }],
+  ["POST", /^\/borrow-records\/(\d+)\/renew$/, (ctx, [id]) => {
+    // Mirrors services.renew: same checks, same order. The borrower, or staff at the desk on the member's behalf.
+    const actor = requireUser(ctx);
+    const r = findRecord(id);
+    if (r.userId !== actor.id && actor.role === "MEMBER") {
+      throw forbidden("forbidden", "Only the borrower or library staff can renew this loan.");
+    }
+    transition("renew", r, ["BORROWED"]);
+    const owner = userById(r.userId)!;
+    const book = bookById(r.bookId)!;
+    if (hasOverdue(owner.id)) throw bad("overdue_block", "You have an overdue loan. Resolve it before renewing.");
+    const rules = state.settings;
+    const used = r.renewalCount ?? 0;
+    if (used >= rules.maxRenewals) {
+      throw bad("renew_limit", `This loan cannot be renewed again (limit ${rules.maxRenewals}).`, { max: rules.maxRenewals });
+    }
+    if (hasWaitingList(book.id)) throw bad("renew_queue", "Someone is waiting for this book, so it cannot be renewed.");
+    if (r.dueDate! - Date.now() > RENEW_WINDOW_DAYS * D) {
+      throw bad("renew_too_early", `A loan can be renewed in the last ${RENEW_WINDOW_DAYS} days before it is due.`,
+        { days: RENEW_WINDOW_DAYS });
+    }
+    r.dueDate = r.dueDate! + rules.loanDays * D;
+    r.renewalCount = used + 1;
+    const due = new Date(r.dueDate).toLocaleDateString();
+    const onBehalf = owner.id !== actor.id;
+    log(actor.name, "LOAN_RENEWED", `${actor.name} renewed “${book.title}”${onBehalf ? ` for ${owner.name}` : ""}. New due date ${due}.`,
+      { member: owner.name, title: book.title, dueDate: iso(r.dueDate) });
+    if (onBehalf) {
+      notify(owner.id, "loan_renewed", `Staff renewed “${book.title}” for you. New due date ${due}.`,
+        { title: book.title, dueDate: iso(r.dueDate) });
+    }
     return sRecord(r);
   }],
   ["POST", /^\/borrow-records\/(\d+)\/approve$/, recordTransition("approve")],
@@ -1440,6 +1523,39 @@ const ROUTES: [string, RegExp, Handler][] = [
     const u = requireUser(ctx);
     state.notifications.forEach((n) => { if (n.userId === u.id) n.read = true; });
     return { ok: true };
+  }],
+  // ----------------------------- settings -----------------------------
+  ["GET", /^\/settings$/, (ctx) => {
+    // Everyone reads the four rules that appear in the interface copy; admins read everything.
+    const s = state.settings;
+    if (ctx.user?.role === "ADMIN") return sSettingsAdmin();
+    return { holdHours: s.holdHours, loanDays: s.loanDays, maxRenewals: s.maxRenewals, renewWindowDays: RENEW_WINDOW_DAYS };
+  }],
+  ["PATCH", /^\/settings$/, (ctx) => {
+    const admin = requireAdmin(ctx);
+    const s = state.settings;
+    const errors: [string, string, string][] = [];
+    const next: Partial<Record<SettingField, number>> = {};
+    for (const [field, [min, max]] of Object.entries(SETTING_BOUNDS) as [SettingField, [number, number]][]) {
+      if (!(field in ctx.body)) continue;
+      const raw = ctx.body[field];
+      const n = typeof raw === "number" && Number.isInteger(raw) ? raw
+        : typeof raw === "string" && /^[+-]?\d+$/.test(raw.trim()) ? Number(raw) : null;
+      if (n === null) errors.push([field, "A valid integer is required.", "invalid"]);
+      else if (n < min) errors.push([field, `Ensure this value is greater than or equal to ${min}.`, "min_value"]);
+      else if (n > max) errors.push([field, `Ensure this value is less than or equal to ${max}.`, "max_value"]);
+      else next[field] = n;
+    }
+    if (errors.length) throw invalid(...errors);
+    const changes = Object.fromEntries(
+      (Object.entries(next) as [SettingField, number][]).filter(([field, value]) => s[field] !== value),
+    ) as Partial<Record<SettingField, number>>;
+    if (Object.keys(changes).length) {
+      Object.assign(s, changes, { updatedAt: Date.now(), updatedBy: admin.id });
+      const detail = (Object.entries(changes) as [SettingField, number][]).map(([f, v]) => `${SETTING_LABELS[f]} → ${v}`).join(", ");
+      log(admin.name, "SETTINGS_CHANGED", `Changed the library rules: ${detail}.`, changes);
+    }
+    return sSettingsAdmin();
   }],
   ["POST", /^\/jobs\/run$/, (ctx) => {
     requireStaff(ctx);

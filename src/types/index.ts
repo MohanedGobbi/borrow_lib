@@ -84,7 +84,10 @@ export interface Profile {
   address: string;
   role: Role;
   membershipStartDate: string;
+  /** The limit that applies: a personal override, or the default for the role. */
   maxBorrowLimit: number;
+  /** True when the limit is the library default for the role, false for a personal override. */
+  borrowLimitIsDefault: boolean;
   active: boolean;
   /** UI and email language of the account. */
   language: Lang;
@@ -137,13 +140,17 @@ export interface BorrowRecord {
   status: BorrowStatus;
   /** Why staff rejected the request; empty when they gave no reason. */
   rejectionReason: string;
-  /** True when the student withdrew the request or hold themselves (not staff, not the 48-hour expiry). */
+  /** True when the student withdrew the request or hold themselves (not staff, not the hold expiring). */
   cancelledByMember: boolean;
   /** Free copies of the book right now (on the shelf and not held for another pickup). */
   bookFreeCopies: number;
   memberHasOverdue: boolean;
   memberActiveLoans: number;
   memberMaxBorrowLimit: number;
+  /** How many times this loan has been renewed. */
+  renewalCount: number;
+  /** Someone is on the waiting list for the book, so the loan cannot be renewed. */
+  bookHasQueue: boolean;
 }
 
 export interface Reservation {
@@ -207,6 +214,30 @@ export interface ScanResult {
   member: Profile;
   activeRecords: BorrowRecord[];
 }
+
+/** The circulation rules everyone can read (GET /api/settings). */
+export interface LibraryRules {
+  holdHours: number;
+  loanDays: number;
+  maxRenewals: number;
+  /** A loan can be renewed only this many days before it is due. */
+  renewWindowDays: number;
+}
+
+/** What admins see and edit: the public rules plus the borrow limits and reminder lead time. */
+export interface LibrarySettings extends LibraryRules {
+  memberBorrowLimit: number;
+  staffBorrowLimit: number;
+  reminderDaysBeforeDue: number;
+  updatedAt: string;
+  /** Name of the admin who last changed the rules; null until someone does. */
+  updatedBy: string | null;
+}
+
+export type SettingsPatch = Partial<Pick<
+  LibrarySettings,
+  "holdHours" | "loanDays" | "maxRenewals" | "memberBorrowLimit" | "staffBorrowLimit" | "reminderDaysBeforeDue"
+>>;
 
 export const URGENT_PICKUP_MS = 6 * 60 * 60 * 1000;
 export const DUE_SOON_MS = 3 * 24 * 60 * 60 * 1000;

@@ -10,7 +10,7 @@ from library.services import run_hourly_cancellation
 
 
 class Command(BaseCommand):
-    help = "Cancel READY records past their 48h pickup deadline and hand slots to the reservation queue."
+    help = "Cancel READY records past their pickup deadline and hand slots to the reservation queue."
 
     def handle(self, *args, **options):
         cancelled = run_hourly_cancellation()

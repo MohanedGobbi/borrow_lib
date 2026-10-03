@@ -5,6 +5,7 @@ import { apiRecords } from "@/api";
 import { invalidateCirculation } from "@/api/queryKeys";
 import { useDeferredAction } from "@/hooks/useDeferredAction";
 import { useI18n } from "@/i18n";
+import { useRuleVars } from "@/hooks/useLibrarySettings";
 import { useStaffAction } from "@/pages/staff/staffContext";
 import { daysFrom, fmtDate, fmtDateTime, fmtDateTimeAgo, msLeft } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,7 @@ import { Countdown } from "@/components/Countdown";
 import { DeferredRowAction } from "@/components/DeferredRowAction";
 import { GuardedButton } from "@/components/GuardedButton";
 import { MemberStanding } from "@/components/MemberStanding";
+import { RenewAction } from "@/components/RenewAction";
 import { EmptyState, PageHeader, Panel } from "@/components/Page";
 import { RejectDialog } from "@/components/RejectDialog";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ export function MemberDesk({
   member, records, historyHref, actions,
 }: { member: Profile; records: BorrowRecord[]; historyHref: string; actions?: ReactNode }) {
   const { t } = useI18n();
+  const ruleVars = useRuleVars();
   const deferred = useDeferredAction();
   const { run, busyId } = useStaffAction(invalidateCirculation);
   const [rejecting, setRejecting] = useState<BorrowRecord | null>(null);
@@ -117,6 +120,7 @@ export function MemberDesk({
                       {overdue ? t("time.daysOverdue", { n: Math.abs(days) }) : days <= 1 ? t("time.dayLeft") : t("time.daysLeft", { n: days })}
                     </div>
                   </div>
+                  <RenewAction record={r} audience="staff" className="max-w-[13rem]" />
                   <DeferredRowAction kind="return" record={r} deferred={deferred} />
                 </li>
               );
@@ -148,7 +152,7 @@ export function MemberDesk({
                       size="sm" disabled={busyId === r.id}
                       aria-label={t("aria.approve", vars)}
                       reason={r.bookFreeCopies <= 0 ? t("desk.approveBlocked") : undefined}
-                      onClick={() => run(r.id, () => apiRecords.approve(r.id), t("toast.approved"))}
+                      onClick={() => run(r.id, () => apiRecords.approve(r.id), t("toast.approved", ruleVars))}
                     >
                       <Check className="size-4" aria-hidden /> {t("dash.approve")}
                     </GuardedButton>

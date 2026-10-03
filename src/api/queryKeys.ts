@@ -31,6 +31,7 @@ export const qk = {
   activity: ["activity"] as const,
   notifications: ["notifications"] as const,
   invites: ["invites"] as const,
+  settings: ["settings"] as const,
   mailbox: ["mailbox"] as const,
 };
 
@@ -55,6 +56,9 @@ export const invalidateCatalog = (qc: QueryClient) =>
   invalidateAll(qc, [
     qk.books.all, qk.categories.all, qk.records.all, qk.reservations.all, qk.stats, qk.analytics, qk.activity,
   ]);
+
+/** The circulation rules changed: the copy that quotes them, and the activity log that records the change. */
+export const invalidateSettings = (qc: QueryClient) => invalidateAll(qc, [qk.settings, qk.activity]);
 
 export const invalidateInvites = (qc: QueryClient) => invalidateAll(qc, [qk.invites]);
 export const invalidateNotifications = (qc: QueryClient) => invalidateAll(qc, [qk.notifications]);
