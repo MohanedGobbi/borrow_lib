@@ -10,6 +10,7 @@ import { Countdown } from "@/components/Countdown";
 import { DeferredRowAction } from "@/components/DeferredRowAction";
 import { RecordStanding } from "@/components/MemberStanding";
 import { useDeferredAction } from "@/hooks/useDeferredAction";
+import { blockReason } from "@/lib/rowActions";
 import { daysFrom, fmtDate, msLeft, timeAgo } from "@/lib/time";
 import { Figures, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,11 @@ export default function OverviewPage() {
                     <RecordStanding record={r} pickup />
                   </div>
                   <Countdown deadline={r.pickupDeadline!} className="tabular text-sm font-semibold text-ink" />
-                  <div className="flex min-w-0 flex-col items-end sm:max-w-[12rem]"><DeferredRowAction kind="pickup" record={r} deferred={deferred} /></div>
+                  <div className="flex min-w-0 flex-col items-end sm:max-w-[12rem]"><DeferredRowAction kind="pickup" record={r} deferred={deferred} showReason={false} /></div>
+                  {blockReason(t, "pickup", r) && (
+                    // the reason gets the whole row beneath, from the text column on, so it stays on one line
+                    <p aria-hidden className="text-xs font-medium text-danger max-sm:basis-full sm:col-span-3 sm:col-start-2">{blockReason(t, "pickup", r)}</p>
+                  )}
                 </li>
               ))}
             </ul>

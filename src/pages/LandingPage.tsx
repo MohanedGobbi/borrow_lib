@@ -30,6 +30,8 @@ export default function LandingPage() {
   const shelfParams = { available: true, pageSize: 6 };
   const { data: shelf } = useQuery({ queryKey: qk.books.list(shelfParams), queryFn: () => apiBooks.list(shelfParams) });
   const onShelf = shelf?.results ?? [];
+  // Without cover photographs the shelf is set as type, not as empty boxes that repeat the caption beneath them.
+  const typeShelf = onShelf.every((b) => !b.coverImage);
 
   const search = (e: FormEvent) => {
     e.preventDefault();
@@ -123,6 +125,21 @@ export default function LandingPage() {
                 {t("landing.viewCatalog")} <ArrowRight className="size-4 rtl:rotate-180" aria-hidden />
               </Link>
             </div>
+            {typeShelf ? (
+              <ul className="mt-12 grid gap-x-10 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-14">
+                {onShelf.map((b) => (
+                  <li key={b.id} className="border-t border-ink/70">
+                    <Link to={`/books/${b.id}`} className="group block rounded-sm py-6 lg:py-7">
+                      <span dir="auto" className="block font-display text-[1.375rem] font-semibold leading-snug text-ink group-hover:underline sm:text-[1.5rem]">
+                        {b.title}
+                      </span>
+                      <span dir="auto" className="mt-1.5 block text-[15px] text-muted-foreground">{b.author}</span>
+                      <Availability book={b} className="mt-4 text-[13px]" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
             <ul className="scrollbar-none -mx-4 mt-12 flex snap-x snap-mandatory scroll-px-4 gap-5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-x-6 sm:gap-y-12 sm:overflow-visible sm:px-0 lg:grid-cols-6 lg:gap-x-8">
               {onShelf.map((b) => (
                 <li key={b.id} className="w-[42%] shrink-0 snap-start sm:w-auto">
@@ -141,6 +158,7 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
+            )}
           </div>
         </section>
       )}

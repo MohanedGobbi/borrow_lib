@@ -87,17 +87,18 @@ export default function BookDetailPage() {
 
       {/* Phones: title beside a thumbnail cover, then availability and the request buttons, the copies, the details.
           md and up: cover, content and availability side by side, the copies below. */}
-      <div className="mt-8 grid grid-cols-[6rem_minmax(0,1fr)] gap-x-5 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-x-10 lg:mt-10 lg:grid-cols-[15rem_minmax(0,1fr)_20rem] lg:gap-x-14">
-        <div className="col-start-1 row-start-1 md:row-span-2">
+      <div className={cn("mt-8 grid gap-x-5 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-x-10 lg:mt-10 lg:grid-cols-[15rem_minmax(0,1fr)_20rem] lg:gap-x-14", book.coverImage ? "grid-cols-[6rem_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}>
+        {/* A title plate beside the heading only repeats it: on phones a book without a cover photograph has no cover. */}
+        <div className={cn("col-start-1 row-start-1 md:row-span-2", !book.coverImage && "max-md:hidden")}>
           <BookCover book={book} size="hero" />
         </div>
 
-        <div className="col-start-2 row-start-1 min-w-0">
+        <div className={cn("row-start-1 min-w-0 md:col-start-2", book.coverImage ? "col-start-2" : "col-start-1")}>
           <h1 className="type-display text-[1.75rem] text-ink sm:text-[2.25rem] lg:text-[2.875rem]"><bdi>{book.title}</bdi></h1>
           <p className="mt-3 text-lead text-muted-foreground md:mt-4 md:text-lg">{t("book.by")} <bdi className="text-ink">{book.author}</bdi></p>
         </div>
 
-        <aside className="col-span-2 row-start-2 mt-8 h-fit rounded-lg border bg-white p-6 shadow-[0_1px_2px_rgb(16_24_20/0.04),0_8px_24px_-16px_rgb(16_24_20/0.18)] md:col-start-1 md:row-start-3 md:mt-10 lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:mt-0">
+        <aside className="col-span-full row-start-2 mt-8 h-fit rounded-lg border bg-white p-6 shadow-[0_1px_2px_rgb(16_24_20/0.04),0_8px_24px_-16px_rgb(16_24_20/0.18)] md:col-start-1 md:row-start-3 md:mt-10 lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:mt-0">
           <h2 className={out ? "font-display text-2xl font-semibold leading-tight text-ink" : "font-display text-2xl font-semibold leading-tight text-brand-dark"}>
             {out ? t("book.allOut") : t("book.onShelf")}
           </h2>

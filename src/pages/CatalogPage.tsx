@@ -76,16 +76,6 @@ export default function CatalogPage() {
 
       <BorrowNotice className="mt-6" />
 
-      {/* Signed out: one note for the whole list instead of a button on every row. */}
-      {!authLoading && !me && (
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-md border bg-surface px-4 py-3">
-          <p className="text-[15px] font-medium text-ink">{t("catalog.signinNote")}</p>
-          <Button asChild size="sm">
-            <Link to="/login" state={{ from: "/catalog" }}>{t("nav.signin")}</Link>
-          </Button>
-        </div>
-      )}
-
       <div className="mt-8 flex h-[3.75rem] items-center rounded-lg border bg-white p-1.5 shadow-[0_18px_40px_-26px_rgb(16_24_20/0.4)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-[3px] focus-within:outline-brand">
         <Search className="ms-3 size-5 shrink-0 text-muted-foreground" aria-hidden />
         <input
@@ -97,6 +87,16 @@ export default function CatalogPage() {
           className="h-full min-w-0 flex-1 bg-transparent px-3 text-base text-ink placeholder:text-muted-foreground focus-visible:outline-none sm:text-[17px]"
         />
       </div>
+
+      {/* Signed out: one note, under the search, for the whole list instead of a button on every row. */}
+      {!authLoading && !me && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-md border bg-surface px-4 py-3">
+          <p className="text-[15px] font-medium text-ink">{t("catalog.signinNote")}</p>
+          <Button asChild size="sm">
+            <Link to="/login" state={{ from: "/catalog" }}>{t("nav.signin")}</Link>
+          </Button>
+        </div>
+      )}
 
       {/* Phones and tablets: the filters fold into one quiet row under the search. */}
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 lg:hidden">

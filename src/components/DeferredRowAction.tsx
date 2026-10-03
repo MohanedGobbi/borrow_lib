@@ -24,13 +24,15 @@ const LABEL: Record<RowActionKind, { button: string; done: string; aria: string;
  * pickup also in plain text under the button, because a tooltip cannot be reached on a phone.
  */
 export function DeferredRowAction({
-  kind, record, deferred, focusUndo = true, short,
+  kind, record, deferred, focusUndo = true, short, showReason = true,
 }: {
   kind: RowActionKind; record: ActionRecord; deferred: Deferred;
   /** Move the keyboard focus to Undo when the window opens, and back to the button after Undo. Off where the focus must stay (the desk search box). */
   focusUndo?: boolean;
   /** "Return" instead of "Confirm return", for a tight row. */
   short?: boolean;
+  /** Off where the row shows a blocked pickup's reason itself, on a line of its own (the staff overview). */
+  showReason?: boolean;
 }) {
   const { t } = useI18n();
   const ruleVars = useRuleVars();
@@ -85,7 +87,7 @@ export function DeferredRowAction({
     </GuardedButton>
   );
 
-  if (reason && kind === "pickup") {
+  if (reason && kind === "pickup" && showReason) {
     return (
       <div className="flex flex-col items-end gap-1.5 text-end max-sm:items-start max-sm:text-start">
         {button}
