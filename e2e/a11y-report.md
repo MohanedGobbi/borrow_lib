@@ -5,4 +5,4 @@ Count is the number of elements on that page that break the rule.
 
 | Rule | Page | Count | What it means |
 |---|---|---|---|
-| none | | | |
+| `color-contrast` | Book detail | 1 | Elements must meet minimum color contrast ratio thresholds |

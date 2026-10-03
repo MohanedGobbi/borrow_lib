@@ -80,7 +80,7 @@ Owner decisions recorded with it:
 | R2 | Student and staff screens in the new language ([spec](R2.md)) | Sonnet · high, Opus review | done |
 | R3 | P1/P2 issues from the 27/40 critique + overdue blocks pickup ([spec](R3.md)) | Sonnet · high | done, Opus-reviewed: also enforced overdue block on waiting lists server-side |
 | R4 | Admin-editable site photos ([spec](R4.md)) | Sonnet · medium | done, Opus-reviewed: Pillow-verified formats, 8 MB / 40 MP limits, metadata stripped, WebP 640/1200/2000, alt text required in 3 languages |
-| R5 | Finish review (impeccable-finish-reviewer) + DESIGN.md (impeccable-documenter) | Opus agents | |
+| R5 | Finish review (impeccable-finish-reviewer) + DESIGN.md (impeccable-documenter) | Opus agents | done: verdict fix → 2 fix rounds (owner funded the second) → all scored items resolved; DESIGN.md + sidecar rewritten from the build |
 
 ## Sprint 5: Operations
 
