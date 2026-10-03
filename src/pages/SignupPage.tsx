@@ -6,7 +6,7 @@ import { apiInvites } from "@/api";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
-import { AuthCard } from "@/pages/LoginPage";
+import { AuthHeading, AuthLayout } from "@/components/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,42 +77,40 @@ export default function SignupPage() {
 
   if (invite.status === "checking") {
     return (
-      <AuthCard wide>
-        <div role="status" className="py-6 text-center">
-          <div className="mx-auto size-7 animate-spin rounded-full border-2 border-border border-t-brand" aria-hidden />
+      <AuthLayout wide>
+        <div role="status" className="py-6">
+          <div className="size-7 animate-spin rounded-full border-2 border-border border-t-brand" aria-hidden />
           <p className="mt-4 text-[15px] text-muted-foreground">{t("invite.checking")}</p>
         </div>
-      </AuthCard>
+      </AuthLayout>
     );
   }
 
   if (invite.status === "invalid") {
     return (
-      <AuthCard wide>
-        <div role="alert" className="text-center">
-          <LinkIcon className="mx-auto size-8 text-muted-foreground" aria-hidden />
-          <h1 className="mt-3 text-xl font-semibold tracking-tight">{t("invite.invalid")}</h1>
-          <p className="mt-2 text-[15px] text-muted-foreground">{t("invite.invalidSub")}</p>
+      <AuthLayout wide>
+        <div role="alert">
+          <LinkIcon className="size-8 text-muted-foreground" aria-hidden />
+          <h1 className="type-title mt-5 text-ink">{t("invite.invalid")}</h1>
+          <p className="mt-2.5 text-[15px] leading-relaxed text-muted-foreground">{t("invite.invalidSub")}</p>
           <Button className="mt-6" onClick={continueAsStudent}>{t("invite.continueStudent")}</Button>
         </div>
-      </AuthCard>
+      </AuthLayout>
     );
   }
 
   const optional = <span className="font-normal text-muted-foreground">{t("auth.optional")}</span>;
 
   return (
-    <AuthCard wide>
-      <h1 className="text-xl font-semibold tracking-tight">{t("auth.create")}</h1>
-      {invited ? (
-        <p className="mt-3 flex items-center gap-2 rounded-md border bg-surface px-3 py-2 text-sm font-medium text-brand-dark">
+    <AuthLayout wide>
+      <AuthHeading title={t("auth.create")}>{invited ? null : t("auth.createSub")}</AuthHeading>
+      {invited && (
+        <p className="mt-4 flex items-center gap-2 rounded-md border bg-surface px-3 py-2 text-sm font-medium text-brand-dark">
           <ShieldCheck className="size-4 shrink-0" aria-hidden /> {t(`invite.joining.${invited.role}`)}
         </p>
-      ) : (
-        <p className="mt-1 text-sm text-muted-foreground">{t("auth.createSub")}</p>
       )}
 
-      <form onSubmit={submit} className="mt-6 space-y-4">
+      <form onSubmit={submit} className="mt-8 space-y-5">
         <div className="space-y-1.5">
           <Label htmlFor="name">{t("auth.fullname")}</Label>
           <Input id="name" required autoComplete="name" value={form.name} onChange={set("name")} className="h-11" />
@@ -149,15 +147,15 @@ export default function SignupPage() {
         </div>
 
         {error && <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
-        <Button type="submit" disabled={busy} className="w-full">
+        <Button type="submit" disabled={busy} className="h-12 w-full">
           {busy ? t("auth.creating") : t("auth.create")}
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="mt-6 text-[15px] text-muted-foreground">
         {t("auth.haveAccount")}{" "}
         <Link to="/login" className="font-medium text-brand-dark hover:underline">{t("auth.signin")}</Link>
       </p>
-    </AuthCard>
+    </AuthLayout>
   );
 }

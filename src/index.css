@@ -32,6 +32,10 @@
     --sidebar-accent-foreground: 150 78% 18%;
     --sidebar-border: 150 9% 87%;
     --sidebar-ring: 150 77% 24%;
+    /* Exponential ease-out: every transition in the app settles instead of bouncing. */
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    /* Photo scrims: the ink, one step darker, as RGB channels. */
+    --scrim: 8 12 10;
   }
 }
 
@@ -42,10 +46,14 @@
   html {
     -webkit-text-size-adjust: 100%;
     scrollbar-color: hsl(150 7% 72%) transparent;
+    /* Anchors and focused fields stop below the sticky header. */
+    scroll-padding-top: 5rem;
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "tnum" 0;
+    /* Tabular figures everywhere: counts, dates and countdowns never jitter. */
+    font-variant-numeric: tabular-nums;
+    font-optical-sizing: auto;
     caret-color: hsl(var(--primary));
   }
   ::selection {
@@ -53,7 +61,8 @@
     color: hsl(var(--foreground));
   }
   a {
-    text-underline-offset: 3px;
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
   }
   :focus-visible {
     outline: 2px solid hsl(var(--ring));
@@ -62,8 +71,117 @@
   h1, h2, h3 {
     text-wrap: balance;
   }
+  p {
+    text-wrap: pretty;
+  }
   table {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /*
+   * The serif display scale (Source Serif 4, optical sizes on; Noto Naskh Arabic for Arabic).
+   * Tracking tightens as the size grows; Arabic is never tracked, because spacing breaks the joins.
+   */
+  .type-hero,
+  .type-display,
+  .type-title,
+  .type-heading {
+    font-family: "Source Serif 4", "Noto Naskh Arabic", Georgia, serif;
+    font-optical-sizing: auto;
+    color: inherit;
+  }
+  /* Landing headline only. */
+  .type-hero {
+    font-weight: 400;
+    font-size: clamp(2.625rem, 1.15rem + 4.6vw, 5.25rem);
+    line-height: 1.02;
+    letter-spacing: -0.026em;
+  }
+  /* Landing section headings and the book page title. */
+  .type-display {
+    font-weight: 400;
+    font-size: clamp(2.125rem, 1.45rem + 2.2vw, 3.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.022em;
+  }
+  /* Page titles (PageHeader) on every screen. */
+  .type-title {
+    font-weight: 600;
+    font-size: clamp(1.75rem, 1.5rem + 0.7vw, 2.25rem);
+    line-height: 1.12;
+    letter-spacing: -0.016em;
+  }
+  /* Book titles in lists and on covers' neighbours. */
+  .type-heading {
+    font-weight: 600;
+    font-size: 1.1875rem;
+    line-height: 1.25;
+    letter-spacing: -0.006em;
+  }
+  :lang(ar) .type-hero,
+  :lang(ar) .type-display,
+  :lang(ar) .type-title,
+  :lang(ar) .type-heading {
+    letter-spacing: 0;
+  }
+  :lang(ar) .type-hero { font-weight: 500; line-height: 1.32; }
+  :lang(ar) .type-display { font-weight: 500; line-height: 1.35; }
+  :lang(ar) .type-title { line-height: 1.4; }
+  :lang(ar) .type-heading { line-height: 1.5; }
+
+  /* The header bar on every page but the top of the landing hero: white glass with a hairline edge. */
+  .glass-bar {
+    background-color: rgb(255 255 255 / 0.96);
+    border-color: hsl(var(--border));
+  }
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .glass-bar {
+      background-color: rgb(255 255 255 / 0.72);
+      -webkit-backdrop-filter: saturate(1.8) blur(20px);
+      backdrop-filter: saturate(1.8) blur(20px);
+    }
+  }
+
+  /* A text link with a trailing arrow that moves a little toward where it leads. */
+  .link-arrow {
+    @apply inline-flex items-center gap-1.5 font-medium text-brand-dark underline-offset-4 hover:underline;
+  }
+  .link-arrow > svg {
+    transition: transform 300ms var(--ease-out-expo);
+  }
+  .link-arrow:hover > svg {
+    transform: translateX(3px);
+  }
+  [dir="rtl"] .link-arrow:hover > svg {
+    transform: translateX(-3px) rotate(180deg);
+  }
+
+  /* Legibility scrim over the landing photograph: dark at the foot (headline and search) and under the header. */
+  .hero-scrim {
+    background:
+      linear-gradient(to bottom, rgb(var(--scrim) / 0.6) 0%, rgb(var(--scrim) / 0) 26%),
+      linear-gradient(to top, rgb(var(--scrim) / 0.9) 0%, rgb(var(--scrim) / 0.8) 38%, rgb(var(--scrim) / 0.62) 62%, rgb(var(--scrim) / 0.34) 82%, rgb(var(--scrim) / 0.22) 100%);
+  }
+  @media (min-width: 1024px) {
+    .hero-scrim {
+      background:
+        linear-gradient(to bottom, rgb(var(--scrim) / 0.7) 0%, rgb(var(--scrim) / 0.25) 14%, rgb(var(--scrim) / 0) 28%),
+        linear-gradient(to right, rgb(var(--scrim) / 0.62) 0%, rgb(var(--scrim) / 0.28) 52%, rgb(var(--scrim) / 0) 78%),
+        linear-gradient(to top, rgb(var(--scrim) / 0.78) 0%, rgb(var(--scrim) / 0.4) 40%, rgb(var(--scrim) / 0.12) 100%);
+    }
+    [dir="rtl"] .hero-scrim {
+      background:
+        linear-gradient(to bottom, rgb(var(--scrim) / 0.7) 0%, rgb(var(--scrim) / 0.25) 14%, rgb(var(--scrim) / 0) 28%),
+        linear-gradient(to left, rgb(var(--scrim) / 0.62) 0%, rgb(var(--scrim) / 0.28) 52%, rgb(var(--scrim) / 0) 78%),
+        linear-gradient(to top, rgb(var(--scrim) / 0.78) 0%, rgb(var(--scrim) / 0.4) 40%, rgb(var(--scrim) / 0.12) 100%);
+    }
+  }
+
+  /* The auth panel photograph: a gentler foot scrim behind the wordmark. */
+  .panel-scrim {
+    background: linear-gradient(to top, rgb(var(--scrim) / 0.86) 0%, rgb(var(--scrim) / 0.5) 38%, rgb(var(--scrim) / 0.08) 72%, rgb(var(--scrim) / 0.2) 100%);
   }
 }
 
@@ -71,6 +189,46 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * Landing hero: the photograph and the headline settle in at first paint. CSS, not the lazy motion chunk,
+ * so it starts with the page instead of after a download. Transform only: the text is at full contrast from the
+ * first frame, and nothing waits on script.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-photo {
+    animation: hero-photo 2.6s var(--ease-out-expo) both;
+  }
+  .hero-settle {
+    animation: hero-settle 1.5s var(--ease-out-expo) both;
+  }
+}
+@keyframes hero-photo {
+  from { transform: scale(1.07); }
+  to { transform: scale(1); }
+}
+@keyframes hero-settle {
+  from { transform: translate3d(0, 1.5rem, 0); }
+  to { transform: none; }
+}
+
+/* Lenis smooth scrolling (landing page, fine pointers only). */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
 }
 
 @media (prefers-reduced-motion: reduce) {

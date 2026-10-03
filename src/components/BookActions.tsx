@@ -117,7 +117,7 @@ export function Availability({ book, className }: { book: Book; className?: stri
       <span className={cn("size-2 shrink-0 rounded-full", out ? "bg-muted-foreground/50" : "bg-brand")} aria-hidden />
       {out
         ? t(book.availableCopies > 0 ? "catalog.allHeld" : "catalog.allOnLoan")
-        : <span><span className="tabular">{book.freeCopies} / {book.totalCopies}</span> {t("catalog.copiesAvailable")}</span>}
+        : <span><bdi dir="ltr" className="tabular">{book.freeCopies} / {book.totalCopies}</bdi> {t("catalog.copiesAvailable")}</span>}
     </span>
   );
 }

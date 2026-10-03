@@ -81,22 +81,22 @@ export default function BookDetailPage() {
 
       {/* Phones: title beside a thumbnail cover, then availability and the request buttons, the copies, the details.
           md and up: cover, content and availability side by side, the copies below. */}
-      <div className="mt-6 grid grid-cols-[6rem_minmax(0,1fr)] gap-x-4 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-x-8 lg:grid-cols-[14rem_minmax(0,1fr)_20rem] lg:gap-x-10">
-        <div className="col-start-1 row-start-1 md:row-span-2 md:max-w-[14rem]">
+      <div className="mt-8 grid grid-cols-[6rem_minmax(0,1fr)] gap-x-5 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-x-10 lg:mt-10 lg:grid-cols-[15rem_minmax(0,1fr)_20rem] lg:gap-x-14">
+        <div className="col-start-1 row-start-1 md:row-span-2">
           <BookCover book={book} size="hero" />
         </div>
 
         <div className="col-start-2 row-start-1 min-w-0">
-          <h1 dir="auto" className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{book.title}</h1>
-          <p className="mt-1.5 text-lead text-muted-foreground">{t("book.by")} <span dir="auto" className="text-ink">{book.author}</span></p>
+          <h1 dir="auto" className="type-display text-[1.75rem] text-ink sm:text-[2.25rem] lg:text-[2.875rem]">{book.title}</h1>
+          <p className="mt-3 text-lead text-muted-foreground md:mt-4 md:text-lg">{t("book.by")} <span dir="auto" className="text-ink">{book.author}</span></p>
         </div>
 
-        <aside className="col-span-2 row-start-2 mt-6 h-fit rounded-md border bg-white p-5 md:col-start-1 md:row-start-3 md:mt-8 lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:mt-0">
-          <h2 className="text-sm font-semibold text-ink">{t("book.availability")}</h2>
-          <p className={out ? "mt-2 text-lg font-semibold text-ink" : "mt-2 text-lg font-semibold text-brand-dark"}>
+        <aside className="col-span-2 row-start-2 mt-8 h-fit rounded-lg border bg-white p-6 shadow-[0_1px_2px_rgb(16_24_20/0.04),0_8px_24px_-16px_rgb(16_24_20/0.18)] md:col-start-1 md:row-start-3 md:mt-10 lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:mt-0">
+          <h2 className="text-[13px] font-semibold text-muted-foreground">{t("book.availability")}</h2>
+          <p className={out ? "mt-2 font-display text-2xl font-semibold leading-tight text-ink" : "mt-2 font-display text-2xl font-semibold leading-tight text-brand-dark"}>
             {out ? t("book.allOut") : t("book.onShelf")}
           </p>
-          {!out && <Availability book={book} className="mt-1" />}
+          {!out && <Availability book={book} className="mt-2" />}
           {out && nextBack && (
             <p className="mt-1 text-sm text-ink">{t("copies.nextBack", { date: fmtDate(nextBack) })}</p>
           )}
@@ -116,24 +116,24 @@ export default function BookDetailPage() {
               onDone={setDone}
             />
           )}
-          <p className="mt-4 border-t pt-4 text-sm leading-relaxed text-muted-foreground">{t("book.rules", ruleVars)}</p>
+          <p className="mt-5 border-t pt-4 text-sm leading-relaxed text-muted-foreground">{t("book.rules", ruleVars)}</p>
         </aside>
 
         {(copies ?? []).length > 0 && (
-          <div className="col-span-full row-start-3 mt-8 md:row-start-4 md:mt-10 lg:row-start-3">
+          <div className="col-span-full row-start-3 mt-10 md:row-start-4 md:mt-14 lg:row-start-3">
             <BookCopies copies={copies!} />
           </div>
         )}
 
         <div className="col-span-full row-start-4 min-w-0 md:col-span-1 md:col-start-2 md:row-start-2 lg:row-start-2">
           {book.description && (
-            <p dir="auto" className="mt-8 max-w-[65ch] text-[15px] leading-relaxed text-ink/90 md:mt-6">{book.description}</p>
+            <p dir="auto" className="mt-8 max-w-[62ch] text-base leading-[1.7] text-ink/90 md:text-[17px]">{book.description}</p>
           )}
 
-          <h2 className="mt-8 text-sm font-semibold text-ink">{t("book.details")}</h2>
-          <dl className="mt-3 grid max-w-xl grid-cols-[auto_1fr] gap-x-8 border-t text-[15px]">
+          <h2 className="mt-10 text-[13px] font-semibold text-muted-foreground">{t("book.details")}</h2>
+          <dl className="mt-3 grid max-w-xl grid-cols-[auto_1fr] gap-x-10 border-t text-[15px]">
             {meta.map(([k, v]) => (
-              <div key={k} className="col-span-2 grid grid-cols-subgrid border-b py-2.5">
+              <div key={k} className="col-span-2 grid grid-cols-subgrid border-b py-3">
                 <dt className="text-muted-foreground">{k}</dt>
                 <dd className="text-ink">{v}</dd>
               </div>
@@ -143,7 +143,7 @@ export default function BookDetailPage() {
       </div>
 
       {isStaff && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <Panel title={t("book.currentBorrowers")} count={active.length} flush>
             {active.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">{t("book.noLoans")}</p>

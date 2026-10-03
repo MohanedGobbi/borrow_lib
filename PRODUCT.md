@@ -34,7 +34,7 @@ A loan starts at physical pickup, not at approval. Approved requests hold a copy
 - `availableCopies` changes only at pickup (−1) and return (+1). `freeCopies` = `availableCopies` minus copies held for pickup (READY); approval, new requests and queue handoff use it.
 - Returns serve the reservation queue first (FIFO, skipping deactivated members) before a copy is free for anyone else.
 - Deactivating a member blocks sign-in and new requests or reservations.
-- Roles: MEMBER, STAFF, ADMIN; staff registration requires an invite code.
+- Roles: MEMBER, STAFF, ADMIN; staff and admins join through single-use email invites from an admin.
 - Languages: EN / FR / AR with RTL layout for Arabic.
 - Stack: React 19, Vite, TypeScript, Tailwind CSS 3, shadcn/ui; Django REST backend.
 
@@ -43,6 +43,9 @@ A loan starts at physical pickup, not at approval. Approved requests hold a copy
 - Product name: **LibBorrow**. Institution shown generically as **University Library** (no specific university is named).
 - Tone: serious and institutional, suitable for a university; not playful.
 - Palette constraint from the owner: simple colors — green, white and red.
+- Visual standard (owner, 2026-10-03): the category standard, executed to the polish of Apple, top university sites (Harvard, Oxford, MIT) and modern library sites (NYPL, British Library). Not template-like, not bulky, fast on phones; no 3D.
+- Logo: wordmark only.
+- Photography: real library photographs; the shipped ones are Unsplash placeholders (credited) that admins can replace in the app.
 
 ## Evidence on Hand
 

@@ -45,7 +45,7 @@ export function VerifyBanner({ wide }: { wide?: boolean }) {
   if (!me || me.emailVerified !== false) return null;
   return (
     <div className="border-b bg-surface">
-      <div className={cn("mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-[13px] sm:px-6", wide ? "max-w-[1440px]" : "max-w-7xl")}>
+      <div className={cn("mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-[13px] sm:px-6", wide ? "max-w-[1440px]" : "max-w-7xl lg:px-8")}>
         <Mail className="size-4 shrink-0 text-brand" aria-hidden />
         <p className="min-w-0 text-ink/80">
           {t("verify.banner")} {t("verify.sentTo")}{" "}

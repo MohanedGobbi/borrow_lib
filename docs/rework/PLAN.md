@@ -64,6 +64,22 @@ Never switch models mid-WP: the prompt cache is per model.
 
 Deferred: barcode/copy-level tracking (WP-18–20).
 
+## Sprint 4b: Redesign (owner, 2026-10-03: "focus solely on the design until I'm satisfied")
+
+Re-critique after Sprint 4: 27/40 (was 23). Owner dislikes the logo and the layout and wants a beautiful, not-3D
+site; suggested libraries: Lenis, GSAP, Vanta, react-three-fiber, liquid-glass-js, ThreeUI (use only where they earn it).
+
+Owner decisions recorded with it:
+- An overdue loan also blocks **picking up** an already-approved hold (backend `confirm_pickup` + desk UI reason).
+- Keep both ways to request (direct Request and the request list); make one clearly primary.
+
+| WP | Task | Model · effort | Status |
+|---|---|---|---|
+| R0 | Direction exploration: 2-3 visual directions as comps; owner picks | Opus | |
+| R1 | New identity: logo, DESIGN.md rewrite for the chosen direction | Opus | |
+| R2 | Rebuild shell + landing + key screens in the new direction | Sonnet · high, Opus review | |
+| R3 | Remaining screens + P1/P2 issues from the 27/40 critique | Sonnet · high | |
+
 ## Sprint 5: Operations
 
 | WP | Task | Model · effort | Status |

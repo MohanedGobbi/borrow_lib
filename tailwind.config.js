@@ -65,6 +65,8 @@ module.exports = {
       },
       fontFamily: {
         sans: ['"Public Sans"', '"Noto Sans Arabic"', "ui-sans-serif", "system-ui", "sans-serif"],
+        // Display headlines and the wordmark. Arabic letters fall through to Noto Naskh Arabic.
+        display: ['"Source Serif 4"', '"Noto Naskh Arabic"', "Georgia", "serif"],
         mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
       },
       fontSize: {

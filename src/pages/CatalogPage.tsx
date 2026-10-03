@@ -49,6 +49,21 @@ export default function CatalogPage() {
 
   const hasFilters = !!(search || category || availableOnly);
 
+  const categoryList = [
+    { name: "", label: t("catalog.all"), count: (categories ?? []).reduce((n, c) => n + (c.bookCount ?? 0), 0), color: null as string | null },
+    ...(categories ?? []).map((c) => ({ name: c.name, label: c.name, count: c.bookCount ?? 0, color: c.color })),
+  ];
+
+  const availableToggle = (
+    <label className="flex cursor-pointer items-center gap-2.5 text-[15px] text-ink">
+      <Checkbox
+        checked={availableOnly}
+        onCheckedChange={(v) => setParam("available", v === true ? "1" : "")}
+      />
+      {t("catalog.availableOnly")}
+    </label>
+  );
+
   return (
     <Container>
       <PageHeader
@@ -56,78 +71,71 @@ export default function CatalogPage() {
         description={result ? <span className="tabular">{result.count} {t("catalog.titles")}</span> : null}
       />
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        {/* filters */}
-        <aside className="space-y-6">
-          <div className="relative">
-            <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-            <Input
-              type="search"
-              value={search}
-              onChange={(e) => setParam("q", e.target.value)}
-              placeholder={t("catalog.search")}
-              aria-label={t("catalog.search")}
-              className="h-10 bg-white ps-9"
-            />
-          </div>
+      {/* Search first: one wide field, the way the landing page asks for it. */}
+      <div className="relative mt-8">
+        <Search className="pointer-events-none absolute start-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Input
+          type="search"
+          value={search}
+          onChange={(e) => setParam("q", e.target.value)}
+          placeholder={t("catalog.search")}
+          aria-label={t("catalog.search")}
+          className="h-14 rounded-lg bg-white ps-12 text-base shadow-[0_1px_2px_rgb(16_24_20/0.05)] md:text-[17px]"
+        />
+      </div>
 
-          <div className="lg:hidden">
-            <Select value={category || "all"} onValueChange={(v) => setParam("category", v === "all" ? "" : v)}>
-              <SelectTrigger className="h-10 w-full bg-white" aria-label={t("catalog.categories")}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("catalog.all")}</SelectItem>
-                {(categories ?? []).map((c) => (
-                  <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Phones and tablets: the filters fold into one quiet row under the search. */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 lg:hidden">
+        <Select value={category || "all"} onValueChange={(v) => setParam("category", v === "all" ? "" : v)}>
+          <SelectTrigger className="h-10 w-full bg-white sm:w-64" aria-label={t("catalog.categories")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("catalog.all")}</SelectItem>
+            {(categories ?? []).map((c) => (
+              <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {availableToggle}
+      </div>
 
-          <nav className="hidden lg:block" aria-label={t("catalog.categories")}>
-            <h2 className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("catalog.categories")}</h2>
-            <ul className="mt-2 space-y-0.5">
-              {[{ name: "", label: t("catalog.all"), count: (categories ?? []).reduce((n, c) => n + (c.bookCount ?? 0), 0), color: null as string | null },
-                ...(categories ?? []).map((c) => ({ name: c.name, label: c.name, count: c.bookCount ?? 0, color: c.color }))]
-                .map((c) => (
-                  <li key={c.name || "all"}>
-                    <button
-                      type="button"
-                      onClick={() => setParam("category", c.name)}
-                      aria-current={category === c.name ? "true" : undefined}
-                      className={cn(
-                        "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-start text-[15px] transition-colors",
-                        category === c.name ? "bg-brand-soft font-medium text-brand-dark" : "text-ink/80 hover:bg-surface",
-                      )}
-                    >
-                      {c.color
-                        ? <span className="size-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: c.color }} aria-hidden />
-                        : <span className="size-2.5 shrink-0" aria-hidden />}
-                      <span className="flex-1 truncate">{c.label}</span>
-                      <span className="tabular text-xs text-muted-foreground">{c.count}</span>
-                    </button>
-                  </li>
-                ))}
+      <div className="mt-6 grid gap-12 lg:mt-10 lg:grid-cols-[13.5rem_minmax(0,1fr)]">
+        <aside className="hidden lg:block">
+          <nav aria-label={t("catalog.categories")}>
+            <h2 className="px-2.5 text-[13px] font-semibold text-ink">{t("catalog.categories")}</h2>
+            <ul className="mt-3 space-y-px">
+              {categoryList.map((c) => (
+                <li key={c.name || "all"}>
+                  <button
+                    type="button"
+                    onClick={() => setParam("category", c.name)}
+                    aria-current={category === c.name ? "true" : undefined}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-md px-2.5 py-[7px] text-start text-[15px] transition-colors",
+                      category === c.name ? "bg-brand-soft font-medium text-brand-dark" : "text-ink/75 hover:bg-surface hover:text-ink",
+                    )}
+                  >
+                    {c.color
+                      ? <span className="size-2 shrink-0 rounded-[2px]" style={{ backgroundColor: c.color }} aria-hidden />
+                      : <span className="size-2 shrink-0" aria-hidden />}
+                    <span className="flex-1 truncate">{c.label}</span>
+                    <span className="tabular text-[13px] text-muted-foreground">{c.count}</span>
+                  </button>
+                </li>
+              ))}
             </ul>
           </nav>
-
-          <label className="flex cursor-pointer items-center gap-2.5 text-[15px]">
-            <Checkbox
-              checked={availableOnly}
-              onCheckedChange={(v) => setParam("available", v === true ? "1" : "")}
-            />
-            {t("catalog.availableOnly")}
-          </label>
+          <div className="mt-8 border-t px-2.5 pt-6">{availableToggle}</div>
         </aside>
 
         {/* results */}
         <div className="min-w-0">
-          {isPending && <div className="rounded-md border bg-white"><RowsSkeleton rows={6} /></div>}
+          {isPending && <div className="border-y"><RowsSkeleton rows={6} /></div>}
           {isError && <ErrorState message={t("catalog.loadError")} onRetry={() => refetch()} />}
 
           {result && !isError && result.results.length === 0 && (
-            <div className="rounded-md border">
+            <div className="border-y">
               <EmptyState icon={SearchX} title={t("catalog.noMatch")}>
                 {hasFilters && (
                   <Button variant="outline" size="sm" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
@@ -139,20 +147,20 @@ export default function CatalogPage() {
           )}
 
           {result && result.results.length > 0 && (
-            <ul className="divide-y rounded-md border bg-white">
+            <ul className="border-t">
               {result.results.map((b) => (
-                <li key={b.id} className="relative grid grid-cols-[4rem_minmax(0,1fr)] gap-x-4 gap-y-3 p-4 transition-colors active:bg-surface sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:gap-x-5 sm:active:bg-transparent">
-                  <Link to={`/books/${b.id}`} tabIndex={-1} aria-hidden>
+                <li key={b.id} className="relative grid grid-cols-[4.25rem_minmax(0,1fr)] gap-x-5 border-b py-6 transition-colors active:bg-surface sm:grid-cols-[5rem_minmax(0,1fr)_auto] sm:gap-x-7 sm:active:bg-transparent">
+                  <Link to={`/books/${b.id}`} tabIndex={-1} aria-hidden className="self-start">
                     <BookCover book={b} size="sm" />
                   </Link>
-                  <div className="min-w-0">
-                    <Link dir="auto" to={`/books/${b.id}`} className="text-base font-semibold leading-snug text-ink after:absolute after:inset-0 hover:text-brand-dark hover:underline sm:after:hidden">
+                  <div className="min-w-0 self-center">
+                    <Link dir="auto" to={`/books/${b.id}`} className="type-heading text-ink decoration-ink/30 after:absolute after:inset-0 hover:underline sm:after:hidden">
                       {b.title}
                     </Link>
-                    <p dir="auto" className="mt-0.5 text-sm text-muted-foreground">
+                    <p dir="auto" className="mt-1 text-[15px] text-muted-foreground">
                       {b.author}{b.year ? ` · ${b.year}` : ""}{b.publisher ? ` · ${b.publisher}` : ""}
                     </p>
-                    <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    <p className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
                       <Availability book={b} />
                       <span className="text-muted-foreground">
                         {t("field.shelf")} <span dir="ltr" className="font-mono text-[13px] text-ink/80">{b.shelfLocation || "—"}</span>
@@ -174,7 +182,7 @@ export default function CatalogPage() {
             <Pager
               page={result.page} pageSize={result.pageSize} count={result.count}
               onPage={(p) => setParam("page", p > 1 ? String(p) : "")}
-              className="mt-4 border-t-0 px-0"
+              className="mt-2 border-t-0 px-0"
             />
           )}
         </div>

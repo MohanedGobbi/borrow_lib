@@ -4,7 +4,7 @@ import { CheckCircle2, LinkIcon } from "lucide-react";
 import { apiAuth } from "@/api";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
-import { AuthCard } from "@/pages/LoginPage";
+import { AuthLayout } from "@/components/AuthLayout";
 import { ResendVerificationButton } from "@/components/VerifyBanner";
 import { Button } from "@/components/ui/button";
 
@@ -30,19 +30,19 @@ export default function VerifyEmailPage() {
   }, [loading, uid, token, me, refresh]);
 
   return (
-    <AuthCard>
-      <div role="status" className="text-center">
+    <AuthLayout>
+      <div role="status">
         {state === "checking" && (
           <>
-            <div className="mx-auto size-7 animate-spin rounded-full border-2 border-border border-t-brand" aria-hidden />
+            <div className="size-7 animate-spin rounded-full border-2 border-border border-t-brand" aria-hidden />
             <p className="mt-4 text-[15px] text-muted-foreground">{t("verify.checking")}</p>
           </>
         )}
         {state === "ok" && (
           <>
-            <CheckCircle2 className="mx-auto size-8 text-brand" aria-hidden />
-            <h1 className="mt-3 text-xl font-semibold tracking-tight">{t("verify.ok")}</h1>
-            <p className="mt-2 text-[15px] text-muted-foreground">{t("verify.okSub")}</p>
+            <CheckCircle2 className="size-8 text-brand" aria-hidden />
+            <h1 className="type-title mt-5 text-ink">{t("verify.ok")}</h1>
+            <p className="mt-2.5 text-[15px] leading-relaxed text-muted-foreground">{t("verify.okSub")}</p>
             <Button asChild className="mt-6">
               <Link to={me ? "/catalog" : "/login"}>{me ? t("verify.catalog") : t("auth.signin")}</Link>
             </Button>
@@ -50,10 +50,10 @@ export default function VerifyEmailPage() {
         )}
         {state === "failed" && (
           <div role="alert">
-            <LinkIcon className="mx-auto size-8 text-muted-foreground" aria-hidden />
-            <h1 className="mt-3 text-xl font-semibold tracking-tight">{t("verify.fail")}</h1>
-            <p className="mt-2 text-[15px] text-muted-foreground">{t("verify.failSub")}</p>
-            <div className="mt-6 flex justify-center">
+            <LinkIcon className="size-8 text-muted-foreground" aria-hidden />
+            <h1 className="type-title mt-5 text-ink">{t("verify.fail")}</h1>
+            <p className="mt-2.5 text-[15px] leading-relaxed text-muted-foreground">{t("verify.failSub")}</p>
+            <div className="mt-6 flex">
               {me && me.emailVerified === false ? (
                 <ResendVerificationButton />
               ) : me ? (
@@ -65,6 +65,6 @@ export default function VerifyEmailPage() {
           </div>
         )}
       </div>
-    </AuthCard>
+    </AuthLayout>
   );
 }

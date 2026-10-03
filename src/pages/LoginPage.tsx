@@ -4,7 +4,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { DEMO, DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/api/client";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
-import { BrandMark } from "@/components/Layout";
+import { AuthHeading, AuthLayout } from "@/components/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,17 +15,6 @@ const DEMO_ROLE: Record<string, string> = {
   "staff@libborrow.dev": "role.STAFF",
   "admin@libborrow.dev": "role.ADMIN",
 };
-
-export function AuthCard({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
-  return (
-    <div className="flex justify-center px-4 py-12 sm:py-16">
-      <div className={wide ? "w-full max-w-xl" : "w-full max-w-md"}>
-        <div className="mb-6 flex justify-center"><BrandMark /></div>
-        <div className="rounded-lg border bg-white p-6 shadow-[0_1px_3px_rgb(16_24_20/0.06)] sm:p-8">{children}</div>
-      </div>
-    </div>
-  );
-}
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -56,11 +45,10 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthCard>
-      <h1 className="text-xl font-semibold tracking-tight">{t("auth.signin")}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{t("auth.signinSub")}</p>
+    <AuthLayout>
+      <AuthHeading title={t("auth.signin")}>{t("auth.signinSub")}</AuthHeading>
 
-      <form onSubmit={submit} className="mt-6 space-y-4" noValidate={false}>
+      <form onSubmit={submit} className="mt-8 space-y-5" noValidate={false}>
         <div className="space-y-1.5">
           <Label htmlFor="email">{t("auth.email")}</Label>
           <Input id="email" type="email" required autoComplete="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11" />
@@ -73,19 +61,19 @@ export default function LoginPage() {
           <Input id="password" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11" />
         </div>
         {error && <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
-        <Button type="submit" disabled={busy} className="w-full">
+        <Button type="submit" disabled={busy} className="h-12 w-full">
           {busy ? t("auth.signing") : t("auth.signin")}
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="mt-6 text-[15px] text-muted-foreground">
         {t("auth.noAccount")}{" "}
         <Link to="/signup" className="font-medium text-brand-dark hover:underline">{t("auth.createOne")}</Link>
       </p>
 
       {DEMO && (
-        <div className="mt-6 border-t pt-6">
-          <h2 className="text-sm font-semibold">{t("auth.demoTitle")}</h2>
+        <div className="mt-10 border-t pt-8">
+          <h2 className="text-[13px] font-semibold text-muted-foreground">{t("auth.demoTitle")}</h2>
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {DEMO_ACCOUNTS.map((a) => (
               <li key={a.email}>
@@ -93,7 +81,7 @@ export default function LoginPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => signIn(a.email, DEMO_PASSWORD)}
-                  className="w-full rounded-md border px-3 py-2.5 text-start transition-colors hover:border-brand/50 hover:bg-brand-soft/60 disabled:opacity-50"
+                  className="w-full rounded-md border bg-white px-3.5 py-3 text-start transition-colors hover:border-brand/50 hover:bg-brand-soft/60 disabled:opacity-50"
                 >
                   <span className="block text-sm font-medium leading-tight">{a.name}</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
@@ -108,6 +96,6 @@ export default function LoginPage() {
           </p>
         </div>
       )}
-    </AuthCard>
+    </AuthLayout>
   );
 }
