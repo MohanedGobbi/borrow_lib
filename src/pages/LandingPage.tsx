@@ -151,7 +151,7 @@ export default function LandingPage() {
           <SitePhoto
             slot="feature"
             sizes="(min-width: 1024px) 58vw, 100vw"
-            className="absolute inset-x-0 -top-[7%] h-[114%] w-full object-cover saturate-[.85]"
+            className="absolute inset-x-0 -top-[7%] h-[114%] w-full object-cover"
           />
         </div>
         <div className="flex items-center px-4 py-16 sm:px-6 lg:col-span-5 lg:px-14 lg:py-24 xl:px-20">
