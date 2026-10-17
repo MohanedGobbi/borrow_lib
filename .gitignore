@@ -22,9 +22,14 @@ backend/staticfiles/
 .impeccable/review/
 .impeccable/mocks/
 .impeccable/build/
+.impeccable/critique/
+.impeccable/questions/
 .impeccable/*.json
 !.impeccable/design.json
 .impeccable/brief-body.md
+
+# claude config
+.claude/
 
 # end-to-end tests (Playwright)
 backend/e2e.sqlite3

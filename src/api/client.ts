@@ -15,10 +15,10 @@ export const DEMO_REFRESH_KEY = "lb_demo_refresh";
 
 /** Seeded demo accounts offered as one-click sign-ins in demo builds. */
 export const DEMO_ACCOUNTS = [
+  { label: "Admin", name: "Eleanor Vance", email: "admin@libborrow.dev" },
+  { label: "Staff", name: "Marcus Holloway", email: "staff@libborrow.dev" },
   { label: "Member", name: "Priya Sharma", email: "priya@example.com" },
   { label: "Member · overdue", name: "Daniel Okafor", email: "daniel@example.com" },
-  { label: "Staff", name: "Marcus Holloway", email: "staff@libborrow.dev" },
-  { label: "Admin", name: "Eleanor Vance", email: "admin@libborrow.dev" },
 ];
 export const DEMO_PASSWORD = "password123";
 
