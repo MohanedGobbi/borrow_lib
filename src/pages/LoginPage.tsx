@@ -144,7 +144,8 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={copyPassword}
-              className="inline-flex items-center gap-1 rounded border border-field-stroke/70 bg-white px-2 py-0.5 font-mono text-xs font-medium text-ink transition-colors hover:border-brand/40"
+              aria-label={t("auth.demoCopy")}
+              className="inline-flex items-center gap-1.5 rounded border border-hairline bg-white px-2 py-0.5 font-mono text-xs font-medium text-ink transition-colors hover:border-brand/40 hover:bg-brand-soft/40 cursor-pointer"
               title={t("auth.demoCopy")}
             >
               <span dir="ltr">{DEMO_PASSWORD}</span>
@@ -153,7 +154,24 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+        {/* Quick 1-click role chips */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {DEMO_PERSONAS.map((a) => (
+            <button
+              key={`chip-${a.email}`}
+              type="button"
+              disabled={busy}
+              onClick={() => signInAs(a.email)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-white px-2.5 py-1 text-xs font-medium text-ink transition-all hover:border-brand/50 hover:bg-brand-soft/60 active:scale-95 disabled:opacity-50 cursor-pointer"
+            >
+              <a.icon className="size-3 text-brand shrink-0" aria-hidden />
+              <span>{a.name.split(" ")[0]}</span>
+              <span className="text-[10px] text-muted-foreground">({t(a.roleKey)})</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
           {DEMO_PERSONAS.map((a) => {
             const isSigningInThis = busy && signingInEmail === a.email;
             const firstName = a.name.split(" ")[0];
@@ -178,30 +196,30 @@ export default function LoginPage() {
                   </p>
                 </div>
 
-                <div className="mt-3 flex items-center gap-2 pt-2 border-t border-hairline/60">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => fillAccount(a)}
-                    className="h-8 flex-1 text-xs"
-                  >
-                    {t("auth.demoFill")}
-                  </Button>
+                <div className="mt-3.5 flex flex-col gap-1.5 pt-2.5 border-t border-hairline/60">
                   <Button
                     type="button"
                     size="sm"
                     disabled={busy}
                     onClick={() => signInAs(a.email)}
-                    className="h-8 flex-1 text-xs gap-1.5 bg-brand hover:bg-brand-dark text-white"
+                    className="h-9 w-full text-xs font-medium gap-1.5 shadow-none"
                   >
                     {isSigningInThis ? (
                       <Loader2 className="size-3.5 animate-spin" aria-hidden />
                     ) : (
                       <LogIn className="size-3.5" aria-hidden />
                     )}
-                    <span>{t("auth.demoSignInAs", { name: firstName })}</span>
+                    <span className="truncate">{t("auth.demoSignInAs", { name: firstName })}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => fillAccount(a)}
+                    className="h-8 w-full text-xs text-muted-foreground hover:text-ink font-normal border-hairline bg-surface/50 hover:bg-surface"
+                  >
+                    <span className="truncate">{t("auth.demoFill")}</span>
                   </Button>
                 </div>
               </div>
