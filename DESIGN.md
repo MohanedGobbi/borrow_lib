@@ -165,7 +165,7 @@ LibBorrow is the portal a serious university library would put in front of its s
 
 The system is built from hairlines and space, not boxes and shadows. Lists are rows divided by 1px rules; panels are white with a hairline edge; large numbers and titles are set in Source Serif 4 so even the staff overview reads like a printed ledger. Colour is spent sparingly: green marks the one primary action and the current selection, red marks only what is late, rejected or destructive. Everything else is ink on paper.
 
-The build explicitly rejects the SaaS-template look: no card grids with icons, no gradients, no decorative illustration, no 3D, no logo symbol. The wordmark is the brand.
+The build explicitly rejects the SaaS-template look: no card grids with icons, no gradients, no decorative illustration, no 3D, no logo symbol of our own. The wordmark is the brand, and the university's official seal stands beside it.
 
 **Key Characteristics:**
 - White ground, one deep green, red reserved for late and destructive; neutrals tinted toward the green.
@@ -201,6 +201,8 @@ A near-monochrome ink-on-paper palette with one institutional green and one alar
 **The One Green Rule.** Green is the only accent. There are no secondary brand hues, no gradients except the photo scrims, and no tinted illustration. A screen has at most one filled green button.
 
 **The Red Means Late Rule.** Red is reserved for overdue, rejected, blocked and destructive. A failed load or an important notice is shown in ink on Reading Room Grey, not in red.
+
+**The Seal Exception Rule.** The University of Ghardaia's official seal keeps its own colours. It is the one deliberate exception to the green, white and red palette, as any university crest is. Never recolour, outline, add a shadow to, stretch or crop it. Leave clear space of at least 25% of its height on every side; show it between 28px and about 72px, because the source is only 160px wide (use the 1x, 2x and 3x files in `public/brand/`). Set it on white, on Reading Room Grey, or on the dark hero photograph under its scrim; never on red and never on a green fill.
 
 **The Never Color Alone Rule.** Every status carries an icon and a word as well as a colour (Clock pending, PackageCheck ready, BookOpen borrowed, AlertTriangle overdue, XCircle rejected, Ban cancelled). Red/green colour blindness must not hide a state.
 
@@ -287,7 +289,7 @@ Calm and confident; 44px tall by default so every action is a comfortable tap.
 - **Search:** the landing search is one wide white field with a leading search icon and the primary button inset at its end.
 
 ### Navigation
-- **Header:** wordmark at the start, then 15px medium nav links each with a 2px green underline when active; language, notifications, request list and the user menu at the end as 40px icon buttons. Count chips sit on icons: green for the request list, red for unread notifications.
+- **Header:** the seal and wordmark at the start, then 15px medium nav links each with a 2px green underline when active; language, notifications, request list and the user menu at the end as 40px icon buttons. Count chips sit on icons: green for the request list, red for unread notifications.
 - **Staff sidebar:** Reading Room Grey column, sentence-case group labels in Muted Ink, rows with a Lucide icon, label and tabular count; the selected row is Green Wash with green text; an overdue count becomes a red chip.
 - **Mobile:** nav collapses into the user menu; the header stays 64px.
 
@@ -300,8 +302,14 @@ A row of large serif numbers for the top of staff screens: cells separated by 1p
 ### Book Cover (signature)
 When a book has no image, the cover is typographic: a 2:3 Reading Room Grey block with a 3px radius and hairline, the title in the serif, the author in muted sans, and at large sizes the library's name set at the foot as an uppercase imprint, as a publisher's line on a real cover. The imprint belongs to the cover object only; it is not a page-level label style.
 
-### Wordmark
-"LibBorrow" in Source Serif 4 semibold with "University Library" in Public Sans, stacked on phones and set beside it after a 1px divider on wide screens. No symbol anywhere; the favicon is the serif L on a green square.
+### Wordmark and seal
+The institution is the **University of Ghardaia** (Université de Ghardaïa, جامعة غرداية). Its official seal comes first in reading order (left in LTR, right in RTL), then a 1px hairline divider, then "LibBorrow" in Source Serif 4 semibold, then the university's name in Public Sans: stacked under the wordmark on phones, set beside it after a second divider on wide screens. The seal never replaces the wordmark.
+- **Header:** seal 32px on phones, 40px from `lg`; it holds on the transparent state over the hero (the white-centred medallion reads on the dark photograph) and on the white glass.
+- **Footer:** seal 56px, 64px from `md`, with the wordmark and "University of Ghardaia · Library", and the university's name in French, Arabic and English in the small print.
+- **Library card:** seal top-start at 44px beside the wordmark. **Sign-in panel:** seal at 64px above the display wordmark on the photograph.
+- **PDFs:** the seal top-left at 17mm on white (the ID card header is white with a hairline, not a green band), with the university's name in the header.
+- **Rules:** see The Seal Exception Rule. Size 28 to about 72px, clear space 25% of its height, grounds white, grey or the dark photograph only.
+- **Favicon:** the serif L on a green square stays; the seal cannot be read at 16px.
 
 ### Photography
 Black-and-white WebP photographs of library architecture in 640 / 1200 / 2000px widths, each with a `.json` provenance sidecar (source, licence, date), replaceable by admins. Over a photograph, text sits on an ink scrim gradient that is darkest under the headline and the header and clears where the image is calm. Photographers are credited in the footer.
@@ -318,13 +326,15 @@ Every transition eases out exponentially (`cubic-bezier(0.16, 1, 0.3, 1)`). On f
 - **Do** separate with 1px Hairlines (#DBE1DE) and tonal steps to Reading Room Grey (#F5F7F6) before considering any shadow.
 - **Do** use black-and-white photography with a provenance sidecar per raster, and an ink scrim under any text placed on it.
 - **Do** use logical properties so every layout mirrors in Arabic, and wrap IDs, ISBNs, shelf marks and emails in dir="ltr".
+- **Do** show the University of Ghardaia seal in its own colours, between 28 and 72px, beside the wordmark, on white, grey or the dark photograph only.
 - **Do** keep controls 44px tall by default and check every screen at 390px and 1440px.
 
 ### Don't:
 - **Don't** introduce a second accent hue, a gradient fill, colour photographs or illustration.
 - **Don't** use red for errors that are not late, rejected or destructive; a failed load is ink on grey.
 - **Don't** build card grids with icon tiles, or wrap list items in shadowed cards; use hairline rows.
-- **Don't** add a logo symbol, a 3D object or a mascot; the wordmark is the brand.
+- **Don't** invent a logo symbol, a 3D object or a mascot; the wordmark is the brand and the university's seal is the only emblem.
+- **Don't** recolour, outline, shadow, stretch, crop or enlarge the seal beyond about 72px, or set it on red or on a green fill.
 - **Don't** put small uppercase tracked labels ("eyebrows") above headings; headings stand alone.
 - **Don't** letter-space Arabic text, or set JetBrains Mono on anything but identifiers.
 - **Don't** load Lenis or GSAP outside the public landing page, or animate opacity on text that must be readable at first paint.

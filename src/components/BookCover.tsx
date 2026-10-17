@@ -5,7 +5,7 @@ import type { Book } from "@/types";
 /**
  * Book cover: the uploaded image when present, otherwise a flat typographic plate in the palette:
  * a surface ground inside a hairline frame, the title in the serif display face, the author in the UI face
- * and, on the larger plates, a quiet "University Library" foot line.
+ * and, on the larger plates, a quiet university-name foot line.
  * `sm` is a title-only thumbnail, `md` the title, `lg` adds the author and the foot line. `hero` is the book
  * page's cover: a ~96px thumbnail on phones (no title: the real heading sits beside it) and the full plate from md.
  * The book's `coverColor` is deliberately not used.

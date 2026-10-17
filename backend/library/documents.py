@@ -11,6 +11,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
+from .branding import draw_seal
 from .models import BorrowRecord, LibrarySettings, display_name
 
 INK = HexColor("#121A16")
@@ -18,7 +19,6 @@ GREEN = HexColor("#0E6B3C")
 BLUE = HexColor("#2B3F52")
 MUTED = HexColor("#5B6660")
 LIGHT = HexColor("#F5F7F6")
-BURNT = HexColor("#0E6B3C")  # header mark
 BRAND = HexColor("#0A5230")
 
 W, H = A4
@@ -51,11 +51,7 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
     rules = LibrarySettings.get()
 
     # ---------- header ----------
-    c.setFillColor(BURNT)
-    c.circle(m + 6 * mm, H - 22 * mm, 6 * mm, stroke=0, fill=1)
-    c.setFillColor(white)
-    c.setFont("Helvetica-Bold", 8)
-    c.drawCentredString(m + 6 * mm, H - 23 * mm, "LB")
+    draw_seal(c, m, H - 31 * mm, 17 * mm)  # the university's seal, on white, top-left
     c.setFillColor(BRAND)
     c.circle(W - m - 6 * mm, H - 22 * mm, 6 * mm, stroke=0, fill=1)
     c.setFillColor(INK)
@@ -67,8 +63,8 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
     c.drawCentredString(W / 2, H - 20 * mm, "LIBBORROW")
     c.setFont("Helvetica-Bold", 10)
     c.drawCentredString(W / 2, H - 27 * mm, "BOOK BORROWING RECEIPT")
-    c.setFillColor(MUTED)
-    c.setFont("Helvetica", 8)
+    c.setFillColor(INK)
+    c.setFont("Helvetica", 9)
     c.drawCentredString(W / 2, H - 33 * mm, settings.LIBRARY_NAME)
     c.setStrokeColor(INK)
     c.setLineWidth(1.4)

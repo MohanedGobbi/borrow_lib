@@ -158,8 +158,8 @@ export function Layout() {
           hero.present && "-mb-16",
         )}
       >
-        <div className={cn("mx-auto flex h-16 items-center gap-3", width)}>
-          <Link to="/" className="-mx-1 rounded-sm px-1 py-1" aria-label="LibBorrow">
+        <div className={cn("mx-auto flex h-16 items-center gap-2 sm:gap-3", width)}>
+          <Link to="/" className="-mx-1 shrink-0 rounded-sm px-1 py-1" aria-label="LibBorrow">
             <Wordmark tone={tone === TONE.overlay ? "white" : "ink"} />
           </Link>
 
@@ -185,7 +185,7 @@ export function Layout() {
 
           <div className="ms-auto flex items-center gap-0.5 sm:gap-1">
             <DropdownMenu>
-              <DropdownMenuTrigger className={cn("inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors sm:h-10", tone.icon)} aria-label={t("nav.language")}>
+              <DropdownMenuTrigger className={cn("inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium transition-colors sm:h-10 sm:px-2.5", tone.icon)} aria-label={t("nav.language")}>
                 <Globe className="size-[18px]" aria-hidden />
                 <span className="uppercase">{lang}</span>
               </DropdownMenuTrigger>
@@ -287,7 +287,7 @@ export function Layout() {
               <Link
                 to="/login"
                 className={cn(
-                  "ms-1 inline-flex h-9 items-center rounded-md border px-3.5 text-[14.5px] font-medium transition-colors",
+                  "ms-0.5 inline-flex h-9 items-center whitespace-nowrap rounded-md border px-2.5 text-[14.5px] font-medium transition-colors sm:ms-1 sm:px-3.5",
                   tone.quiet,
                 )}
               >
@@ -347,10 +347,22 @@ export function Layout() {
             "flex flex-col gap-x-8 gap-y-1.5 py-5 text-[13px] leading-relaxed text-muted-foreground md:flex-row md:items-baseline md:justify-between",
             !isStaffArea && "border-t",
           )}>
-            <p>
-              {isStaffArea && <span className="text-ink/80">LibBorrow · {t("brand.library")} · </span>}
-              {t("footer.rules", ruleVars)}
-            </p>
+            <div className="space-y-1.5">
+              {!isStaffArea && (
+                <p className="text-ink/80">
+                  {/* the university's name in each of the site's languages, each set in its own direction */}
+                  <span lang="en" dir="ltr">University of Ghardaia</span>
+                  {" · "}
+                  <span lang="fr" dir="ltr">Université de Ghardaïa</span>
+                  {" · "}
+                  <span lang="ar" dir="rtl">جامعة غرداية</span>
+                </p>
+              )}
+              <p>
+                {isStaffArea && <span className="text-ink/80">LibBorrow · {t("brand.library")} · </span>}
+                {t("footer.rules", ruleVars)}
+              </p>
+            </div>
             <p>
               {credits.unsplash.length > 0 && (
                 <>

@@ -13,7 +13,12 @@ type SiteSlot = "hero" | "feature" | "auth";
 const SITE_SLOTS: SiteSlot[] = ["hero", "feature", "auth"];
 
 const PASSWORD = "password123";
-const LIBRARY = "University Library";
+// The library's name per language (mirrors emails.LIBRARY_NAMES); the French sentences put "la" before it.
+const LIBRARY_NAMES: Record<Lang, string> = {
+  en: "University of Ghardaia Library",
+  fr: "Bibliothèque de l'Université de Ghardaïa",
+  ar: "مكتبة جامعة غرداية",
+};
 const H = 60 * 60 * 1000;
 const D = 24 * H;
 /** A loan can be renewed only this close to its due date (services.RENEW_WINDOW_DAYS). */
@@ -1206,32 +1211,32 @@ const MAIL: Record<MailKind, Record<Lang, [string, string]>> = {
   reset: {
     en: ["Reset your {library} password",
       "We received a request to reset the password of your {library} account. Open this link to choose a new one:\n\n{link}\n\nThe link is valid for {validity} and works once. If you did not ask for this, ignore this email: your password stays as it is."],
-    fr: ["Réinitialisez votre mot de passe {library}",
-      "Nous avons reçu une demande de réinitialisation du mot de passe de votre compte {library}. Ouvrez ce lien pour en choisir un nouveau :\n\n{link}\n\nLe lien est valable {validity} et ne fonctionne qu'une fois. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : votre mot de passe reste inchangé."],
+    fr: ["Réinitialisez votre mot de passe de la {library}",
+      "Nous avons reçu une demande de réinitialisation du mot de passe de votre compte auprès de la {library}. Ouvrez ce lien pour en choisir un nouveau :\n\n{link}\n\nLe lien est valable {validity} et ne fonctionne qu'une fois. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : votre mot de passe reste inchangé."],
     ar: ["إعادة تعيين كلمة مرور {library}",
       "تلقينا طلبًا لإعادة تعيين كلمة مرور حسابك في {library}. افتح هذا الرابط لاختيار كلمة مرور جديدة:\n\n{link}\n\nالرابط صالح لمدة {validity} ويعمل مرة واحدة فقط. إذا لم تطلب ذلك، تجاهل هذه الرسالة وستبقى كلمة مرورك كما هي."],
   },
   verify: {
     en: ["Confirm your {library} email address",
       "Welcome to {library}. Confirm that this address is yours to start borrowing books:\n\n{link}\n\nThe link is valid for {validity}. You can ask for a new one from the notice at the top of the site."],
-    fr: ["Confirmez votre adresse e-mail {library}",
-      "Bienvenue à {library}. Confirmez que cette adresse est bien la vôtre pour pouvoir emprunter des livres :\n\n{link}\n\nLe lien est valable {validity}. Vous pouvez en demander un nouveau depuis l'avis en haut du site."],
+    fr: ["Confirmez votre adresse e-mail pour la {library}",
+      "Bienvenue à la {library}. Confirmez que cette adresse est bien la vôtre pour pouvoir emprunter des livres :\n\n{link}\n\nLe lien est valable {validity}. Vous pouvez en demander un nouveau depuis l'avis en haut du site."],
     ar: ["تأكيد عنوان بريدك الإلكتروني في {library}",
       "مرحبًا بك في {library}. أكّد أن هذا العنوان لك لتتمكن من استعارة الكتب:\n\n{link}\n\nالرابط صالح لمدة {validity}. يمكنك طلب رابط جديد من الإشعار في أعلى الموقع."],
   },
   invite: {
     en: ["You are invited to join {library} as {role}",
       "You have been invited to create a {role} account at {library}. Open this link to sign up with this email address:\n\n{link}\n\nThe link is valid for {validity} and can be used once."],
-    fr: ["Invitation à rejoindre {library} comme {role}",
-      "Vous êtes invité(e) à créer un compte {role} à {library}. Ouvrez ce lien pour vous inscrire avec cette adresse e-mail :\n\n{link}\n\nLe lien est valable {validity} et ne peut être utilisé qu'une fois."],
+    fr: ["Invitation à rejoindre la {library} comme {role}",
+      "Vous êtes invité(e) à créer un compte {role} à la {library}. Ouvrez ce lien pour vous inscrire avec cette adresse e-mail :\n\n{link}\n\nLe lien est valable {validity} et ne peut être utilisé qu'une fois."],
     ar: ["دعوة للانضمام إلى {library} بصفة {role}",
       "تمت دعوتك لإنشاء حساب {role} في {library}. افتح هذا الرابط للتسجيل بهذا البريد الإلكتروني:\n\n{link}\n\nالرابط صالح لمدة {validity} ويمكن استخدامه مرة واحدة فقط."],
   },
   welcome: {
     en: ["Your {library} account is ready: set your password",
       "An account has been created for you at {library}. Set your password to start borrowing books:\n\n{link}\n\nThe link is valid for {validity} and works once. If it has expired, open the sign-in page and choose “Forgot password?” to get a new one."],
-    fr: ["Votre compte {library} est prêt : choisissez votre mot de passe",
-      "Un compte a été créé pour vous à {library}. Choisissez votre mot de passe pour commencer à emprunter des livres :\n\n{link}\n\nLe lien est valable {validity} et ne fonctionne qu'une fois. S'il a expiré, ouvrez la page de connexion et choisissez « Mot de passe oublié ? » pour en recevoir un nouveau."],
+    fr: ["Votre compte pour la {library} est prêt : choisissez votre mot de passe",
+      "Un compte a été créé pour vous à la {library}. Choisissez votre mot de passe pour commencer à emprunter des livres :\n\n{link}\n\nLe lien est valable {validity} et ne fonctionne qu'une fois. S'il a expiré, ouvrez la page de connexion et choisissez « Mot de passe oublié ? » pour en recevoir un nouveau."],
     ar: ["حسابك في {library} جاهز: اختر كلمة مرورك",
       "تم إنشاء حساب لك في {library}. اختر كلمة مرورك لتبدأ باستعارة الكتب:\n\n{link}\n\nالرابط صالح لمدة {validity} ويعمل مرة واحدة فقط. إذا انتهت صلاحيته، افتح صفحة تسجيل الدخول واختر «نسيت كلمة المرور؟» للحصول على رابط جديد."],
   },
@@ -1239,7 +1244,7 @@ const MAIL: Record<MailKind, Record<Lang, [string, string]>> = {
     en: ["“{title}” is ready for pickup",
       "“{title}” is being held for you at {library}.\n\n{shelf_line}Pick it up by {deadline}. If you do not, the hold is cancelled and the book goes to the next person on the waiting list.\n\nYour loans: {link}\n\n{footer}"],
     fr: ["« {title} » est prêt à être retiré",
-      "« {title} » est réservé pour vous à {library}.\n\n{shelf_line}Venez le retirer avant le {deadline}. Passé ce délai, la réservation est annulée et le livre passe au prochain membre de la liste d'attente.\n\nVos prêts : {link}\n\n{footer}"],
+      "« {title} » est réservé pour vous à la {library}.\n\n{shelf_line}Venez le retirer avant le {deadline}. Passé ce délai, la réservation est annulée et le livre passe au prochain membre de la liste d'attente.\n\nVos prêts : {link}\n\n{footer}"],
     ar: ["«{title}» جاهز للاستلام",
       "«{title}» محجوز لك في {library}.\n\n{shelf_line}يرجى استلامه قبل {deadline}. بعد ذلك يُلغى الحجز وينتقل الكتاب إلى العضو التالي في قائمة الانتظار.\n\nإعاراتي: {link}\n\n{footer}"],
   },
@@ -1302,11 +1307,11 @@ function sendMail(
   validity: string, role = "", extra: Record<string, string> = {},
 ) {
   const link = `${window.location.origin}${path}`;
-  const vars: Record<string, string> = { library: LIBRARY, role, link, validity, ...extra };
+  const vars: Record<string, string> = { library: LIBRARY_NAMES[lang], role, link, validity, ...extra };
   const fill = (s: string) => s.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m);
   const [subject, body] = MAIL[kind][lang];
   const greeting = name ? GREETING[lang][0].replace("{name}", name) : GREETING[lang][1];
-  state.outbox.unshift({ id: nextId(), to, subject: fill(subject), body: `${greeting}\n\n${fill(body)}\n\n${LIBRARY}`, link, at: Date.now() });
+  state.outbox.unshift({ id: nextId(), to, subject: fill(subject), body: `${greeting}\n\n${fill(body)}\n\n${LIBRARY_NAMES[lang]}`, link, at: Date.now() });
 }
 
 /** A loan reminder to the member, in their language, linking to My loans. */
@@ -1616,7 +1621,7 @@ const ROUTES: [string, RegExp, Handler][] = [
   ["GET", /^\/demo\/mailbox$/, () => state.outbox.map((m) => ({ ...m, at: iso(m.at) }))],
   ["GET", /^\/users\/me\/id-card$/, (ctx) => {
     const u = requireUser(ctx);
-    return textPdf("University Library - Library card", [
+    return textPdf("University of Ghardaia Library - Library card", [
       `Name: ${u.name}`, `ID number: ${u.idNumber}`, `Role: ${u.role}`, `Email: ${u.email}`,
       `Member since: ${new Date(u.since).toLocaleDateString()}`, "",
       `Scan link: ${window.location.origin}/scan/${u.uuid}`, "",

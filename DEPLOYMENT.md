@@ -21,7 +21,7 @@
    | `DJANGO_NUM_PROXIES` | number of reverse proxies in front of Django, so login/register rate limits key on the real client IP (`X-Forwarded-For`) | `0` |
    | `CSRF_TRUSTED_ORIGINS` | origins allowed to post to the Django admin | none |
    | `FRONTEND_URL` | base URL embedded in ID-card QR codes and in the links of password-reset, verification and invite emails | `http://localhost:3000` |
-   | `LIBRARY_NAME` | printed on ID cards and in emails | University Library |
+   | `LIBRARY_NAME` | printed on ID cards and in emails; when set, it replaces the French and Arabic names in emails too | University of Ghardaia Library |
    | `LIBRARY_TIME_ZONE` | IANA time zone (e.g. `Africa/Algiers`) that dates and times inside emails are written in; stored times stay UTC | `UTC` |
    | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP server for password-reset, verification and invite emails (outside debug mode; debug prints them to the console) | none / `587` / none / none / `1` |
    | `DEFAULT_FROM_EMAIL` | sender of those emails | `LibBorrow <no-reply@localhost>` |

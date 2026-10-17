@@ -361,8 +361,8 @@
       "name": "Header Navigation",
       "kind": "nav",
       "refersTo": "",
-      "description": "Glass header: serif wordmark, institution line, 15px nav with a 2px green active underline.",
-      "html": "<nav class=\"ds-nav\"><span class=\"ds-wm\">LibBorrow<i></i><small>University Library</small></span><a href=\"#\">Catalog</a><a href=\"#\" class=\"active\">Staff desk</a></nav>",
+      "description": "Glass header: the university seal, serif wordmark, institution line, 15px nav with a 2px green active underline.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-wm\">LibBorrow<i></i><small>University of Ghardaia</small></span><a href=\"#\">Catalog</a><a href=\"#\" class=\"active\">Staff desk</a></nav>",
       "css": ".ds-nav { display: flex; align-items: stretch; height: 64px; padding: 0 24px; gap: 4px; background: rgb(255 255 255 / 0.72); backdrop-filter: saturate(1.8) blur(20px); border-bottom: 1px solid #DBE1DE; font-family: 'Public Sans', sans-serif; } .ds-wm { display: flex; align-items: center; margin-inline-end: 40px; font: 600 22px/1 'Source Serif 4', Georgia, serif; color: #121A16; } .ds-wm i { width: 1px; height: 20px; background: rgb(18 26 22 / 0.15); margin: 0 14px; } .ds-wm small { font: 400 13.5px 'Public Sans', sans-serif; color: #545F59; } .ds-nav a { position: relative; display: flex; align-items: center; padding: 0 12px; font-size: 15px; font-weight: 500; color: #121A16; text-decoration: none; transition: color 200ms; } .ds-nav a:hover { color: #0A5230; } .ds-nav a.active { color: #0A5230; } .ds-nav a.active::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; background: #0E6B3C; }"
     },
     {
@@ -370,13 +370,13 @@
       "kind": "custom",
       "refersTo": "book-cover",
       "description": "Cover for a book without an image: serif title, sans author, imprint at the foot.",
-      "html": "<div class=\"ds-cover\"><b>Klara and the Sun</b><span>Kazuo Ishiguro</span><small>University Library</small></div>",
+      "html": "<div class=\"ds-cover\"><b>Klara and the Sun</b><span>Kazuo Ishiguro</span><small>University of Ghardaia</small></div>",
       "css": ".ds-cover { display: flex; flex-direction: column; width: 140px; aspect-ratio: 2/3; padding: 11%; background: #F5F7F6; border: 1px solid #DBE1DE; border-radius: 3px; color: #121A16; } .ds-cover b { font: 600 17px/1.15 'Source Serif 4', Georgia, serif; } .ds-cover span { margin-top: 7%; font: 500 12px/1.25 'Public Sans', sans-serif; color: #545F59; } .ds-cover small { margin-top: auto; font: 500 9px/1.25 'Public Sans', sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: rgb(84 95 89 / 0.8); }"
     }
   ],
   "narrative": {
     "northStar": "The Reading Room",
-    "overview": "LibBorrow is the portal a serious university library would put in front of its students: a white page, a deep university green, black-and-white photographs of real reading rooms, and headlines set in a book serif. The public side (landing, catalog, book page, sign-in) carries the identity at full strength: a full-bleed monochrome photograph under a translucent header, a large serif headline, one wide search field. Signed-in and staff screens share the same type, palette and hairlines but stay quiet, dense and fast; they are the circulation desk, not the lobby.\n\nThe system is built from hairlines and space, not boxes and shadows. Lists are rows divided by 1px rules; panels are white with a hairline edge; large numbers and titles are set in Source Serif 4 so even the staff overview reads like a printed ledger. Colour is spent sparingly: green marks the one primary action and the current selection, red marks only what is late, rejected or destructive. Everything else is ink on paper.\n\nThe build explicitly rejects the SaaS-template look: no card grids with icons, no gradients, no decorative illustration, no 3D, no logo symbol. The wordmark is the brand.",
+    "overview": "LibBorrow is the portal a serious university library would put in front of its students: a white page, a deep university green, black-and-white photographs of real reading rooms, and headlines set in a book serif. The public side (landing, catalog, book page, sign-in) carries the identity at full strength: a full-bleed monochrome photograph under a translucent header, a large serif headline, one wide search field. Signed-in and staff screens share the same type, palette and hairlines but stay quiet, dense and fast; they are the circulation desk, not the lobby.\n\nThe system is built from hairlines and space, not boxes and shadows. Lists are rows divided by 1px rules; panels are white with a hairline edge; large numbers and titles are set in Source Serif 4 so even the staff overview reads like a printed ledger. Colour is spent sparingly: green marks the one primary action and the current selection, red marks only what is late, rejected or destructive. Everything else is ink on paper.\n\nThe build explicitly rejects the SaaS-template look: no card grids with icons, no gradients, no decorative illustration, no 3D, no logo symbol of our own. The wordmark is the brand, and the university's official seal stands beside it.",
     "keyCharacteristics": [
       "White ground, one deep green, red reserved for late and destructive; neutrals tinted toward the green.",
       "Source Serif 4 (Noto Naskh Arabic) for headlines, page titles, book titles, large figures and the wordmark; Public Sans (Noto Sans Arabic) for every interface word.",
@@ -394,6 +394,11 @@
       {
         "name": "The Red Means Late Rule",
         "body": "Red is reserved for overdue, rejected, blocked and destructive. A failed load or an important notice is shown in ink on Reading Room Grey, not in red.",
+        "section": "colors"
+      },
+      {
+        "name": "The Seal Exception Rule",
+        "body": "The University of Ghardaia's official seal keeps its own colours. It is the one deliberate exception to the green, white and red palette, as any university crest is. Never recolour, outline, add a shadow to, stretch or crop it. Leave clear space of at least 25% of its height on every side; show it between 28px and about 72px, because the source is only 160px wide (use the 1x, 2x and 3x files in public/brand/). Set it on white, on Reading Room Grey, or on the dark hero photograph under its scrim; never on red and never on a green fill.",
         "section": "colors"
       },
       {
@@ -439,13 +444,15 @@
       "Do separate with 1px Hairlines (#DBE1DE) and tonal steps to Reading Room Grey (#F5F7F6) before considering any shadow.",
       "Do use black-and-white photography with a provenance sidecar per raster, and an ink scrim under any text placed on it.",
       "Do use logical properties so every layout mirrors in Arabic, and wrap IDs, ISBNs, shelf marks and emails in dir=\"ltr\".",
+      "Do show the University of Ghardaia seal in its own colours, between 28 and 72px, beside the wordmark, on white, grey or the dark photograph only.",
       "Do keep controls 44px tall by default and check every screen at 390px and 1440px."
     ],
     "donts": [
       "Don't introduce a second accent hue, a gradient fill, colour photographs or illustration.",
       "Don't use red for errors that are not late, rejected or destructive; a failed load is ink on grey.",
       "Don't build card grids with icon tiles, or wrap list items in shadowed cards; use hairline rows.",
-      "Don't add a logo symbol, a 3D object or a mascot; the wordmark is the brand.",
+      "Don't invent a logo symbol, a 3D object or a mascot; the wordmark is the brand and the university's seal is the only emblem.",
+      "Don't recolour, outline, shadow, stretch, crop or enlarge the seal beyond about 72px, or set it on red or on a green fill.",
       "Don't put small uppercase tracked labels (\"eyebrows\") above headings; headings stand alone.",
       "Don't letter-space Arabic text, or set JetBrains Mono on anything but identifiers.",
       "Don't load Lenis or GSAP outside the public landing page, or animate opacity on text that must be readable at first paint."

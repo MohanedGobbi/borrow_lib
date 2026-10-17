@@ -9,6 +9,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
+from .branding import draw_seal
 from .models import display_name
 from .services import active_loan_count
 
@@ -32,23 +33,30 @@ def build_id_card_pdf(user: User) -> bytes:
     muted = HexColor("#5B6660")
     border = HexColor("#DCE2DE")
 
-    # white card, green header band and foot rule (matches the on-screen card)
+    # white card with a green foot rule (matches the on-screen card). The seal keeps its own colours, so the
+    # header stays white: it never sits on a green fill.
     c.setFillColor(HexColor("#FFFFFF"))
     c.setStrokeColor(border)
     c.rect(0, 0, CARD_W, CARD_H, stroke=1, fill=1)
     c.setFillColor(green)
-    c.rect(0, CARD_H - 15 * mm, CARD_W, 15 * mm, stroke=0, fill=1)
-    c.setFillColor(green)
     c.rect(0, 0, CARD_W, 2 * mm, stroke=0, fill=1)
 
-    # header
-    c.setFillColor(HexColor("#FFFFFF"))
+    # header: the seal top-left, the university's name beside it, a hairline under both
+    seal_h = 17 * mm
+    seal_w = draw_seal(c, 6 * mm, CARD_H - 5 * mm - seal_h, seal_h)
+    text_x = 6 * mm + seal_w + 4 * mm
+    c.setFillColor(ink)
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(6 * mm, CARD_H - 7.5 * mm, settings.LIBRARY_NAME)
-    c.setFont("Helvetica", 7)
-    c.drawString(6 * mm, CARD_H - 11.5 * mm, "LibBorrow library card")
+    c.drawString(text_x, CARD_H - 11.5 * mm, settings.LIBRARY_NAME)
+    c.setFillColor(muted)
+    c.setFont("Helvetica", 7.5)
+    c.drawString(text_x, CARD_H - 16 * mm, "LibBorrow library card")
+    c.setFillColor(green)
     c.setFont("Helvetica-Bold", 8)
-    c.drawRightString(CARD_W - 6 * mm, CARD_H - 9 * mm, profile.role.title())
+    c.drawRightString(CARD_W - 6 * mm, CARD_H - 11.5 * mm, profile.role.title())
+    c.setStrokeColor(border)
+    c.setLineWidth(0.5)
+    c.line(6 * mm, CARD_H - 25 * mm, CARD_W - 6 * mm, CARD_H - 25 * mm)
 
     # member block
     c.setFillColor(ink)

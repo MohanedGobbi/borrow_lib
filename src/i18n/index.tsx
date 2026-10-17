@@ -7,7 +7,7 @@ export type { Lang };
 type Dict = Record<string, string>;
 
 const en: Dict = {
-  "brand.library": "University Library",
+  "brand.library": "University of Ghardaia", "brand.libraryFull": "University of Ghardaia Library", "brand.libraryLine": "University of Ghardaia · Library",
   "nav.catalog": "Catalog", "nav.myRequests": "My loans", "nav.cart": "Request list",
   "nav.profile": "Profile", "nav.staff": "Staff desk", "nav.signin": "Sign in", "nav.join": "Create account",
   "nav.signout": "Sign out", "nav.notifications": "Notifications", "nav.noNotifications": "No notifications yet.",
@@ -22,7 +22,7 @@ const en: Dict = {
   "status.RETURNED": "Returned", "status.REJECTED": "Rejected", "status.CANCELLED": "Cancelled", "status.OVERDUE": "Overdue",
   "role.MEMBER": "Student", "role.STAFF": "Staff", "role.ADMIN": "Administrator",
 
-  "landing.title": "Borrow books from the University Library.",
+  "landing.title": "Borrow books from the University of Ghardaia Library.",
   "landing.sub": "Search the catalog, request a copy online and collect it at the circulation desk. Your loan period starts only when the book is in your hands.",
   "landing.searchLabel": "Search the catalog", "landing.searchPlaceholder": "Title, author or ISBN", "landing.search": "Search",
   "landing.createAccount": "Create a student account",
@@ -600,7 +600,7 @@ const en: Dict = {
 };
 
 const fr: Dict = {
-  "brand.library": "Bibliothèque universitaire",
+  "brand.library": "Université de Ghardaïa", "brand.libraryFull": "Bibliothèque de l'Université de Ghardaïa", "brand.libraryLine": "Université de Ghardaïa · Bibliothèque",
   "nav.catalog": "Catalogue", "nav.myRequests": "Mes prêts", "nav.cart": "Liste de demandes",
   "nav.profile": "Profil", "nav.staff": "Espace personnel", "nav.signin": "Connexion", "nav.join": "Créer un compte",
   "nav.signout": "Déconnexion", "nav.notifications": "Notifications", "nav.noNotifications": "Aucune notification.",
@@ -615,7 +615,7 @@ const fr: Dict = {
   "status.RETURNED": "Rendu", "status.REJECTED": "Refusé", "status.CANCELLED": "Annulé", "status.OVERDUE": "En retard",
   "role.MEMBER": "Étudiant", "role.STAFF": "Personnel", "role.ADMIN": "Administrateur",
 
-  "landing.title": "Empruntez les livres de la Bibliothèque universitaire.",
+  "landing.title": "Empruntez les livres de la Bibliothèque de l'Université de Ghardaïa.",
   "landing.sub": "Cherchez dans le catalogue, demandez un exemplaire en ligne et retirez-le au comptoir de prêt. Votre prêt ne commence qu'une fois le livre entre vos mains.",
   "landing.searchLabel": "Rechercher dans le catalogue", "landing.searchPlaceholder": "Titre, auteur ou ISBN", "landing.search": "Rechercher",
   "landing.createAccount": "Créer un compte étudiant",
@@ -1193,7 +1193,7 @@ const fr: Dict = {
 };
 
 const ar: Dict = {
-  "brand.library": "المكتبة الجامعية",
+  "brand.library": "جامعة غرداية", "brand.libraryFull": "مكتبة جامعة غرداية", "brand.libraryLine": "جامعة غرداية · المكتبة",
   "nav.catalog": "الفهرس", "nav.myRequests": "إعاراتي", "nav.cart": "قائمة الطلبات",
   "nav.profile": "الملف الشخصي", "nav.staff": "مكتب الموظفين", "nav.signin": "تسجيل الدخول", "nav.join": "إنشاء حساب",
   "nav.signout": "تسجيل الخروج", "nav.notifications": "الإشعارات", "nav.noNotifications": "لا توجد إشعارات بعد.",
@@ -1208,7 +1208,7 @@ const ar: Dict = {
   "status.RETURNED": "أُعيد", "status.REJECTED": "مرفوض", "status.CANCELLED": "ملغى", "status.OVERDUE": "متأخر",
   "role.MEMBER": "طالب", "role.STAFF": "موظف", "role.ADMIN": "مسؤول",
 
-  "landing.title": "استعر كتب المكتبة الجامعية.",
+  "landing.title": "استعر كتب مكتبة جامعة غرداية.",
   "landing.sub": "ابحث في الفهرس، واطلب نسخة عبر الإنترنت، واستلمها من مكتب الإعارة. لا تبدأ مدة الإعارة إلا عندما يصبح الكتاب بين يديك.",
   "landing.searchLabel": "البحث في الفهرس", "landing.searchPlaceholder": "العنوان أو المؤلف أو ISBN", "landing.search": "بحث",
   "landing.createAccount": "إنشاء حساب طالب",

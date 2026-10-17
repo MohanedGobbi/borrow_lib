@@ -39,6 +39,23 @@ GREETING = {
     "ar": ("مرحبًا {name}،", "مرحبًا،"),
 }
 
+# The library's name in each language. Setting LIBRARY_NAME (the environment variable) replaces all three.
+# The French sentences below put "la" before it, as in "à la Bibliothèque de l'Université de Ghardaïa".
+DEFAULT_LIBRARY_NAME = "University of Ghardaia Library"
+LIBRARY_NAMES = {
+    "en": "University of Ghardaia Library",
+    "fr": "Bibliothèque de l'Université de Ghardaïa",
+    "ar": "مكتبة جامعة غرداية",
+}
+
+
+def library_name(lang: str) -> str:
+    """The university library's name in the member's language, unless the deployment set its own."""
+    if settings.LIBRARY_NAME != DEFAULT_LIBRARY_NAME:
+        return settings.LIBRARY_NAME
+    return LIBRARY_NAMES.get(lang, settings.LIBRARY_NAME)
+
+
 # Per language: (subject, body). {link}, {library} and {validity} are filled in below.
 MESSAGES = {
     "password_reset": {
@@ -47,8 +64,8 @@ MESSAGES = {
                "Open this link to choose a new one:\n\n{link}\n\n"
                "The link is valid for {validity} and works once. If you did not ask for this, "
                "ignore this email: your password stays as it is."),
-        "fr": ("Réinitialisez votre mot de passe {library}",
-               "Nous avons reçu une demande de réinitialisation du mot de passe de votre compte {library}. "
+        "fr": ("Réinitialisez votre mot de passe de la {library}",
+               "Nous avons reçu une demande de réinitialisation du mot de passe de votre compte auprès de la {library}. "
                "Ouvrez ce lien pour en choisir un nouveau :\n\n{link}\n\n"
                "Le lien est valable {validity} et ne fonctionne qu'une fois. Si vous n'êtes pas à l'origine "
                "de cette demande, ignorez cet e-mail : votre mot de passe reste inchangé."),
@@ -62,8 +79,8 @@ MESSAGES = {
         "en": ("Confirm your {library} email address",
                "Welcome to {library}. Confirm that this address is yours to start borrowing books:\n\n{link}\n\n"
                "The link is valid for {validity}. You can ask for a new one from the notice at the top of the site."),
-        "fr": ("Confirmez votre adresse e-mail {library}",
-               "Bienvenue à {library}. Confirmez que cette adresse est bien la vôtre pour pouvoir emprunter des livres :\n\n{link}\n\n"
+        "fr": ("Confirmez votre adresse e-mail pour la {library}",
+               "Bienvenue à la {library}. Confirmez que cette adresse est bien la vôtre pour pouvoir emprunter des livres :\n\n{link}\n\n"
                "Le lien est valable {validity}. Vous pouvez en demander un nouveau depuis l'avis en haut du site."),
         "ar": ("تأكيد عنوان بريدك الإلكتروني في {library}",
                "مرحبًا بك في {library}. أكّد أن هذا العنوان لك لتتمكن من استعارة الكتب:\n\n{link}\n\n"
@@ -74,8 +91,8 @@ MESSAGES = {
                "An account has been created for you at {library}. Set your password to start borrowing books:\n\n{link}\n\n"
                "The link is valid for {validity} and works once. If it has expired, open the sign-in page and "
                "choose “Forgot password?” to get a new one."),
-        "fr": ("Votre compte {library} est prêt : choisissez votre mot de passe",
-               "Un compte a été créé pour vous à {library}. Choisissez votre mot de passe pour commencer à emprunter des livres :\n\n{link}\n\n"
+        "fr": ("Votre compte pour la {library} est prêt : choisissez votre mot de passe",
+               "Un compte a été créé pour vous à la {library}. Choisissez votre mot de passe pour commencer à emprunter des livres :\n\n{link}\n\n"
                "Le lien est valable {validity} et ne fonctionne qu'une fois. S'il a expiré, ouvrez la page de "
                "connexion et choisissez « Mot de passe oublié ? » pour en recevoir un nouveau."),
         "ar": ("حسابك في {library} جاهز: اختر كلمة مرورك",
@@ -88,8 +105,8 @@ MESSAGES = {
                "You have been invited to create a {role} account at {library}. Open this link to sign up "
                "with this email address:\n\n{link}\n\n"
                "The link is valid for {validity} and can be used once."),
-        "fr": ("Invitation à rejoindre {library} comme {role}",
-               "Vous êtes invité(e) à créer un compte {role} à {library}. Ouvrez ce lien pour vous inscrire "
+        "fr": ("Invitation à rejoindre la {library} comme {role}",
+               "Vous êtes invité(e) à créer un compte {role} à la {library}. Ouvrez ce lien pour vous inscrire "
                "avec cette adresse e-mail :\n\n{link}\n\n"
                "Le lien est valable {validity} et ne peut être utilisé qu'une fois."),
         "ar": ("دعوة للانضمام إلى {library} بصفة {role}",
@@ -103,7 +120,7 @@ MESSAGES = {
                "{shelf_line}Pick it up by {deadline}. If you do not, the hold is cancelled and the book goes "
                "to the next person on the waiting list.\n\nYour loans: {link}\n\n{footer}"),
         "fr": ("« {title} » est prêt à être retiré",
-               "« {title} » est réservé pour vous à {library}.\n\n"
+               "« {title} » est réservé pour vous à la {library}.\n\n"
                "{shelf_line}Venez le retirer avant le {deadline}. Passé ce délai, la réservation est annulée "
                "et le livre passe au prochain membre de la liste d'attente.\n\nVos prêts : {link}\n\n{footer}"),
         "ar": ("«{title}» جاهز للاستلام",
@@ -186,7 +203,7 @@ def user_link(path: str, user, token: str) -> str:
 def compose(kind: str, lang: str, name: str | None, **values) -> tuple[str, str]:
     """The (subject, body) of one email in one language."""
     subject, body = MESSAGES[kind][lang]
-    values.setdefault("library", settings.LIBRARY_NAME)
+    values.setdefault("library", library_name(lang))
     greeting = GREETING[lang][0].format(name=name) if name else GREETING[lang][1]
     return subject.format(**values), f"{greeting}\n\n{body.format(**values)}\n\n{values['library']}"
 

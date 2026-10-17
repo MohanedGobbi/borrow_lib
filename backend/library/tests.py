@@ -273,6 +273,44 @@ class PdfTests(TestCase):
         self.assertTrue(build_id_card_pdf(member).startswith(b"%PDF"))
         self.assertTrue(request_document_response(record).content.startswith(b"%PDF"))
 
+    def test_pdfs_draw_the_university_seal(self):
+        from unittest import mock
+
+        from reportlab.pdfgen import canvas
+
+        from .branding import SEAL_PATH
+        from .documents import build_request_document_pdf
+        from .idcard import build_id_card_pdf
+        self.assertTrue(SEAL_PATH.is_file())
+        member, staff, book = make_user("m2@x.com"), make_user("s2@x.com", Role.STAFF), make_book()
+        record = services.create_request(member, book)
+        services.approve(staff, record)
+        for build, arg in ((build_id_card_pdf, member), (build_request_document_pdf, record)):
+            with mock.patch.object(canvas.Canvas, "drawImage", autospec=True, side_effect=canvas.Canvas.drawImage) as draw:
+                pdf = build(arg)
+            self.assertTrue(pdf.startswith(b"%PDF"))
+            drawn = [call.args[1] for call in draw.call_args_list]
+            self.assertIn(str(SEAL_PATH), drawn, build.__name__)
+            self.assertEqual(draw.call_args_list[drawn.index(str(SEAL_PATH))].kwargs.get("mask"), "auto")
+
+
+class UniversityNameTests(TestCase):
+    def test_emails_name_the_university_in_the_members_language(self):
+        from .emails import compose
+        names = {"en": "University of Ghardaia Library", "fr": "Bibliothèque de l'Université de Ghardaïa", "ar": "مكتبة جامعة غرداية"}
+        for lang, name in names.items():
+            subject, body = compose("verification", lang, "Nadia", link="http://x", validity="1 day")
+            self.assertIn(name, subject, lang)
+            self.assertIn(name, body, lang)
+
+    def test_a_deployment_name_replaces_all_languages(self):
+        from django.test import override_settings
+
+        from .emails import compose
+        with override_settings(LIBRARY_NAME="Campus Library"):
+            subject, _ = compose("verification", "fr", None, link="http://x", validity="1 day")
+        self.assertIn("Campus Library", subject)
+
 
 class RegistrationTests(TestCase):
     def test_weak_passwords_rejected(self):

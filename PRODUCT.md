@@ -40,11 +40,11 @@ A loan starts at physical pickup, not at approval. Approved requests hold a copy
 
 ## Brand Commitments
 
-- Product name: **LibBorrow**. Institution shown generically as **University Library** (no specific university is named).
+- Product name: **LibBorrow**. Institution: **University of Ghardaia** (Université de Ghardaïa / جامعة غرداية); the official seal sits beside the LibBorrow wordmark.
 - Tone: serious and institutional, suitable for a university; not playful.
 - Palette constraint from the owner: simple colors — green, white and red.
 - Visual standard (owner, 2026-10-03): the category standard, executed to the polish of Apple, top university sites (Harvard, Oxford, MIT) and modern library sites (NYPL, British Library). Not template-like, not bulky, fast on phones; no 3D.
-- Logo: wordmark only.
+- Logo: the LibBorrow wordmark, with the University of Ghardaia's official seal beside it. The seal keeps its own colours and is never redrawn or recoloured.
 - Photography: real library photographs; the shipped ones are Unsplash placeholders (credited) that admins can replace in the app.
 
 ## Evidence on Hand
