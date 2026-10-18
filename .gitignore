@@ -37,5 +37,7 @@ e2e/.mail/
 playwright-report/
 test-results/
 
-# photographs an admin uploaded for the site (backend/library/site_images.py)
-backend/media/site/
+# files uploaded in the app (site photographs, book covers)
+backend/media/
+
+.impeccable/live/

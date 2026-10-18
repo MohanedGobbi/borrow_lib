@@ -1,7 +1,5 @@
 # Vercel hosts only the Vite frontend; the Django API is deployed separately.
 backend/
-design/
 dist/
 node_modules/
 .claude/
-screenshots/

@@ -1,4 +1,4 @@
-"""Borrow-request receipt PDF — mirrors the REQ-210 reference layout:
+"""Borrow-request receipt PDF — request receipt layout:
 header with library branding, receipt number + issue date, colored side-bar
 sections for member info / requested book / official processing, signature lines.
 """

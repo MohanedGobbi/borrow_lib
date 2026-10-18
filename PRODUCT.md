@@ -50,7 +50,6 @@ A loan starts at physical pickup, not at approval. Approved requests hold a copy
 ## Evidence on Hand
 
 - Seed dataset (18 books, 8 users, sample records and reservations) in `backend/library/management/commands/seed_demo.py`, mirrored in `src/api/demo.ts`.
-- README screenshots in `screenshots/` show the previous (retired) orange/cream design.
 - No real usage statistics, testimonials or partner institutions exist; do not invent them.
 
 ## Product Principles

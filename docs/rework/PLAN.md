@@ -1,5 +1,7 @@
 # LibBorrow rework plan
 
+> Historical record of the rework. The per-package briefs it mentions (`WP-*.md`, `D*.md`, `F*.md`, `R*.md`) were removed once the work shipped; they remain in the git history.
+
 Goal: take LibBorrow from a polished demo to a system a university library can run.
 Work is split into numbered work packages (WP). Each WP runs in **its own fresh session**
 on the model named below, starting from its spec file in this folder.
@@ -23,30 +25,30 @@ Never switch models mid-WP: the prompt cache is per model.
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
 | 01 | Failing tests for the four Phase 0 bugs + WP-02 spec | Opus · high | done (`library/test_circulation_rules.py`) |
-| 02 | Fix the Phase 0 bugs in Django and `src/api/demo.ts` ([spec](WP-02.md)) | Sonnet · high | done, Opus-reviewed: lock order book→record in hourly job; queue handoff always needs a free copy; UI shows free copies + "held for pickup". Open: Django-admin deactivation doesn't sync `User.is_active`; demo has no `PATCH /users/:id/active` route |
+| 02 | Fix the Phase 0 bugs in Django and `src/api/demo.ts` | Sonnet · high | done, Opus-reviewed: lock order book→record in hourly job; queue handoff always needs a free copy; UI shows free copies + "held for pickup". Open: Django-admin deactivation doesn't sync `User.is_active`; demo has no `PATCH /users/:id/active` route |
 | 03 | PostgreSQL service in CI; run the test suite on it | Haiku | done (inline, too small to delegate): `backend-postgres` CI job, `psycopg[binary]` pinned; 53/53 pass on Postgres 17 locally |
-| 04 | Pagination + `django-filter` on list endpoints, N+1 fix in `ProfileSerializer` (`annotate`), frontend lists read paginated responses ([spec](WP-04.md)) | Sonnet · high | done, Opus-reviewed (restored shelf-mark search). Open: `/api/categories` still counts books per row |
+| 04 | Pagination + `django-filter` on list endpoints, N+1 fix in `ProfileSerializer` (`annotate`), frontend lists read paginated responses | Sonnet · high | done, Opus-reviewed (restored shelf-mark search). Open: `/api/categories` still counts books per row |
 | R1 | `/code-review` of the sprint diff | Opus · high | done |
 
 ## Sprint 2: Security
 
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
-| 05 | Auth design spec + contract tests ([spec](WP-05.md), `test_auth_cookies.py`) | Opus · xhigh | done: API must be same-site (third-party cookies are blocked) |
+| 05 | Auth design spec + contract tests (spec, `test_auth_cookies.py`) | Opus · xhigh | done: API must be same-site (third-party cookies are blocked) |
 | 06 | Implement WP-05 (includes WP-07) | Sonnet · high | done, Opus-reviewed. Open: throttle counters are per process (LocMem); use a shared cache when WP-15 adds Redis |
 | 07 | DRF throttling on login, register, refresh, invite code | folded into WP-06 (same views; a cold Haiku start cost more) | |
-| 08 | Password reset + email verification; admin-issued single-use expiring staff invites replacing the shared invite code ([spec](WP-08.md), contract `test_accounts.py` by Opus) | Sonnet · high | done, Opus-reviewed. Agent found and fixed a privilege escalation (`PATCH /users/me` could set `role`), hotfix branch off main. Open: verification links last 1 h (shared `PASSWORD_RESET_TIMEOUT`); dev `FRONTEND_URL` is :3000 while `frontend-dev` serves :3001 |
-| 09 | Error + notification codes translated in the UI ([spec](WP-09.md)) | Opus spec → Sonnet · high (translations in the same pass; a separate Haiku pass cost more) | done, Opus-reviewed. `scripts/check-i18n.mjs` in CI keeps EN/FR/AR key sets equal |
+| 08 | Password reset + email verification; admin-issued single-use expiring staff invites replacing the shared invite code (spec, contract `test_accounts.py` by Opus) | Sonnet · high | done, Opus-reviewed. Agent found and fixed a privilege escalation (`PATCH /users/me` could set `role`), hotfix branch off main. Open: verification links last 1 h (shared `PASSWORD_RESET_TIMEOUT`); dev `FRONTEND_URL` is :3000 while `frontend-dev` serves :3001 |
+| 09 | Error + notification codes translated in the UI | Opus spec → Sonnet · high (translations in the same pass; a separate Haiku pass cost more) | done, Opus-reviewed. `scripts/check-i18n.mjs` in CI keeps EN/FR/AR key sets equal |
 | R2 | `/security-review` | Opus · high | done: no high/medium findings; fixed both lows (login is JSON-only against login CSRF; invites are revoked when their creator loses admin, is deactivated or deleted) |
 
 ## Sprint 3: Frontend and tests
 
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
-| 10 | Dead code: unused `src/components/ui/*`, unused Radix deps, `kimi-plugin-inspect-react`, `template-info.md`, package name `my-app` ([spec](WP-10-11.md)) | Haiku | done: 38 components, 26 packages removed |
+| 10 | Dead code: unused `src/components/ui/*`, unused Radix deps, `kimi-plugin-inspect-react`, `template-info.md`, package name `my-app` | Haiku | done: 38 components, 26 packages removed |
 | 11 | Route-level code splitting (`React.lazy`) for staff pages, charts, import; target < 250 KB gz for the student entry | Haiku | done: eager JS ≈ 188 KB gz (was ≈ 322); entry is now Radix + i18n dictionaries; lazy-loading FR/AR dictionaries is a possible later win |
-| 12 | Replace `useApi` with TanStack Query: 2 pages to set the pattern (high), the rest (low). Runs **after** WP-13 so the E2E suite guards it ([spec](WP-12.md)) | Sonnet · high | done: E2E 28/28 before and after; staff actions now update every page at once; +10.6 KB gz entry |
-| 13 | Playwright E2E against both the demo and Django ([spec](WP-13.md)); axe checks | Sonnet · high | done: 14 tests × 2 backends, no demo/Django mismatches, 0 critical a11y; 2 serious `<dl>` issues on staff overview logged in `e2e/a11y-report.md` for WP-24 |
+| 12 | Replace `useApi` with TanStack Query: 2 pages to set the pattern (high), the rest (low). Runs **after** WP-13 so the E2E suite guards it | Sonnet · high | done: E2E 28/28 before and after; staff actions now update every page at once; +10.6 KB gz entry |
+| 13 | Playwright E2E against both the demo and Django; axe checks | Sonnet · high | done: 14 tests × 2 backends, no demo/Django mismatches, 0 critical a11y; 2 serious `<dl>` issues on staff overview logged in `e2e/a11y-report.md` for WP-24 |
 | 14 | Contract tests run against both Django and `demo.ts` | merged into WP-13: the same E2E suite runs on both backends | |
 
 ## Sprint 4: Design and features (moved ahead of operations at the owner's request, 2026-10-03)
@@ -54,13 +56,13 @@ Never switch models mid-WP: the prompt cache is per model.
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
 | D1 | Design audit of every main screen (desktop, phone, Arabic) against DESIGN.md; prioritised fix list | Opus | done: 23/40, report in `.impeccable/critique/`; owner chose desk first, all P0–P2, no rethinks |
-| D2a | Desk safety + scan-first desk ([spec](D2a.md)) | Sonnet · high | done, Opus-reviewed |
-| D2b | Student control (cancel request, leave list, inline confirmation), Arabic bugs, activity codes, public copy privacy ([spec](D2b.md)) | Sonnet · high | done, Opus-reviewed |
-| D2c | Phone layouts + visual drift + minor observations ([spec](D2c.md)) | Sonnet · medium | done, Opus-reviewed: also fixed sheet/dialog close buttons overlapping content in RTL (physical `right-4` → `end-4`) |
-| 21a | Loan renewal: once per loan, +14 days, blocked by a waiting list or an overdue loan ([spec](F1.md)) | Opus tests → Sonnet | done with WP-22 as F1, Opus-reviewed |
-| 21b | Email reminders: ready for pickup, due in 2 days, overdue (scheduled job, per-language, idempotent) ([spec](F2.md)) | Sonnet · medium | done, Opus-reviewed |
+| D2a | Desk safety + scan-first desk | Sonnet · high | done, Opus-reviewed |
+| D2b | Student control (cancel request, leave list, inline confirmation), Arabic bugs, activity codes, public copy privacy | Sonnet · high | done, Opus-reviewed |
+| D2c | Phone layouts + visual drift + minor observations | Sonnet · medium | done, Opus-reviewed: also fixed sheet/dialog close buttons overlapping content in RTL (physical `right-4` → `end-4`) |
+| 21a | Loan renewal: once per loan, +14 days, blocked by a waiting list or an overdue loan | Opus tests → Sonnet | done with WP-22 as F1, Opus-reviewed |
+| 21b | Email reminders: ready for pickup, due in 2 days, overdue (scheduled job, per-language, idempotent) | Sonnet · medium | done, Opus-reviewed |
 | 22 | Circulation rules (hold hours, loan days, limits) editable by admin in the DB | Sonnet · high | done in F1 (`/staff/settings`) |
-| 23 | Catalogue/loan export to Excel/CSV; bulk student import ([spec](F3.md)) | Sonnet · medium | done, Opus-reviewed: formula-injection guard tested; fixed Arabic multi-word import headers. Open for WP-25: count strings need real plural forms ("Create 1 accounts", "Import 1 books") |
+| 23 | Catalogue/loan export to Excel/CSV; bulk student import | Sonnet · medium | done, Opus-reviewed: formula-injection guard tested; fixed Arabic multi-word import headers. Open for WP-25: count strings need real plural forms ("Create 1 accounts", "Import 1 books") |
 
 Deferred: barcode/copy-level tracking (WP-18–20).
 
@@ -76,10 +78,10 @@ Owner decisions recorded with it:
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
 | R0 | Direction exploration: 2-3 visual directions as comps; owner picks | Opus | done: owner chose the category standard at Apple / university / library-site polish; wordmark only |
-| R1 | New identity + public side ([spec](R1.md)) | Opus | done; owner: "right direction, keep going". DESIGN.md rewrite moves to the finish (documenter) |
-| R2 | Student and staff screens in the new language ([spec](R2.md)) | Sonnet · high, Opus review | done |
-| R3 | P1/P2 issues from the 27/40 critique + overdue blocks pickup ([spec](R3.md)) | Sonnet · high | done, Opus-reviewed: also enforced overdue block on waiting lists server-side |
-| R4 | Admin-editable site photos ([spec](R4.md)) | Sonnet · medium | done, Opus-reviewed: Pillow-verified formats, 8 MB / 40 MP limits, metadata stripped, WebP 640/1200/2000, alt text required in 3 languages |
+| R1 | New identity + public side | Opus | done; owner: "right direction, keep going". DESIGN.md rewrite moves to the finish (documenter) |
+| R2 | Student and staff screens in the new language | Sonnet · high, Opus review | done |
+| R3 | P1/P2 issues from the 27/40 critique + overdue blocks pickup | Sonnet · high | done, Opus-reviewed: also enforced overdue block on waiting lists server-side |
+| R4 | Admin-editable site photos | Sonnet · medium | done, Opus-reviewed: Pillow-verified formats, 8 MB / 40 MP limits, metadata stripped, WebP 640/1200/2000, alt text required in 3 languages |
 | R5 | Finish review (impeccable-finish-reviewer) + DESIGN.md (impeccable-documenter) | Opus agents | done: verdict fix → 2 fix rounds (owner funded the second) → all scored items resolved; DESIGN.md + sidecar rewritten from the build |
 
 ## Sprint 5: Operations
@@ -104,7 +106,7 @@ Owner decisions recorded with it:
 | WP | Task | Model · effort | Status |
 |---|---|---|---|
 | 22 | Circulation rules (hold hours, loan days, limits) editable by admin in the DB | Sonnet · high | done in F1 (`/staff/settings`) |
-| 23 | Catalogue/loan export to Excel/CSV; bulk student import ([spec](F3.md)) | Sonnet · medium | done, Opus-reviewed: formula-injection guard tested; fixed Arabic multi-word import headers. Open for WP-25: count strings need real plural forms ("Create 1 accounts", "Import 1 books") |
+| 23 | Catalogue/loan export to Excel/CSV; bulk student import | Sonnet · medium | done, Opus-reviewed: formula-injection guard tested; fixed Arabic multi-word import headers. Open for WP-25: count strings need real plural forms ("Create 1 accounts", "Import 1 books") |
 | 24 | Accessibility pass (focus traps, live regions, table semantics) | Sonnet · medium | |
 | 25 | FR/AR copy cleanup (Haiku drafts; a native speaker reviews) | Haiku | |
 | 26 | README, fresh screenshots, `AGENTS.md` update | Haiku | |
