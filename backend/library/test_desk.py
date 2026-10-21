@@ -1,4 +1,4 @@
-"""Circulation desk (docs/rework/D2a.md): rejection reasons, queue search, approvals-list annotations."""
+"""Circulation desk: rejection reasons, queue search, approvals-list annotations."""
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext

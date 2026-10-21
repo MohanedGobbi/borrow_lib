@@ -1,4 +1,4 @@
-"""Admin-set site photographs (docs/rework/R4.md): upload checks, re-encoding, storing and removing.
+"""Admin-set site photographs: upload checks, re-encoding, storing and removing.
 
 The upload is untrusted. What it claims to be (extension, content type) is ignored: Pillow opens it and decides.
 Only JPEG, PNG and WebP pass, at most 8 MB and 40 megapixels. Every rendition is built from the decoded

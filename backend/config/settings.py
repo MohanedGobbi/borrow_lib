@@ -163,7 +163,7 @@ AUTH_REFRESH_COOKIE = {
     "secure": not DEBUG,
     "domain": os.environ.get("AUTH_COOKIE_DOMAIN") or None,
 }
-AUTH_CSRF_HEADER = "HTTP_X_LIBBORROW_CSRF"
+AUTH_CSRF_HEADER = "HTTP_X_LIBRARY_CSRF"
 if AUTH_REFRESH_COOKIE["samesite"] not in ("Strict", "Lax", "None"):
     raise ImproperlyConfigured("AUTH_COOKIE_SAMESITE must be Strict or Lax.")
 if not DEBUG and AUTH_REFRESH_COOKIE["samesite"] == "None":
@@ -173,10 +173,10 @@ if not DEBUG and AUTH_REFRESH_COOKIE["samesite"] == "None":
     )
 
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:3000" if DEBUG else "")
-# Optional comma-separated regexes, e.g. ^https://libborrow-.*\.vercel\.app$ for Vercel previews.
+# Optional comma-separated regexes, e.g. ^https://library-.*\.vercel\.app$ for Vercel previews.
 CORS_ALLOWED_ORIGIN_REGEXES = env_list("CORS_ALLOWED_ORIGIN_REGEXES")
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = (*default_headers, "x-libborrow-csrf")
+CORS_ALLOW_HEADERS = (*default_headers, "x-library-csrf")
 
 # Frontend base URL used inside QR codes on ID cards.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
@@ -191,10 +191,7 @@ PASSWORD_RESET_TIMEOUT = 3600
 # Outgoing email: printed to the console in development, SMTP in production. The test runner
 # swaps in Django's locmem backend by itself.
 if DEBUG:
-    # Overridable so the end-to-end suite can write messages to files it reads back (e2e/serve-django.mjs).
     EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
-    if os.environ.get("EMAIL_FILE_PATH"):
-        EMAIL_FILE_PATH = os.environ["EMAIL_FILE_PATH"]
 else:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
     EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
@@ -202,7 +199,7 @@ else:
     EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
     EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
     EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") == "1"
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "LibBorrow <no-reply@localhost>")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Faculty Library <no-reply@localhost>")
 
 # ---------------------------------------------------------------- production hardening
 if not DEBUG:

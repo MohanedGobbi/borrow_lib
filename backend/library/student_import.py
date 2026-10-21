@@ -1,4 +1,4 @@
-"""Bulk import of student accounts (docs/rework/F3.md): POST /api/users/import and `manage.py import_students`.
+"""Bulk import of student accounts: POST /api/users/import and `manage.py import_students`.
 
 Same shape and rules as the book import (importing.py), for the library's yearly enrolment list:
 

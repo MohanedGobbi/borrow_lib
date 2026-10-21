@@ -106,7 +106,7 @@ export default function ImportBooksPage() {
           </Panel>
 
           <ImportColumnsPanel
-            help={t("import.columnsHelp")} csvName="libborrow-books-template.csv" jsonName="libborrow-books-example.json"
+            help={t("import.columnsHelp")} csvName="library-books-template.csv" jsonName="library-books-example.json"
             headers={TEMPLATE_HEADERS} rows={TEMPLATE_ROWS}
           />
         </div>

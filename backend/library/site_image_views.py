@@ -1,4 +1,4 @@
-"""The site's photographs: everyone reads them, admins replace or restore them (docs/rework/R4.md)."""
+"""The site's photographs: everyone reads them, admins replace or restore them."""
 from rest_framework import status as http
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response

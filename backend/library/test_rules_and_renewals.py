@@ -1,4 +1,4 @@
-"""Admin-editable circulation rules and loan renewals (docs/rework/F1.md)."""
+"""Admin-editable circulation rules and loan renewals."""
 from datetime import timedelta
 
 from django.test import TestCase

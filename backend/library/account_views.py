@@ -1,4 +1,4 @@
-"""Password reset, email verification and staff invites (docs/rework/WP-08.md)."""
+"""Password reset, email verification and staff invites."""
 import secrets
 
 from django.contrib.auth.models import User

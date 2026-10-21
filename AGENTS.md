@@ -1,10 +1,10 @@
-# LibBorrow — Agent Guide
+# Agent guide
 
-This file is for AI coding agents working on LibBorrow. It assumes you know nothing about the codebase.
+This file is for AI coding agents working on this repository. It assumes you know nothing about the codebase. `README.md` has the user-facing overview.
 
 ## Project overview
 
-LibBorrow is the borrowing system of a university library. Students browse the catalog and request books; library staff approve requests, confirm pickups and returns, manage inventory, and monitor loans from the staff desk. The UI is trilingual (French, Arabic with RTL, English).
+The borrowing system of the library of the Faculty of Law and Political Sciences, University of Ghardaia. Readers (students, professors, administrative staff, external readers) browse the catalogue and request books; librarians approve requests, confirm pickups and returns, manage inventory and monitor loans from the staff desk; administrators also manage accounts, rules and maintenance. The UI is trilingual: Arabic (default, RTL), French, English.
 
 It is a full-stack app:
 
@@ -76,7 +76,7 @@ src/components/ui/      shadcn/ui (generated; excluded from lint)
 
 ## Design system
 
-See `DESIGN.md` (the source of truth) and `PRODUCT.md` (product context). In short: white pages, one deep university green (`brand`, `#0E6B3C`) for primary actions and selection, red (`danger`, `#B42318`) only for overdue, rejection and destructive actions, neutral surfaces (`surface`). Source Serif 4 (Noto Naskh Arabic) speaks in headlines, the wordmark and large figures; Public Sans (Noto Sans Arabic) works in the UI; JetBrains Mono only for identifiers; tabular figures everywhere. Hairline-first and flat (4px radius on controls and panels, glass sticky header), black-and-white photography read through `src/lib/siteImages.ts` (admin-replaceable), wordmark logo with the University of Ghardaia seal beside it (`public/brand/`, keeps its own colours, 28 to 72px), Lucide icons. Lenis and GSAP run on the landing page only. Status is never shown by color alone (badges carry icons).
+See `DESIGN.md`. In short: white pages, one deep green (`brand`, `#0E6B3C`) for primary actions and selection, red (`danger`, `#B42318`) only for overdue, rejection and destructive actions. Source Serif 4 / Noto Naskh Arabic for titles, Public Sans / Noto Sans Arabic for the UI, JetBrains Mono for identifiers. The university and faculty seals (`public/brand/`) keep their own colours. Photographs are read through `src/lib/siteImages.ts` (admin-replaceable). Status is never shown by colour alone.
 
 ## Verifying changes
 

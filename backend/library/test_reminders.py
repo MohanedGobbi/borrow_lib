@@ -1,4 +1,4 @@
-"""Email reminders: ready for pickup, due soon, overdue (docs/rework/F2.md).
+"""Email reminders: ready for pickup, due soon, overdue.
 
 Django's locmem backend collects what is sent in mail.outbox. Holds send their email when the
 transaction commits, so the tests that create one run inside captureOnCommitCallbacks.

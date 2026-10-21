@@ -1,4 +1,4 @@
-"""List endpoints: pagination, filters and query counts (docs/rework/WP-04.md)."""
+"""List endpoints: pagination, filters and query counts."""
 from datetime import timedelta
 
 from django.db import connection

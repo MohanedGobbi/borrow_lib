@@ -1,4 +1,4 @@
-"""Session endpoints (docs/rework/WP-05.md).
+"""Session endpoints.
 
 The access token is returned in the body and kept in the page's memory. The refresh token
 only ever travels in an httpOnly cookie scoped to /api/auth, so scripts cannot read it.

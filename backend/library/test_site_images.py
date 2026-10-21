@@ -1,4 +1,4 @@
-"""Admin-editable site photographs (docs/rework/R4.md): the endpoints and, above all, the upload safety."""
+"""Admin-editable site photographs: the endpoints and, above all, the upload safety."""
 import shutil
 import tempfile
 from io import BytesIO

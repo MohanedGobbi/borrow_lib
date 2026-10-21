@@ -79,7 +79,7 @@ export default function ImportStudentsPage() {
             {flow.problem && <ImportProblem message={flow.problem} />}
           </Panel>
           <ImportColumnsPanel
-            help={t("sImport.columnsHelp")} csvName="libborrow-students-template.csv" jsonName="libborrow-students-example.json"
+            help={t("sImport.columnsHelp")} csvName="library-readers-template.csv" jsonName="library-readers-example.json"
             headers={TEMPLATE_HEADERS} rows={TEMPLATE_ROWS}
           />
         </div>

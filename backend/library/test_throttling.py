@@ -1,4 +1,4 @@
-"""Rate limits on the sign-in endpoints (docs/rework/WP-05.md, WP-07).
+"""Rate limits on the sign-in endpoints.
 
 The test settings use a dummy cache so counters never leak between tests; these tests switch a
 real in-memory cache on and clear it first.
@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 from .tests import make_user
 
 LOCMEM = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
-CSRF = {"HTTP_X_LIBBORROW_CSRF": "1"}
+CSRF = {"HTTP_X_LIBRARY_CSRF": "1"}
 
 
 @override_settings(CACHES=LOCMEM)

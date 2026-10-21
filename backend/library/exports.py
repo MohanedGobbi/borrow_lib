@@ -1,4 +1,4 @@
-"""Catalogue and loan exports (docs/rework/F3.md): GET /api/exports/books and /api/exports/loans.
+"""Catalogue and loan exports: GET /api/exports/books and /api/exports/loans.
 
 - The book columns are the import format, so an export can be edited and imported again; the two
   read-only stock columns at the end are ignored by the import.
@@ -100,8 +100,8 @@ def _csv_stream(columns: list[str], rows: Iterable[list]) -> Iterator[str]:
 
 
 def export_response(kind: str, fmt: str, columns: list[str], rows: Iterable[list]):
-    """A download named libborrow-<kind>-<today>.<fmt>."""
-    filename = f"libborrow-{kind}-{today_local().isoformat()}.{fmt}"
+    """A download named library-<kind>-<today>.<fmt>."""
+    filename = f"library-{kind}-{today_local().isoformat()}.{fmt}"
     if fmt == "csv":
         response = StreamingHttpResponse(_csv_stream(columns, rows), content_type="text/csv; charset=utf-8")
     else:

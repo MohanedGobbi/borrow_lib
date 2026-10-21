@@ -1,9 +1,9 @@
-"""Session tokens (docs/rework/WP-05.md).
+"""Session tokens.
 
 The access token is short-lived and lives only in the page's memory. The refresh token is
 an httpOnly cookie scoped to /api/auth, rotated on every use and blacklisted when it is
 rotated or the user signs out. Cookie-authenticated endpoints (refresh, logout) also
-require the X-LibBorrow-CSRF header, which a cross-site form or image cannot send.
+require the X-Library-CSRF header, which a cross-site form or image cannot send.
 """
 from datetime import timedelta
 
@@ -16,7 +16,7 @@ from .tests import make_book, make_user
 
 PASSWORD = "x" * 10
 COOKIE = "lb_refresh"
-CSRF = {"HTTP_X_LIBBORROW_CSRF": "1"}
+CSRF = {"HTTP_X_LIBRARY_CSRF": "1"}
 
 
 class CookieSessionTests(TestCase):

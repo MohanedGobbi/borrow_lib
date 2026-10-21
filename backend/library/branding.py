@@ -1,4 +1,4 @@
-"""The University of Ghardaia seal in the PDFs (docs/rework/L1.md, DESIGN.md "Seal").
+"""The University of Ghardaia and Faculty of Law seals in the PDFs.
 
 The seal keeps its official colours: draw it on white or light grey only, never on a green or red fill,
 never recoloured, outlined, shadowed, stretched or cropped. Its source is 160px wide, so keep it small

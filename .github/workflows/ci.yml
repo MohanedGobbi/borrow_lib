@@ -61,7 +61,7 @@ jobs:
         image: postgres:17-alpine
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: libborrow
+          POSTGRES_DB: library
         ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready
@@ -71,7 +71,7 @@ jobs:
     env:
       DJANGO_DEBUG: "1"
       DB_ENGINE: django.db.backends.postgresql
-      DB_NAME: libborrow
+      DB_NAME: library
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_HOST: localhost

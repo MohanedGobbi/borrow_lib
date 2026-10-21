@@ -1,4 +1,4 @@
-"""Student control and copy privacy (docs/rework/D2b.md): withdraw a request or hold, leave a waiting list,
+"""Student control and copy privacy: withdraw a request or hold, leave a waiting list,
 overdue copies shown as plain "on loan" to the public, and activity codes."""
 from datetime import timedelta
 

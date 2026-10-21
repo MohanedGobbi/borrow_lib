@@ -1,5 +1,5 @@
-"""Transactional email: password reset, address verification, staff invites (docs/rework/WP-08.md)
-and the loan reminders: ready for pickup, due soon, overdue (docs/rework/F2.md).
+"""Transactional email: password reset, address verification, staff invites
+and the loan reminders: ready for pickup, due soon, overdue.
 
 One function per email. Each builds a plain-text message in the recipient's language
 (for invites, the inviting admin's), and never raises: a failed send is logged and reported

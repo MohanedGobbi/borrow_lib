@@ -1,4 +1,4 @@
-"""Phase 0 circulation-rule regressions (docs/rework/WP-02.md).
+"""Phase 0 circulation-rule regressions.
 
 1. The scheduled jobs must run outside a request/test transaction on PostgreSQL.
 2. A returned copy goes to the head of the reservation queue, not to whoever asks first.
@@ -205,7 +205,7 @@ class DeactivatedMemberTests(TestCase):
         self.assertEqual(res.status_code, 401)
         self.client.credentials()
         # The refresh token travels in the httpOnly cookie set at login (WP-05).
-        res = self.client.post("/api/auth/refresh", {}, format="json", HTTP_X_LIBBORROW_CSRF="1")
+        res = self.client.post("/api/auth/refresh", {}, format="json", HTTP_X_LIBRARY_CSRF="1")
         self.assertEqual(res.status_code, 401)
 
     def test_reactivation_restores_access(self):

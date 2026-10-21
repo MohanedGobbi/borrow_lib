@@ -84,7 +84,6 @@
    * The serif display scale (Source Serif 4, optical sizes on; Noto Naskh Arabic for Arabic).
    * Tracking tightens as the size grows; Arabic is never tracked, because spacing breaks the joins.
    */
-  .type-hero,
   .type-display,
   .type-title,
   .type-feature,
@@ -92,13 +91,6 @@
     font-family: "Source Serif 4", "Noto Naskh Arabic", Georgia, serif;
     font-optical-sizing: auto;
     color: inherit;
-  }
-  /* Landing headline only. */
-  .type-hero {
-    font-weight: 400;
-    font-size: clamp(2.625rem, 1.15rem + 4.6vw, 5.25rem);
-    line-height: 1.02;
-    letter-spacing: -0.026em;
   }
   /* Landing section headings and the book page title. */
   .type-display {
@@ -128,20 +120,18 @@
     line-height: 1.25;
     letter-spacing: -0.006em;
   }
-  :lang(ar) .type-hero,
   :lang(ar) .type-display,
   :lang(ar) .type-title,
   :lang(ar) .type-feature,
   :lang(ar) .type-heading {
     letter-spacing: 0;
   }
-  :lang(ar) .type-hero { font-weight: 500; line-height: 1.32; }
   :lang(ar) .type-display { font-weight: 500; line-height: 1.35; }
   :lang(ar) .type-title { line-height: 1.4; }
   :lang(ar) .type-feature { line-height: 1.45; }
   :lang(ar) .type-heading { line-height: 1.5; }
 
-  /* The header bar on every page but the top of the landing hero: white glass with a hairline edge. */
+  /* The header bar: white glass with a hairline edge. */
   .glass-bar {
     background-color: rgb(255 255 255 / 0.96);
     border-color: hsl(var(--border));

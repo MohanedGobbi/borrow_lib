@@ -1,4 +1,4 @@
-"""API errors with machine-readable codes (docs/rework/WP-09.md).
+"""API errors with machine-readable codes.
 
 Services and views raise; `exception_handler` formats every error response as
 {detail, code, params} (or {detail, code, fields, fieldCodes} for validation errors).

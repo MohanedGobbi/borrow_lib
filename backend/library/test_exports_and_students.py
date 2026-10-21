@@ -1,4 +1,4 @@
-"""Catalogue / loan exports and the bulk student import (docs/rework/F3.md)."""
+"""Catalogue / loan exports and the bulk student import."""
 import csv
 import io
 import re
@@ -60,7 +60,7 @@ class BookExportTests(ExportBase):
         self.assertEqual(res.status_code, 200)
         self.assertTrue(res["Content-Type"].startswith("text/csv"))
         self.assertRegex(res["Content-Disposition"],
-                         r'^attachment; filename="libborrow-books-\d{4}-\d{2}-\d{2}\.csv"$')
+                         r'^attachment; filename="library-books-\d{4}-\d{2}-\d{2}\.csv"$')
         rows = csv_rows(res)
         self.assertEqual(rows[0], ["isbn", "title", "author", "category", "publisher", "year", "total_copies",
                                    "shelf_location", "description", "available_copies", "free_copies"])
@@ -73,7 +73,7 @@ class BookExportTests(ExportBase):
         res = self.get("/api/exports/books", format="xlsx")
         self.assertEqual(res.status_code, 200)
         self.assertIn("spreadsheetml", res["Content-Type"])
-        self.assertRegex(res["Content-Disposition"], r'filename="libborrow-books-\d{4}-\d{2}-\d{2}\.xlsx"')
+        self.assertRegex(res["Content-Disposition"], r'filename="library-books-\d{4}-\d{2}-\d{2}\.xlsx"')
         rows = xlsx_rows(res)
         self.assertEqual(rows[0], BOOK_COLUMNS)
         self.assertEqual(rows[1][:3], ["9780441172719", "Dune", "Frank Herbert"])

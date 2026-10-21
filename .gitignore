@@ -18,26 +18,9 @@ backend/db.sqlite3
 # django collectstatic output
 backend/staticfiles/
 
-# design-tool working files (keep the design sidecar and surface briefs)
-.impeccable/review/
-.impeccable/mocks/
-.impeccable/build/
-.impeccable/critique/
-.impeccable/questions/
-.impeccable/*.json
-!.impeccable/design.json
-.impeccable/brief-body.md
-
 # claude config
 .claude/
-
-# end-to-end tests (Playwright)
-backend/e2e.sqlite3
-e2e/.mail/
-playwright-report/
-test-results/
 
 # files uploaded in the app (site photographs, book covers)
 backend/media/
 
-.impeccable/live/

@@ -1,4 +1,4 @@
-"""An overdue loan also blocks picking up an approved hold (owner rule, docs/rework/R3.md).
+"""An overdue loan also blocks picking up an approved hold (owner rule).
 
 The hold keeps its deadline: it can still expire and pass to the next member in the queue while the
 member is blocked.

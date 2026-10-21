@@ -1,4 +1,4 @@
-"""Password reset, email verification and staff invites (docs/rework/WP-08.md)."""
+"""Password reset, email verification and staff invites."""
 import re
 from datetime import timedelta
 
@@ -12,7 +12,7 @@ from .tests import make_book, make_user
 
 PASSWORD = "x" * 10
 NEW_PASSWORD = "shelf-mark-HIS-42"
-CSRF = {"HTTP_X_LIBBORROW_CSRF": "1"}
+CSRF = {"HTTP_X_LIBRARY_CSRF": "1"}
 
 
 def link_params(pattern, message):

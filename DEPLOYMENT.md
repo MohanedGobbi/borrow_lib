@@ -24,7 +24,7 @@
    | `LIBRARY_NAME` | printed on ID cards and in emails; when set, it replaces the French and Arabic names in emails too | Faculty of Law and Political Sciences Library |
    | `LIBRARY_TIME_ZONE` | IANA time zone (e.g. `Africa/Algiers`) that dates and times inside emails are written in; stored times stay UTC | `UTC` |
    | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP server for password-reset, verification and invite emails (outside debug mode; debug prints them to the console) | none / `587` / none / none / `1` |
-   | `DEFAULT_FROM_EMAIL` | sender of those emails | `LibBorrow <no-reply@localhost>` |
+   | `DEFAULT_FROM_EMAIL` | sender of those emails | `Faculty Library <no-reply@localhost>` |
    | `DJANGO_SSL_REDIRECT` | redirect HTTP → HTTPS | `1` |
    | `DJANGO_HSTS_SECONDS` | HSTS max-age; raise to `31536000` once HTTPS is confirmed | `3600` |
 
@@ -145,6 +145,13 @@ proxy `/api` to it so the browser sees one origin (see "Same-site requirement" f
    - `DJANGO_NUM_PROXIES=<n>`, the number of proxies between the browser and Django that append
      to `X-Forwarded-For` (Vercel plus your backend host's own proxy, if it has one)
    - no `CORS_*` settings are needed, and the cookie stays `SameSite=Strict`.
+
+## Backups
+
+Admins download a full backup (accounts, catalogue, circulation, settings, activity) from
+Settings → Data and maintenance, and can restore it there. Uploaded files (book covers, site
+photographs) are not in that file: back up `backend/media/` as well, and take regular database
+dumps (`pg_dump`) on the server.
 
 ## Continuous integration
 

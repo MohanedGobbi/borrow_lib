@@ -1,4 +1,4 @@
-"""Error and notification codes (docs/rework/WP-09.md).
+"""Error and notification codes.
 
 Every error response carries a machine-readable `code` (and `params`) next to the English `detail`,
 and every code the backend can raise has an `err.<code>` translation in all three UI languages.
@@ -116,7 +116,7 @@ class ErrorCodeTests(TestCase):
         self.assertError(self.client.get("/api/users/me"), 401, "not_authenticated")
 
     def test_refresh_without_a_cookie_is_no_session(self):
-        res = self.client.post("/api/auth/refresh", {}, format="json", HTTP_X_LIBBORROW_CSRF="1")
+        res = self.client.post("/api/auth/refresh", {}, format="json", HTTP_X_LIBRARY_CSRF="1")
         self.assertError(res, 401, "no_session")
         self.assertError(self.client.post("/api/auth/refresh", {}, format="json"), 403, "csrf_missing")
 

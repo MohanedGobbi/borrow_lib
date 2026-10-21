@@ -267,7 +267,7 @@ class PublicRulesSerializer(serializers.Serializer):
 
 
 class LibrarySettingsSerializer(serializers.ModelSerializer):
-    """The admin view and the PATCH body of /api/settings. The bounds are the contract in docs/rework/F1.md."""
+    """The admin view and the PATCH body of /api/settings. The bounds match the Settings form."""
     holdHours = serializers.IntegerField(source="hold_hours", min_value=1, max_value=168)
     loanDays = serializers.IntegerField(source="loan_days", min_value=1, max_value=90)
     maxRenewals = serializers.IntegerField(source="max_renewals", min_value=0, max_value=5)

@@ -11,7 +11,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiAuth, apiMisc } from "@/api";
 import { invalidateNotifications, qk } from "@/api/queryKeys";
 import { notificationText } from "@/lib/errors";
-import { useHeroHeaderState } from "@/lib/heroHeader";
 import { siteImageCredits, useSiteImages } from "@/lib/siteImages";
 import { timeAgo } from "@/lib/time";
 import {
@@ -32,29 +31,15 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
-/**
- * Header colours. Over the landing photograph the bar is transparent with white text; everywhere else
- * (and once the photograph has scrolled away) it is white glass with a hairline edge.
- */
-const TONE = {
-  overlay: {
-    bar: "border-transparent bg-transparent",
-    link: "text-white/80 hover:text-white",
-    active: "text-white after:bg-white",
-    icon: "text-white/85 hover:bg-white/10 hover:text-white",
-    quiet: "border-white/45 text-white hover:border-white/80 hover:bg-white/10",
-    avatar: "bg-white/15 text-white",
-    sub: "text-white/70",
-  },
-  glass: {
-    bar: "glass-bar",
-    link: "text-ink/70 hover:text-ink",
-    active: "text-brand-dark after:bg-brand",
-    icon: "text-ink/75 hover:bg-surface hover:text-ink",
-    quiet: "border-input text-ink hover:border-ink/30 hover:bg-surface",
-    avatar: "bg-brand-soft text-brand-dark",
-    sub: "text-muted-foreground",
-  },
+/** Header colours: white glass with a hairline edge. */
+const tone = {
+  bar: "glass-bar",
+  link: "text-ink/70 hover:text-ink",
+  active: "text-brand-dark after:bg-brand",
+  icon: "text-ink/75 hover:bg-surface hover:text-ink",
+  quiet: "border-input text-ink hover:border-ink/30 hover:bg-surface",
+  avatar: "bg-brand-soft text-brand-dark",
+  sub: "text-muted-foreground",
 };
 
 const iconBtn = "relative inline-flex size-9 items-center justify-center rounded-md transition-colors sm:size-10";
@@ -67,14 +52,12 @@ export function Layout() {
   const navigate = useNavigate();
   const navigationType = useNavigationType();
   const location = useLocation();
-  const hero = useHeroHeaderState();
   const [menuOpen, setMenuOpen] = useState(false);
   const isStaff = !!me && me.role !== "MEMBER";
   const isMember = !!me && me.role === "MEMBER";
   const isStaffArea = location.pathname.startsWith("/staff") || location.pathname.startsWith("/scan/");
   // the staff desk is wider, and its header lines up with the sidebar
   const width = isStaffArea ? "max-w-[1440px] px-4 sm:px-6" : "max-w-7xl px-4 sm:px-6 lg:px-8";
-  const tone = hero.present && hero.over ? TONE.overlay : TONE.glass;
 
   // A new page starts at the top; back and forward keep the browser's own scroll restoration.
   useEffect(() => {
@@ -134,13 +117,11 @@ export function Layout() {
         className={cn(
           "sticky top-0 z-40 border-b transition-[background-color,border-color,color] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
           tone.bar,
-          // over a hero, the header takes no room of its own: the photograph runs up behind it
-          hero.present && "-mb-16",
         )}
       >
         <div className={cn("mx-auto flex h-16 items-center gap-2 sm:gap-3", width)}>
           <Link to="/" className="-mx-1 shrink-0 rounded-sm px-1 py-1" aria-label={t("brand.name")}>
-            <Wordmark tone={tone === TONE.overlay ? "white" : "ink"} />
+            <Wordmark />
           </Link>
 
           <nav className="ms-10 hidden h-full items-stretch gap-1 md:flex" aria-label="Main">

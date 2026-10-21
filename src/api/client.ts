@@ -31,7 +31,7 @@ export class ApiError extends Error {
 }
 
 /** Sent on the cookie-authenticated endpoints; a cross-site form or image cannot add a custom header. */
-export const CSRF_HEADER = "X-LibBorrow-CSRF";
+export const CSRF_HEADER = "X-Library-CSRF";
 
 // The access token lives only in memory (10 minutes). The refresh token is an httpOnly cookie
 // the page cannot read; `auth.restore()` and `refreshAccess()` trade it for a new access token.
