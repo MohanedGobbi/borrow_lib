@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
-import { MailPlus, Search, Upload, UserX } from "lucide-react";
+import { BellPlus, MailPlus, Search, Upload, UserPlus, UserX } from "lucide-react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiInvites, apiUsers } from "@/api";
 import { invalidateInvites, qk } from "@/api/queryKeys";
@@ -9,7 +9,9 @@ import { useAuth } from "@/auth/AuthContext";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
+import { CreateAccountDialog } from "@/components/CreateAccountDialog";
 import { InviteStaffDialog } from "@/components/InviteStaffDialog";
+import { SendNotificationDialog } from "@/components/SendNotificationDialog";
 import { MemberStanding } from "@/components/MemberStanding";
 import { Pager } from "@/components/Pager";
 import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
@@ -21,12 +23,15 @@ import {
 import { fetchPage } from "@/lib/paging";
 import { fmtDate } from "@/lib/time";
 import { tableCls } from "@/lib/table";
+import { ACCOUNT_TYPES } from "@/types";
 
 export default function UsersPage() {
   const { t } = useI18n();
   const { me } = useAuth();
   const isAdmin = me?.role === "ADMIN";
   const [inviting, setInviting] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [announcing, setAnnouncing] = useState(false);
   const qc = useQueryClient();
   const { data: invites } = useQuery({ queryKey: qk.invites, queryFn: apiInvites.list, enabled: isAdmin });
   const revoke = useMutation({
@@ -47,7 +52,7 @@ export default function UsersPage() {
   const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
   const page = pageState.key === filterKey ? pageState.page : 1;
   const setPage = (next: number) => setPageState({ key: filterKey, page: next });
-  const listParams = { search: debouncedSearch, role: role === "all" ? undefined : role, page };
+  const listParams = { search: debouncedSearch, accountType: role === "all" ? undefined : role, page };
   const { data: result, isPending } = useQuery({
     queryKey: qk.users.list(listParams),
     queryFn: () => fetchPage((p) => apiUsers.list({ ...listParams, page: p }), page),
@@ -61,15 +66,23 @@ export default function UsersPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("users.title")}
-        actions={isAdmin && (
+        actions={
           <>
-            <Button asChild variant="outline">
-              <Link to="/staff/users/import"><Upload aria-hidden /> {t("sImport.title")}</Link>
-            </Button>
-            <Button onClick={() => setInviting(true)}><MailPlus aria-hidden /> {t("invite.button")}</Button>
+            <Button variant="outline" onClick={() => setAnnouncing(true)}><BellPlus aria-hidden /> {t("announce.button")}</Button>
+            {isAdmin && (
+              <>
+                <Button asChild variant="outline">
+                  <Link to="/staff/users/import"><Upload aria-hidden /> {t("sImport.title")}</Link>
+                </Button>
+                <Button variant="outline" onClick={() => setInviting(true)}><MailPlus aria-hidden /> {t("invite.button")}</Button>
+                <Button onClick={() => setCreating(true)}><UserPlus aria-hidden /> {t("users.create")}</Button>
+              </>
+            )}
           </>
-        )}
+        }
       />
+      <SendNotificationDialog open={announcing} onOpenChange={setAnnouncing} />
+      {isAdmin && <CreateAccountDialog open={creating} onOpenChange={setCreating} />}
       {isAdmin && (
         <>
           <InviteStaffDialog open={inviting} onOpenChange={setInviting} />
@@ -121,9 +134,9 @@ export default function UsersPage() {
               <SelectTrigger className="h-9 w-40" aria-label={t("col.role")}><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("users.allRoles")}</SelectItem>
-                <SelectItem value="MEMBER">{t("role.MEMBER")}</SelectItem>
-                <SelectItem value="STAFF">{t("role.STAFF")}</SelectItem>
-                <SelectItem value="ADMIN">{t("role.ADMIN")}</SelectItem>
+                {ACCOUNT_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>{t(`accountType.${type}`)}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </>
@@ -151,7 +164,7 @@ export default function UsersPage() {
                       <div dir="ltr" className="text-xs text-muted-foreground rtl:text-end">{u.email}</div>
                     </td>
                     <td className={tableCls.td}><span dir="ltr" className="font-mono text-[13px]">{u.studentOrStaffId}</span></td>
-                    <td className={tableCls.td}>{t(`role.${u.role}`)}</td>
+                    <td className={tableCls.td}>{t(`accountType.${u.accountType}`)}</td>
                     <td className={tableCls.td}>
                       {u.role === "MEMBER"
                         ? <bdi dir="ltr" className="tabular inline-block">{u.activeLoans} / {u.maxBorrowLimit}</bdi>

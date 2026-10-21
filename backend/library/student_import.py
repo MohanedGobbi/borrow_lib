@@ -64,7 +64,7 @@ _LANGUAGES = {
     "fr": "fr", "french": "fr", "francais": "fr", "français": "fr", "الفرنسية": "fr",
     "ar": "ar", "arabic": "ar", "arabe": "ar", "العربية": "ar",
 }
-DEFAULT_LANGUAGE = Language.EN  # as UserProfile
+DEFAULT_LANGUAGE = Language.AR  # as UserProfile
 
 
 def map_columns(headers) -> dict[str, str | None]:

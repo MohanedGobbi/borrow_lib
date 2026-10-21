@@ -2,7 +2,6 @@ import { useState } from "react";
 import { ChevronDown, Download } from "lucide-react";
 import { toast } from "sonner";
 import { apiExports, type ExportFormat } from "@/api";
-import { DEMO } from "@/api/client";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
@@ -38,22 +37,12 @@ function useExporter() {
   return { busy, run };
 }
 
-/**
- * "Export" button for the inventory: a menu with CSV and Excel. The demo build cannot write Excel files,
- * so there it is a single CSV button.
- */
+/** "Export" button for the inventory: a menu with CSV and Excel. */
 export function BooksExportMenu({ search }: { search: string }) {
   const { t } = useI18n();
   const { busy, run } = useExporter();
   const download = (format: ExportFormat) => run(() => apiExports.books(format, { search }));
 
-  if (DEMO) {
-    return (
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => download("csv")}>
-        <Download className="size-4" aria-hidden /> {t("export.csvButton")}
-      </Button>
-    );
-  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -96,7 +85,7 @@ export function LoansExportDialog({ open, onOpenChange }: { open: boolean; onOpe
       return;
     }
     setError(null);
-    const ok = await run(() => apiExports.loans(DEMO ? "csv" : format, { status: statuses, from, to }));
+    const ok = await run(() => apiExports.loans(format, { status: statuses, from, to }));
     if (ok) onOpenChange(false);
   };
 
@@ -137,18 +126,16 @@ export function LoansExportDialog({ open, onOpenChange }: { open: boolean; onOpe
             </div>
           </div>
 
-          {!DEMO && (
-            <div className="space-y-1.5">
-              <Label>{t("export.format")}</Label>
-              <Select value={format} onValueChange={(v) => setFormat(v as ExportFormat)}>
-                <SelectTrigger aria-label={t("export.format")} className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="csv">{t("export.csv")}</SelectItem>
-                  <SelectItem value="xlsx">{t("export.xlsx")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label>{t("export.format")}</Label>
+            <Select value={format} onValueChange={(v) => setFormat(v as ExportFormat)}>
+              <SelectTrigger aria-label={t("export.format")} className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="csv">{t("export.csv")}</SelectItem>
+                <SelectItem value="xlsx">{t("export.xlsx")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {error && <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
           <DialogFooter>

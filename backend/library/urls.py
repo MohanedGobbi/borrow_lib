@@ -58,8 +58,13 @@ urlpatterns = [
     path("activity", views.ActivityListView.as_view()),
     path("notifications/mine", views.NotificationListView.as_view()),
     path("notifications/read", views.MarkNotificationsReadView.as_view()),
+    path("notifications/send", views.SendNotificationView.as_view()),
     path("jobs/run", views.RunJobsView.as_view()),
     path("settings", views.SettingsView.as_view()),
+    path("maintenance", views.MaintenanceView.as_view()),
+    path("maintenance/backup", views.BackupView.as_view()),
+    path("maintenance/restore", views.RestoreView.as_view()),
+    path("maintenance/<str:action>", views.MaintenanceActionView.as_view()),
     path("site-images", site_image_views.SiteImageListView.as_view()),
     path("site-images/<str:slot>", site_image_views.SiteImageDetailView.as_view()),
 ]

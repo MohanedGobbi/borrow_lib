@@ -21,7 +21,7 @@
    | `DJANGO_NUM_PROXIES` | number of reverse proxies in front of Django, so login/register rate limits key on the real client IP (`X-Forwarded-For`) | `0` |
    | `CSRF_TRUSTED_ORIGINS` | origins allowed to post to the Django admin | none |
    | `FRONTEND_URL` | base URL embedded in ID-card QR codes and in the links of password-reset, verification and invite emails | `http://localhost:3000` |
-   | `LIBRARY_NAME` | printed on ID cards and in emails; when set, it replaces the French and Arabic names in emails too | University of Ghardaia Library |
+   | `LIBRARY_NAME` | printed on ID cards and in emails; when set, it replaces the French and Arabic names in emails too | Faculty of Law and Political Sciences Library |
    | `LIBRARY_TIME_ZONE` | IANA time zone (e.g. `Africa/Algiers`) that dates and times inside emails are written in; stored times stay UTC | `UTC` |
    | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP server for password-reset, verification and invite emails (outside debug mode; debug prints them to the console) | none / `587` / none / none / `1` |
    | `DEFAULT_FROM_EMAIL` | sender of those emails | `LibBorrow <no-reply@localhost>` |
@@ -38,7 +38,8 @@
    export DJANGO_DEBUG=0   # plus the variables above
    python backend/manage.py migrate
    python backend/manage.py collectstatic --noinput   # admin site assets
-   python backend/manage.py createsuperuser   # then set role=ADMIN in /admin if desired
+   python backend/manage.py load_inventory    # the library's catalogue (safe to repeat)
+   python backend/manage.py create_admin --email admin@univ-ghardaia.dz --name "…" --phone …
    ```
 
    **Loading the existing catalogue:** librarians can use Staff desk → Inventory →
@@ -65,8 +66,8 @@
 4. **Email and staff accounts.** Members must confirm their email address before they can
    borrow, and anyone can reset a forgotten password; both send an email, so configure SMTP
    (`EMAIL_*` above) before launch. Password-reset and verification links are valid for one hour.
-   There is no shared staff code: the first admin comes from `createsuperuser`, and admins invite
-   staff or other admins from Staff desk → Users → Invite staff. An invite is an emailed,
+   There is no shared staff code: the first admin comes from `create_admin`, and admins create
+   accounts of any type (Staff desk → Readers → Create account) or invite staff or other admins (Invite staff). An invite is an emailed,
    single-use link bound to one address and valid for 7 days; the admin also sees the link once,
    in case the email bounces.
 
@@ -125,19 +126,11 @@ The repo is Vercel-ready: `vercel.json` sets the Vite build, the SPA fallback
 and long-lived caching for `/assets/*`; `.vercelignore` keeps `backend/` out of
 the upload.
 
-**Default: standalone demo.** `vercel.json` runs `npm run build:demo`, which
-loads `.env.demo` (`VITE_DEMO=true`). In that build `src/api/demo.ts` answers
-every `/api/...` call inside the browser — same routes, JSON shapes, seed data
-and business rules as the Django app — so the site works with no server. Data
-is kept in the visitor's localStorage; the "Reset demo data" link in the header
-reseeds it. The login page offers one-click demo accounts. Receipts and ID
-cards are simple browser-generated PDFs. Try it locally with `npm run dev:demo`.
-
-**Real backend.** Vercel hosts only the frontend, so deploy Django elsewhere
+Vercel hosts only the frontend, so deploy Django elsewhere
 (Render, Railway, Fly.io, a VPS) with PostgreSQL and persistent media storage, and have Vercel
 proxy `/api` to it so the browser sees one origin (see "Same-site requirement" for why):
 
-1. In `vercel.json`, change `buildCommand` back to `npm run build` and add these rewrites to
+1. In `vercel.json` (which already runs `npm run build`), add these rewrites to
    the *top* of the `rewrites` array, then import the repo in Vercel (framework preset:
    **Vite**, root: repo root). Leave `VITE_API_URL` unset.
 
@@ -156,7 +149,7 @@ proxy `/api` to it so the browser sees one origin (see "Same-site requirement" f
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every push to `main` and on pull requests:
-frontend lint and both builds (real backend and Vercel demo), Django system check,
+frontend lint, the translation check and the build, Django system check,
 a missing-migrations check, the test suite, and `check --deploy` with production
 settings.
 

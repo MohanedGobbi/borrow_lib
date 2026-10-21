@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { LinkIcon, ShieldCheck } from "lucide-react";
 import { apiInvites } from "@/api";
+import { MEMBER_TYPES, type MemberType } from "@/types";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
@@ -10,6 +11,7 @@ import { AuthHeading, AuthLayout } from "@/components/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 type Invite =
   | { status: "none" }
@@ -24,9 +26,8 @@ export default function SignupPage() {
   const [params, setParams] = useSearchParams();
   const token = params.get("invite");
   const [invite, setInvite] = useState<Invite>(token ? { status: "checking" } : { status: "none" });
-  const [form, setForm] = useState({
-    name: "", email: "", password: "", studentId: "", phoneNumber: "", address: "",
-  });
+  const [form, setForm] = useState({ name: "", email: "", password: "", phoneNumber: "" });
+  const [memberType, setMemberType] = useState<MemberType>("STUDENT");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -58,9 +59,8 @@ export default function SignupPage() {
         name: form.name.trim(),
         email: email.trim(),
         password: form.password,
-        studentId: form.studentId.trim(),
         phoneNumber: form.phoneNumber.trim(),
-        address: form.address.trim(),
+        memberType,
         language: lang,
         inviteToken: invited && token ? token : undefined,
       });
@@ -99,8 +99,6 @@ export default function SignupPage() {
     );
   }
 
-  const optional = <span className="font-normal text-muted-foreground">{t("auth.optional")}</span>;
-
   return (
     <AuthLayout wide>
       <AuthHeading title={t("auth.create")}>{invited ? null : t("auth.createSub")}</AuthHeading>
@@ -126,8 +124,8 @@ export default function SignupPage() {
             {invited && <p id="email-locked" className="text-xs text-muted-foreground">{t("invite.emailLocked")}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="sid">{invited ? t("auth.staffId") : t("auth.studentId")}</Label>
-            <Input id="sid" required dir="ltr" value={form.studentId} onChange={set("studentId")} className="h-11" />
+            <Label htmlFor="phone">{t("auth.phone")}</Label>
+            <Input id="phone" type="tel" required autoComplete="tel" dir="ltr" value={form.phoneNumber} onChange={set("phoneNumber")} className="h-11" />
           </div>
         </div>
         <div className="space-y-1.5">
@@ -135,16 +133,27 @@ export default function SignupPage() {
           <Input id="password" type="password" required minLength={8} autoComplete="new-password" aria-describedby="pw-hint" value={form.password} onChange={set("password")} className="h-11" />
           <p id="pw-hint" className="text-xs text-muted-foreground">{t("auth.passwordHint")}</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="phone">{t("auth.phone")} {optional}</Label>
-            <Input id="phone" type="tel" autoComplete="tel" dir="ltr" value={form.phoneNumber} onChange={set("phoneNumber")} className="h-11" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="address">{t("auth.address")} {optional}</Label>
-            <Input id="address" autoComplete="street-address" value={form.address} onChange={set("address")} className="h-11" />
-          </div>
-        </div>
+        {!invited && (
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-ink">{t("auth.accountType")}</legend>
+            <RadioGroup
+              value={memberType}
+              onValueChange={(v) => setMemberType(v as MemberType)}
+              className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+            >
+              {MEMBER_TYPES.map((type) => (
+                <Label
+                  key={type}
+                  htmlFor={`type-${type}`}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2.5 text-[15px] font-normal has-[[data-state=checked]]:border-brand has-[[data-state=checked]]:bg-brand-soft/50"
+                >
+                  <RadioGroupItem id={`type-${type}`} value={type} />
+                  {t(`accountType.${type}`)}
+                </Label>
+              ))}
+            </RadioGroup>
+          </fieldset>
+        )}
 
         {error && <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
         <Button type="submit" disabled={busy} className="h-12 w-full">

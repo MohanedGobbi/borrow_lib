@@ -28,6 +28,15 @@ class Role(models.TextChoices):
     ADMIN = "ADMIN"
 
 
+class MemberType(models.TextChoices):
+    """What kind of reader a MEMBER account belongs to. Staff accounts are librarians (مكتبي) and admin
+    accounts are the library's administrators (الموظف المسؤول); both have this field set to its default."""
+    STUDENT = "STUDENT", "طالب"
+    PROFESSOR = "PROFESSOR", "أستاذ"
+    ADMINISTRATIVE = "ADMINISTRATIVE", "إداري مسير"
+    EXTERNAL = "EXTERNAL", "خارجي"
+
+
 class Language(models.TextChoices):
     EN = "en", "English"
     FR = "fr", "Français"
@@ -108,9 +117,10 @@ class SiteImage(models.Model):
 
 
 class Book(models.Model):
-    title = models.CharField(max_length=300)
-    author = models.CharField(max_length=300)
-    isbn = models.CharField(max_length=20, unique=True)
+    title = models.CharField(max_length=500)
+    author = models.CharField(max_length=300, blank=True)
+    # Most of the collection has no ISBN: the call number (shelf_location) identifies a title on the shelf.
+    isbn = models.CharField(max_length=20, unique=True, null=True, blank=True)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="books")
     publisher = models.CharField(max_length=200, blank=True)
     year = models.PositiveIntegerField(null=True, blank=True)
@@ -128,19 +138,40 @@ class Book(models.Model):
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    student_or_staff_id = models.CharField(max_length=30, unique=True)
+    # The library card number. Left empty at creation, it is filled from the row id (see save()).
+    student_or_staff_id = models.CharField(max_length=30, unique=True, blank=True)
     phone_number = models.CharField(max_length=40, blank=True)
     address = models.CharField(max_length=300, blank=True)
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.MEMBER)
+    member_type = models.CharField(max_length=16, choices=MemberType.choices, default=MemberType.STUDENT)
     membership_start_date = models.DateField(auto_now_add=True)
     # None means "use the default for my role" (LibrarySettings); a number is a personal override.
     max_borrow_limit = models.PositiveIntegerField(null=True, blank=True, default=None)
     active = models.BooleanField(default=True)
-    language = models.CharField(max_length=2, choices=Language.choices, default=Language.EN)
+    language = models.CharField(max_length=2, choices=Language.choices, default=Language.AR)
     # True by default so existing accounts stay verified; self-registration sets it to False.
     email_verified = models.BooleanField(default=True)
     # Opt-out of the ready / due-soon / overdue reminder emails. In-app notifications always stay on.
     email_reminders = models.BooleanField(default=True)
+    # Which notifications the member wants, per group: {"inApp": {group: bool}, "email": {kind: bool}}.
+    # A missing key means "on" (see wants_notification / wants_email).
+    notification_prefs = models.JSONField(default=dict, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.student_or_staff_id:
+            return super().save(*args, **kwargs)
+        # A unique placeholder first, then the card number made from the row id.
+        self.student_or_staff_id = f"tmp-{uuid.uuid4().hex[:20]}"
+        super().save(*args, **kwargs)
+        self.student_or_staff_id = card_number(self.pk)
+        super().save(update_fields=["student_or_staff_id"])
+
+    def wants_notification(self, code: str) -> bool:
+        group = NOTIFICATION_GROUPS.get(code)
+        return group is None or self.notification_prefs.get("inApp", {}).get(group, True) is not False
+
+    def wants_email(self, kind: str) -> bool:
+        return self.email_reminders and self.notification_prefs.get("email", {}).get(kind, True) is not False
 
     def borrow_limit_with(self, rules: "LibrarySettings") -> int:
         """The limit given already-loaded settings (lists pass one copy instead of a query per row)."""
@@ -155,6 +186,22 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.role})"
+
+
+def card_number(pk: int) -> str:
+    return f"GH-{pk:06d}"
+
+
+# The in-app notification groups a member can switch off, and the codes in each.
+NOTIFICATION_GROUPS = {
+    "request_approved": "requests", "request_rejected": "requests",
+    "queue_joined": "waitingList", "queue_handoff": "waitingList", "hold_expired": "waitingList",
+    "picked_up": "loans", "loan_renewed": "loans",
+    "overdue": "overdue",
+    "announcement": "announcements",
+}
+NOTIFICATION_GROUP_NAMES = ["requests", "waitingList", "loans", "overdue", "announcements"]
+EMAIL_KINDS = ["ready", "dueSoon", "overdue"]
 
 
 INVITE_LIFETIME = timedelta(days=7)
@@ -261,8 +308,12 @@ def log_activity(actor_name: str, action: str, detail: str, **params) -> Activit
                                       code=action.lower(), params=params)
 
 
-def notify(user: User, code: str, message: str, **params) -> Notification:
-    """`message` is the English text (old rows, the admin, API clients); the UI translates `code` + `params`."""
+def notify(user: User, code: str, message: str, **params) -> Notification | None:
+    """`message` is the English text (old rows, the admin, API clients); the UI translates `code` + `params`.
+    Nothing is stored when the member switched that group of notifications off."""
+    profile = getattr(user, "profile", None)
+    if profile is not None and not profile.wants_notification(code):
+        return None
     return Notification.objects.create(user=user, code=code, message=message, params=params)
 
 

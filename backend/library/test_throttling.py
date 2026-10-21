@@ -24,7 +24,7 @@ class ThrottleTests(TestCase):
 
     def register(self, n):
         return self.client.post("/api/auth/register", {
-            "name": "Nadia Salem", "email": f"n{n}@x.com", "studentId": f"STU-{n}",
+            "name": "Nadia Salem", "email": f"n{n}@x.com", "phoneNumber": f"06610000{n:02d}",
             "password": "shelf-mark-FIC-7",
         }, format="json")
 

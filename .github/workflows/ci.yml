@@ -18,10 +18,8 @@ jobs:
       - run: npm run lint
       - name: Translations have the same keys in EN, FR and AR
         run: node scripts/check-i18n.mjs
-      - name: Build (real backend)
+      - name: Build
         run: npm run build
-      - name: Build (Vercel demo)
-        run: npm run build:demo
 
   backend:
     runs-on: ubuntu-latest
@@ -91,27 +89,3 @@ jobs:
       - name: Tests
         run: python manage.py test library
 
-  e2e:
-    # One Playwright suite against both targets: the in-browser demo API and the real Django API.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
-      - run: npm ci
-      - run: pip install -r backend/requirements.txt
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7

@@ -264,7 +264,7 @@ class StudentImportTests(StudentImportBase):
         self.assertEqual((p.role, p.email_verified, p.language, p.student_or_staff_id, p.phone_number, p.active),
                          (Role.MEMBER, False, "fr", "S100", "0555 12 34", True))
         omar = User.objects.get(email="omar@uni.dz")
-        self.assertEqual((omar.last_name, omar.profile.language, omar.profile.student_or_staff_id), ("Ben Ali", "en", "101"))
+        self.assertEqual((omar.last_name, omar.profile.language, omar.profile.student_or_staff_id), ("Ben Ali", "ar", "101"))
         lina = User.objects.get(email="lina@uni.dz")  # "Nom" next to "Prénom" is the family name
         self.assertEqual((lina.first_name, lina.last_name, lina.profile.language), ("Lina", "Haddad", "ar"))
 
@@ -272,9 +272,8 @@ class StudentImportTests(StudentImportBase):
         by_to = {m.to[0]: m for m in mail.outbox}
         self.assertIn("Votre compte", by_to["nadia@uni.dz"].subject)
         self.assertIn("Mot de passe oublié", by_to["nadia@uni.dz"].body)
-        self.assertIn("Your", by_to["omar@uni.dz"].subject)
-        self.assertIn("Forgot password?", by_to["omar@uni.dz"].body)
-        self.assertIn("1 hour", by_to["omar@uni.dz"].body)  # PASSWORD_RESET_TIMEOUT
+        self.assertIn("حسابك", by_to["omar@uni.dz"].subject)
+        self.assertIn("نسيت كلمة المرور", by_to["omar@uni.dz"].body)  # no language column: Arabic, the default
         self.assertIn("نسيت كلمة المرور", by_to["lina@uni.dz"].body)
         entry = ActivityLog.objects.get(action="STUDENTS_IMPORTED")
         self.assertEqual((entry.params["created"], entry.params["source"]), (3, "students.csv"))

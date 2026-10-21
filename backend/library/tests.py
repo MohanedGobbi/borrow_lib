@@ -297,7 +297,7 @@ class PdfTests(TestCase):
 class UniversityNameTests(TestCase):
     def test_emails_name_the_university_in_the_members_language(self):
         from .emails import compose
-        names = {"en": "University of Ghardaia Library", "fr": "Bibliothèque de l'Université de Ghardaïa", "ar": "مكتبة جامعة غرداية"}
+        names = {"en": "Faculty of Law and Political Sciences Library", "fr": "Bibliothèque de la Faculté de droit et des sciences politiques", "ar": "مكتبة كلية الحقوق والعلوم السياسية"}
         for lang, name in names.items():
             subject, body = compose("verification", lang, "Nadia", link="http://x", validity="1 day")
             self.assertIn(name, subject, lang)
@@ -315,7 +315,7 @@ class UniversityNameTests(TestCase):
 class RegistrationTests(TestCase):
     def test_weak_passwords_rejected(self):
         client = APIClient()
-        base = {"name": "Nadia Salem", "email": "nadia@x.com", "studentId": "STU-1"}
+        base = {"name": "Nadia Salem", "email": "nadia@x.com", "phoneNumber": "0661000000"}
         for weak in ("password", "12345678", "nadia@x.com"):
             res = client.post("/api/auth/register", {**base, "password": weak}, format="json")
             self.assertEqual(res.status_code, 400, weak)
@@ -386,7 +386,7 @@ class BookImportTests(TestCase):
 
     def test_missing_required_columns_reported(self):
         res = self.post([{"Name": "Dune", "Writer": "Herbert"}])
-        self.assertEqual(res.data["missingColumns"], ["isbn", "title"])
+        self.assertEqual(res.data["missingColumns"], ["title"])
 
     def test_members_cannot_import(self):
         client = APIClient()

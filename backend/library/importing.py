@@ -5,8 +5,10 @@ The same rules back the staff import screen (POST /api/books/import) and the
 
 - Column headers are matched case- and accent-insensitively against English,
   French and Arabic aliases; unknown columns are ignored.
-- The ISBN identifies a book: it is normalized (digits and a final X only),
-  its checksum is verified, and it matches existing books regardless of hyphens.
+- The ISBN identifies a book when there is one: it is normalized (digits and a final X only),
+  its checksum is verified, and it matches existing books regardless of hyphens. Without an ISBN
+  (most of the faculty's collection) the call number and the title identify it, or the title alone.
+- Without a category column, the category comes from the call number (catalogue.subject_of).
 - Rows with errors are reported and skipped. Valid rows are written in one
   transaction, so a database failure leaves nothing half-imported.
 - `dry_run` validates and reports without writing anything (the preview).
@@ -23,23 +25,22 @@ from datetime import date
 
 from django.db import transaction
 
+from .catalogue import GENERAL, SUBJECTS, subject_of
 from .errors import BusinessRuleError
 from .models import Book, Category, Status, log_activity
 
 MAX_ROWS = 5000
 MAX_COPIES = 1000
-DEFAULT_CATEGORY = "General"
 # Library binding cloth colors for generated covers (same set as the book editor).
 BINDINGS = ["#1F4D3A", "#6E2A2A", "#2B3F52", "#4A4E45", "#5C4630", "#29463F"]
 
 # Row errors are returned as codes (+ values) so the UI can show them in FR / AR / EN.
 ERROR_TEXT = {
-    "isbn_missing": "ISBN is missing.",
     "isbn_invalid": "ISBN is not valid (check the digits).",
     "isbn_duplicate": "Same ISBN as row {row}.",
+    "book_duplicate": "Same call number and title as row {row}.",
     "title_missing": "Title is missing.",
-    "title_too_long": "Title is longer than 300 characters.",
-    "author_missing": "Author is missing.",
+    "title_too_long": "Title is longer than 500 characters.",
     "year_invalid": "Year must be a year such as 2019.",
     "copies_invalid": "Copies must be a whole number from 1 to {max}.",
     "copies_below_loans": "Copies cannot be below the {onLoan} on loan.",
@@ -59,7 +60,7 @@ FIELDS = ["isbn", "title", "author", "category", "publisher", "year", "totalCopi
 
 _ALIASES = {
     "isbn": ["isbn", "isbn13", "isbn 13", "isbn10", "code isbn", "ردمك"],
-    "title": ["title", "book title", "titre", "titre du livre", "العنوان", "عنوان الكتاب"],
+    "title": ["title", "book title", "titre", "titre du livre", "العنوان", "عنوان الكتاب", "اسم الكتاب"],
     "author": ["author", "authors", "auteur", "auteurs", "writer", "المؤلف", "المؤلفون"],
     "category": ["category", "categories", "categorie", "genre", "subject", "discipline", "التصنيف", "الفئة"],
     "publisher": ["publisher", "editeur", "edition", "maison d edition", "الناشر", "دار النشر"],
@@ -67,7 +68,8 @@ _ALIASES = {
     "totalCopies": ["total copies", "totalcopies", "copies", "copy count", "quantity", "qty", "exemplaires",
                     "nombre d exemplaires", "nb exemplaires", "عدد النسخ", "النسخ"],
     "shelfLocation": ["shelf location", "shelflocation", "shelf", "shelf mark", "location", "call number",
-                      "cote", "emplacement", "rayon", "الرف", "رمز الرف"],
+                      "cote", "emplacement", "rayon", "الرف", "رمز الرف", "الشفرة", "الرمز", "رقم الطلب",
+                      "رمز التصنيف", "التصنيف العشري"],
     "description": ["description", "summary", "resume", "abstract", "notes", "الوصف", "الملخص"],
 }
 
@@ -76,6 +78,7 @@ def _key(header: str) -> str:
     """Lowercase, strip accents and separators: 'Nombre d’exemplaires' → 'nombre d exemplaires'."""
     # Drop accents (and Arabic vowel marks) but keep the letters, so Arabic headers stay distinct from each other.
     text = "".join(ch for ch in unicodedata.normalize("NFKD", str(header)) if not unicodedata.combining(ch)).lower()
+    text = text.replace("\u0640", "")  # the Arabic tatweel that stretches headers such as "الـعنـوان"
     for ch in "_-./’'()":
         text = text.replace(ch, " ")
     return " ".join(text.split())
@@ -146,12 +149,16 @@ def run_import(rows: list[dict], *, mode: str = "skip", dry_run: bool = True,
 
     headers = list(dict.fromkeys(h for r in rows for h in r.keys() if not str(h).startswith("__")))
     columns = map_columns(headers)
-    missing = [f for f in ("isbn", "title", "author") if f not in columns.values()]
+    missing = [f for f in ("title",) if f not in columns.values()]
     if rows and missing:
         return {"dryRun": dry_run, "columns": columns, "missingColumns": missing, "rows": [],
                 "summary": _summary([], [])}
 
-    existing = {normalize_isbn(b.isbn) or b.isbn: b for b in Book.objects.all()}
+    existing = {}
+    for b in Book.objects.all():
+        if b.isbn:
+            existing[normalize_isbn(b.isbn) or b.isbn] = b
+        existing.setdefault(_shelf_key(b.shelf_location, b.title), b)
     categories = {c.name.lower(): c for c in Category.objects.all()}
     this_year = date.today().year
     seen: dict[str, int] = {}
@@ -174,20 +181,18 @@ def run_import(rows: list[dict], *, mode: str = "skip", dry_run: bool = True,
 
         isbn = normalize_isbn(data["isbn"]) if _text(data["isbn"]) else None
         res.isbn = isbn or _text(data["isbn"])
-        if not _text(data["isbn"]):
-            res.errors.append({"code": "isbn_missing"})
-        elif not isbn:
+        shelf = _text(data["shelfLocation"])
+        key = isbn or _shelf_key(shelf, res.title)
+        if _text(data["isbn"]) and not isbn:
             res.errors.append({"code": "isbn_invalid"})
-        elif isbn in seen:
-            res.errors.append({"code": "isbn_duplicate", "row": seen[isbn]})
-        if isbn:
-            seen.setdefault(isbn, row_no)
+        elif res.title and key in seen:
+            res.errors.append({"code": "isbn_duplicate" if isbn else "book_duplicate", "row": seen[key]})
+        if isbn or res.title:
+            seen.setdefault(key, row_no)
         if not res.title:
             res.errors.append({"code": "title_missing"})
-        elif len(res.title) > 300:
+        elif len(res.title) > 500:
             res.errors.append({"code": "title_too_long"})
-        if not res.author:
-            res.errors.append({"code": "author_missing"})
 
         year = None
         if _text(data["year"]):
@@ -203,7 +208,7 @@ def run_import(rows: list[dict], *, mode: str = "skip", dry_run: bool = True,
                 copies = 1
         res.totalCopies = copies
 
-        book = existing.get(isbn) if isbn else None
+        book = existing.get(key)
         if book and mode == "update":
             on_loan = book.borrow_records.filter(status__in=[Status.BORROWED, Status.OVERDUE]).count()
             if copies < on_loan:
@@ -213,7 +218,7 @@ def run_import(rows: list[dict], *, mode: str = "skip", dry_run: bool = True,
             results.append(res)
             continue
 
-        category_name = _text(data["category"]) or DEFAULT_CATEGORY
+        category_name = _text(data["category"]) or subject_of(shelf)[0]
         if category_name.lower() not in categories and category_name not in new_categories:
             new_categories.append(category_name)
         values = {
@@ -236,14 +241,16 @@ def run_import(rows: list[dict], *, mode: str = "skip", dry_run: bool = True,
     if not dry_run and plans:
         with transaction.atomic():
             for name in new_categories:
-                categories[name.lower()] = Category.objects.create(name=name, color="#4A5560")
+                color = next((c for n, c in _subject_colours() if n == name), "#4A5560")
+                categories[name.lower()] = Category.objects.create(name=name, color=color)
             created = updated = 0
             for res, values, book in plans:
                 category = categories[values.pop("category_name").lower()]
                 if book is None:
+                    seed = res.isbn or f"{values['shelf_location']}|{res.title}"
                     Book.objects.create(
-                        isbn=res.isbn, category=category, available_copies=values["total_copies"],
-                        cover_color=BINDINGS[int(hashlib.md5(res.isbn.encode()).hexdigest(), 16) % len(BINDINGS)],
+                        isbn=res.isbn or None, category=category, available_copies=values["total_copies"],
+                        cover_color=BINDINGS[int(hashlib.md5(seed.encode()).hexdigest(), 16) % len(BINDINGS)],
                         **values,
                     )
                     created += 1
@@ -268,6 +275,15 @@ def run_import(rows: list[dict], *, mode: str = "skip", dry_run: bool = True,
         "rows": [r.__dict__ for r in results],
         "summary": _summary(results, new_categories),
     }
+
+
+def _shelf_key(shelf: str, title: str) -> str:
+    """Identity of a book without an ISBN: its call number and its title, compared loosely."""
+    return "shelf:" + " ".join(f"{shelf} {title}".lower().split())
+
+
+def _subject_colours():
+    return [*SUBJECTS.values(), GENERAL]
 
 
 def _changes(book: Book, values: dict) -> list[str]:

@@ -122,7 +122,7 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
     c.drawString(xs[1], ty - 9 * mm, title)
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 7)
-    c.drawString(xs[1], ty - 13.5 * mm, f"{book.author} · ISBN {book.isbn} · Shelf {book.shelf_location}")
+    c.drawString(xs[1], ty - 13.5 * mm, " · ".join(x for x in (book.author, f"ISBN {book.isbn}" if book.isbn else "", f"Shelf {book.shelf_location}") if x))
     # status pill
     pill_color = GREEN if record.status in ("READY", "BORROWED", "RETURNED") else (
         HexColor("#B42318") if record.status in ("REJECTED", "OVERDUE", "CANCELLED") else BRAND)

@@ -2,7 +2,7 @@ import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
-// The end-to-end run points the proxy at its own Django instance (API_PROXY_TARGET, see e2e/serve-django.mjs).
+// The Django API the dev server proxies to; API_PROXY_TARGET points it elsewhere.
 const apiTarget = process.env.API_PROXY_TARGET ?? "http://localhost:8000";
 
 // https://vite.dev/config/

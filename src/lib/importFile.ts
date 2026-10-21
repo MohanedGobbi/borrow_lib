@@ -1,7 +1,7 @@
 /**
  * Reads a book-import file in the browser: .xlsx, .csv or .json → rows keyed by
- * the file's own column headers. All validation happens on the server (or the
- * demo API); this only turns the file into data. `__row` is the row number the
+ * the file's own column headers. All validation happens on the server; this
+ * only turns the file into data. `__row` is the row number the
  * librarian sees in their spreadsheet, so errors can point back to it.
  */
 export type ImportRowInput = Record<string, unknown> & { __row: number };

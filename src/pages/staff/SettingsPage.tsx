@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { fmtDateTime, fmtDays, fmtHours } from "@/lib/time";
 import { ErrorState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
+import { MaintenanceSection } from "@/components/MaintenanceSection";
 import { SitePhotosSection } from "@/components/SitePhotosSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ export default function SettingsPage() {
           {/* A new copy of the form whenever the saved rules change, so the fields start from what is stored. */}
           <SettingsForm key={data.updatedAt} settings={data} />
           <SitePhotosSection />
+          <MaintenanceSection />
         </>
       )}
     </div>

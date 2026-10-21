@@ -8,7 +8,10 @@ from .models import (
     BorrowRecord,
     Category,
     Language,
+    EMAIL_KINDS,
+    NOTIFICATION_GROUP_NAMES,
     LibrarySettings,
+    MemberType,
     Notification,
     Reservation,
     Role,
@@ -61,6 +64,10 @@ class BookSerializer(serializers.ModelSerializer):
                   "totalCopies", "availableCopies", "freeCopies", "shelfLocation", "coverColor", "coverImage",
                   "description", "activeLoanId", "activeLoanMember"]
 
+    def validate_isbn(self, value):
+        # Optional: an empty ISBN is stored as NULL, so any number of books can have none.
+        return value.strip() if value and value.strip() else None
+
     def _single_loan(self, obj):
         from .permissions import role_of
         request = self.context.get("request")
@@ -101,14 +108,36 @@ class ProfileSerializer(serializers.ModelSerializer):
     emailReminders = serializers.BooleanField(source="email_reminders", required=False)
     activeLoans = serializers.SerializerMethodField()
     hasOverdue = serializers.SerializerMethodField()
+    memberType = serializers.CharField(source="member_type", read_only=True)
+    accountType = serializers.SerializerMethodField()
+    notificationPrefs = serializers.JSONField(source="notification_prefs", required=False)
 
     class Meta:
         model = UserProfile
         fields = ["id", "uuid", "name", "email", "studentOrStaffId", "phoneNumber", "address",
-                  "role", "membershipStartDate", "maxBorrowLimit", "borrowLimitIsDefault", "active", "language", "emailVerified",
-                  "emailReminders", "activeLoans", "hasOverdue"]
+                  "role", "memberType", "accountType", "membershipStartDate", "maxBorrowLimit", "borrowLimitIsDefault",
+                  "active", "language", "emailVerified", "emailReminders", "notificationPrefs", "activeLoans", "hasOverdue"]
         # PATCH /users/me must not let anyone promote or reactivate themselves.
         read_only_fields = ["role", "active"]
+
+    def get_accountType(self, obj):
+        return account_type_of(obj)
+
+    def validate_notificationPrefs(self, value):
+        """Only the known groups, only booleans; anything left out keeps its current value."""
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Expected an object.")
+        current = (self.instance.notification_prefs if self.instance else {}) or {}
+        out = {"inApp": dict(current.get("inApp", {})), "email": dict(current.get("email", {}))}
+        for section, names in (("inApp", NOTIFICATION_GROUP_NAMES), ("email", EMAIL_KINDS)):
+            given = value.get(section, {})
+            if not isinstance(given, dict):
+                raise serializers.ValidationError(f"{section} must be an object.")
+            for k, v in given.items():
+                if k not in names or not isinstance(v, bool):
+                    raise serializers.ValidationError(f"Unknown or invalid setting: {section}.{k}.")
+                out[section][k] = v
+        return out
 
     def get_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
@@ -133,6 +162,28 @@ class ProfileSerializer(serializers.ModelSerializer):
             from .services import has_overdue
             flag = has_overdue(obj.user)
         return flag
+
+
+# One list for the interface: the four kinds of reader, then the two kinds of library staff.
+ACCOUNT_TYPES = [*MemberType.values, "LIBRARIAN", "ADMIN"]
+MEMBER_TYPES = MemberType.values
+
+
+def account_type_of(profile) -> str:
+    if profile.role == Role.ADMIN or profile.user.is_superuser:
+        return "ADMIN"
+    if profile.role == Role.STAFF:
+        return "LIBRARIAN"
+    return profile.member_type
+
+
+def role_for_account_type(account_type: str) -> tuple[str, str]:
+    """(role, member_type) for an account type from ACCOUNT_TYPES."""
+    if account_type == "ADMIN":
+        return Role.ADMIN, MemberType.STUDENT
+    if account_type == "LIBRARIAN":
+        return Role.STAFF, MemberType.STUDENT
+    return Role.MEMBER, account_type
 
 
 class BorrowRecordSerializer(serializers.ModelSerializer):
@@ -278,10 +329,10 @@ class RegisterSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)  # length and strength: Django's validators, below
-    studentId = serializers.CharField(max_length=30)
-    phoneNumber = serializers.CharField(max_length=40, required=False, allow_blank=True, default="")
-    address = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
-    language = serializers.ChoiceField(choices=Language.choices, required=False, default=Language.EN)
+    phoneNumber = serializers.CharField(max_length=40)
+    # Self-registration chooses one of the reader types; staff accounts come from an admin or an invite.
+    memberType = serializers.ChoiceField(choices=MemberType.choices, required=False, default=MemberType.STUDENT)
+    language = serializers.ChoiceField(choices=Language.choices, required=False, default=Language.AR)
     inviteToken = serializers.CharField(required=False, allow_blank=True, default="", write_only=True)
 
     def validate_email(self, value):
@@ -296,10 +347,22 @@ class RegisterSerializer(serializers.Serializer):
                                       first_name=self.initial_data.get("name", "")))
         return value
 
-    def validate_studentId(self, value):
-        if UserProfile.objects.filter(student_or_staff_id__iexact=value).exists():
-            raise serializers.ValidationError("This ID is already registered.", code="unique")
+    def validate_phoneNumber(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("This field may not be blank.", code="blank")
         return value
+
+
+class AdminCreateUserSerializer(RegisterSerializer):
+    """An admin creating an account of any type. Without a password the new member gets a welcome email
+    with a link to choose one."""
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, default="")
+    accountType = serializers.ChoiceField(choices=ACCOUNT_TYPES)
+    memberType = None
+
+    def validate_password(self, value):
+        return super().validate_password(value) if value else ""
 
 
 class StaffInviteSerializer(serializers.ModelSerializer):

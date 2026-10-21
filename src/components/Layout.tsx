@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from "react-router";
-import { Bell, ClipboardList, Globe, Info, LogOut, Menu, UserRound } from "lucide-react";
+import { Bell, ClipboardList, Globe, LogOut, Menu, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/AuthContext";
 import { useCart } from "@/cart/CartContext";
@@ -10,7 +10,6 @@ import { useRuleVars } from "@/hooks/useLibrarySettings";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiAuth, apiMisc } from "@/api";
 import { invalidateNotifications, qk } from "@/api/queryKeys";
-import { DEMO, resetDemo } from "@/api/client";
 import { notificationText } from "@/lib/errors";
 import { useHeroHeaderState } from "@/lib/heroHeader";
 import { siteImageCredits, useSiteImages } from "@/lib/siteImages";
@@ -24,8 +23,8 @@ import { VerifyBanner } from "@/components/VerifyBanner";
 import { Wordmark } from "@/components/Wordmark";
 
 const LANGS: { code: Lang; label: string }[] = [
-  { code: "fr", label: "Français" },
   { code: "ar", label: "العربية" },
+  { code: "fr", label: "Français" },
   { code: "en", label: "English" },
 ];
 
@@ -129,25 +128,6 @@ export function Layout() {
       </a>
 
       {/* Notices sit above the header, so the header can lie over the landing photograph. */}
-      {DEMO && (
-        <aside aria-label={t("demo.label")} className="bg-brand-dark text-white/85">
-          <div className={cn("mx-auto flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-[13px] leading-snug", width)}>
-            <Info className="hidden size-4 shrink-0 text-white/70 sm:block" aria-hidden />
-            <span className="min-w-0">
-              <span className="sm:hidden">{t("demo.noticeShort")}</span>
-              <span className="hidden sm:inline">{t("demo.notice")}</span>
-            </span>
-            <span className="flex flex-wrap gap-x-4">
-              <button type="button" onClick={resetDemo} className="font-medium text-white underline decoration-white/40 underline-offset-[3px] hover:decoration-white">
-                {t("demo.reset")}
-              </button>
-              <Link to="/demo/mailbox" className="font-medium text-white underline decoration-white/40 underline-offset-[3px] hover:decoration-white">
-                {t("mailbox.open")}
-              </Link>
-            </span>
-          </div>
-        </aside>
-      )}
       <VerifyBanner wide={isStaffArea} />
 
       <header
@@ -159,7 +139,7 @@ export function Layout() {
         )}
       >
         <div className={cn("mx-auto flex h-16 items-center gap-2 sm:gap-3", width)}>
-          <Link to="/" className="-mx-1 shrink-0 rounded-sm px-1 py-1" aria-label="LibBorrow">
+          <Link to="/" className="-mx-1 shrink-0 rounded-sm px-1 py-1" aria-label={t("brand.name")}>
             <Wordmark tone={tone === TONE.overlay ? "white" : "ink"} />
           </Link>
 
@@ -187,7 +167,7 @@ export function Layout() {
             <DropdownMenu>
               <DropdownMenuTrigger className={cn("inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium transition-colors sm:h-10 sm:px-2.5", tone.icon)} aria-label={t("nav.language")}>
                 <Globe className="size-[18px]" aria-hidden />
-                <span className="uppercase">{lang}</span>
+                <span className="hidden uppercase sm:inline">{lang}</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-40">
                 {LANGS.map((l) => (
@@ -259,7 +239,7 @@ export function Layout() {
                     </span>
                     <span className="hidden text-start leading-tight lg:block">
                       <span className="block text-sm font-medium">{me.name}</span>
-                      <span className={cn("block text-xs", tone.sub)}>{t(`role.${me.role}`)}</span>
+                      <span className={cn("block text-xs", tone.sub)}>{t(`accountType.${me.accountType}`)}</span>
                     </span>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-60">
@@ -287,7 +267,7 @@ export function Layout() {
               <Link
                 to="/login"
                 className={cn(
-                  "ms-0.5 inline-flex h-9 items-center whitespace-nowrap rounded-md border px-2.5 text-[14.5px] font-medium transition-colors sm:ms-1 sm:px-3.5",
+                  "ms-0.5 hidden h-9 items-center whitespace-nowrap rounded-md border px-2.5 text-[14.5px] font-medium transition-colors sm:ms-1 sm:inline-flex sm:px-3.5",
                   tone.quiet,
                 )}
               >
@@ -328,7 +308,7 @@ export function Layout() {
       <footer className="border-t bg-surface text-ink">
         {!isStaffArea && (
           <div className={cn("mx-auto flex flex-col gap-8 pb-10 pt-12 md:flex-row md:items-end md:justify-between lg:pt-16", width)}>
-            <Link to="/" className="-mx-1 w-fit rounded-sm px-1" aria-label="LibBorrow">
+            <Link to="/" className="-mx-1 w-fit rounded-sm px-1" aria-label={t("brand.name")}>
               <Wordmark size="footer" />
             </Link>
             <nav aria-label={t("footer.nav")}>
@@ -350,16 +330,15 @@ export function Layout() {
             <div className="space-y-1.5">
               {!isStaffArea && (
                 <p className="text-ink/80">
-                  {/* the university's name in each of the site's languages, each set in its own direction */}
-                  <span lang="en" dir="ltr">University of Ghardaia</span>
+                  {t("footer.address")}
                   {" · "}
-                  <span lang="fr" dir="ltr">Université de Ghardaïa</span>
-                  {" · "}
-                  <span lang="ar" dir="rtl">جامعة غرداية</span>
+                  <a href="https://www.univ-ghardaia.dz" target="_blank" rel="noopener noreferrer" dir="ltr" className="underline decoration-ink/20 hover:text-ink hover:decoration-ink/60">
+                    www.univ-ghardaia.dz
+                  </a>
                 </p>
               )}
               <p>
-                {isStaffArea && <span className="text-ink/80">LibBorrow · {t("brand.library")} · </span>}
+                {isStaffArea && <span className="text-ink/80">{t("brand.name")} · </span>}
                 {t("footer.rules", ruleVars)}
               </p>
             </div>

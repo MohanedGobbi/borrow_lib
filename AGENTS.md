@@ -10,9 +10,9 @@ It is a full-stack app:
 
 - **Backend:** Django + Django REST Framework + SimpleJWT in `backend/` (SQLite in dev, PostgreSQL-ready). ReportLab generates receipt and library-card PDFs.
 - **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS 3 + shadcn/ui in `src/`.
-- **Demo mode:** `npm run dev:demo` / `npm run build:demo` (Vite mode `demo`, `.env.demo` sets `VITE_DEMO=true`) swaps every API call for an in-browser port of the Django API in `src/api/demo.ts`, so the site runs with no server. The Vercel deployment uses this build.
+- **Real data:** the catalogue is the library's inventory in `backend/library/data/inventory.csv` (`load_inventory`); there is no demo mode or seed data. Arabic is the default language.
 
-Key business rules (enforced in `backend/library/services.py` and mirrored in `src/api/demo.ts`):
+Key business rules (enforced in `backend/library/services.py`):
 
 - A loan starts at **pickup**, not approval. `availableCopies` changes only at pickup (−1) and return (+1).
 - **Free copies** = `availableCopies` minus the book's `READY` records (copies on the hold shelf). Staff can approve only while a book has a free copy; new requests and queue joins use the same count (`freeCopies` in the API, `free_copies()` in `services.py`).
@@ -35,25 +35,20 @@ BORROWED --(past due date)--> OVERDUE
 ```bash
 npm install
 npm run dev          # frontend on :3000, proxies /api and /media to Django on :8000
-npm run dev:demo     # frontend only, in-browser demo API
 npm run build        # tsc -b && vite build (real backend)
-npm run build:demo   # static demo build (used by vercel.json)
 npm run lint
-npm run e2e          # Playwright against the demo API and a fresh Django (e2e/, ~4 min)
-npm run e2e:demo     # demo project only (~1-2 min)
 ```
 
-Backend: see `README.md` (venv, `migrate`, `seed_demo`, `runserver 8000`, `python manage.py test library`).
+Backend: see `README.md` (venv, `migrate`, `load_inventory`, `create_admin`, `runserver 8000`, `python manage.py test library`).
 
 ## Project structure
 
 ```
 backend/library/        models, services (state machine), views, serializers, PDFs, tests, management commands
-src/api/client.ts       fetch wrapper, JWT tokens, API_ROOT (VITE_API_URL), DEMO flag, demo accounts
+src/api/client.ts       fetch wrapper, JWT tokens, API_ROOT (VITE_API_URL)
 src/api/index.ts        typed endpoint functions
-src/api/demo.ts         in-browser API used by demo builds (seed data persisted in localStorage)
 src/i18n/index.tsx      EN / FR / AR dictionaries, t(key, vars), RTL switching
-src/components/Layout.tsx   header, user menu, demo notice, footer, Container
+src/components/Layout.tsx   header, user menu, footer, Container
 src/components/Page.tsx     PageHeader, Panel, EmptyState, ErrorState
 src/components/             BookCover, BookActions (+ Availability), StatusBadge, MemberStanding, Countdown, dialogs
 src/lib/time.ts         localized dates, relative times, countdown formatting
@@ -61,7 +56,8 @@ src/lib/table.ts        shared table classes for staff lists
 src/lib/importFile.ts   reads .xlsx / .csv / .json for the bulk imports (validation is server-side)
 src/hooks/useImportFlow.ts + src/components/ImportParts.tsx   the shared flow and pieces of the book and student import pages
 src/components/ExportControls.tsx   inventory export menu and loans export dialog
-backend/library/importing.py  bulk import rules (header aliases, ISBN checks, dry run); mirrored in demo.ts
+backend/library/importing.py  bulk import rules (header aliases, ISBN optional, call number + title identity, dry run)
+backend/library/catalogue.py  subjects from Dewey call numbers, the bundled inventory; maintenance.py  backup/restore/resets
 backend/library/student_import.py  bulk student import (admin; accounts + welcome emails); exports.py  CSV/XLSX exports (formula-injection guard)
 src/pages/              landing, auth, catalog, book, request list, my loans, profile, scan lookup
 src/pages/staff/        staff desk: StaffLayout (sidebar + counts) and one page per function
@@ -73,7 +69,7 @@ src/components/ui/      shadcn/ui (generated; excluded from lint)
 - Double quotes, semicolons, 2-space indentation. `@/` alias for `src` imports.
 - Pages are default exports; shared components and hooks are named exports. A `.tsx` file exports only components (react-refresh lint rule); put helpers in `src/lib/` or a `.ts` module.
 - All user-visible text goes through `t()` with keys in all three languages. Use logical properties (`ms-`, `pe-`, `start-`, `text-start`) so layouts mirror in Arabic; wrap Latin data (IDs, ISBNs, shelf marks, emails) in `dir="ltr"`.
-- `GET /books`, `/users` and `/borrow-records` are paginated: they return `Page<T>` (`{count, page, pageSize, results}`, 25 per page, `pageSize` up to 100) with server-side filters in `backend/library/filters.py`. Never fetch a whole list to filter it in the browser. `src/api/demo.ts` mirrors the same shape and filters.
+- `GET /books`, `/users` and `/borrow-records` are paginated: they return `Page<T>` (`{count, page, pageSize, results}`, 25 per page, `pageSize` up to 100) with server-side filters in `backend/library/filters.py`. Never fetch a whole list to filter it in the browser.
 - Data loading uses TanStack Query (`src/lib/queryClient.ts`). Build query keys with `qk` from `src/api/queryKeys.ts`; after a write, call the matching `invalidate*` helper there so every page that shows the changed data refreshes. Don't add hand-rolled fetch hooks.
 - Timestamps are ISO strings from the API; format them with `src/lib/time.ts`, never with raw `toLocale*` calls.
 
@@ -84,15 +80,15 @@ See `DESIGN.md` (the source of truth) and `PRODUCT.md` (product context). In sho
 ## Verifying changes
 
 1. `npm run lint` and `npm run build` must pass.
-2. Exercise flows with `npm run dev:demo` and the one-click demo accounts on the sign-in page: Priya Sharma (student), Daniel Okafor (student with an overdue loan), Marcus Holloway (staff), Eleanor Vance (admin). Password for every demo account: `password123`.
+2. Exercise flows against a local Django (`load_inventory`, then `create_admin`; create reader accounts from Staff desk → Readers).
 3. Check at 390px and 1440px, and in Arabic.
 
 Flows to sanity-check: request a book / join a waiting list; approve → confirm pickup (stock −1) → confirm return (stock +1); overdue student cannot request; staff edit and delete books.
 
 ## Security
 
-Role checks live in the Django views and `permissions.py`; the frontend guards are UX only. The demo build has no real authentication. Never commit real secrets. Staff accounts are created through single-use, expiring invites issued by admins (`StaffInvite`); students must verify their email before borrowing.
+Role checks live in the Django views and `permissions.py`; the frontend guards are UX only. Never commit real secrets. Account types: students, professors, administrative staff and external readers are `MEMBER` (`UserProfile.member_type`); librarians are `STAFF`; administrators are `ADMIN` (`accountType` in the API combines them). Admins create accounts of any type (`POST /api/users`) or invite staff (`StaffInvite`); self-registered readers must verify their email before borrowing.
 
 ## Deployment
 
-See `DEPLOYMENT.md` (Django env vars, cron jobs, Vercel demo vs. real-backend setup).
+See `DEPLOYMENT.md` (Django env vars, cron jobs, Vercel with the Django backend).

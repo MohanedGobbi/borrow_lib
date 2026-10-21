@@ -26,7 +26,7 @@ A loan starts at physical pickup, not at approval. Approved requests hold a copy
 - Students use it on phones and laptops, often between classes.
 - Staff use it at the circulation desk on a desktop, scanning the QR code on a student's digital library card to open their record.
 - Printable PDFs: borrow-request receipts and the library ID card.
-- The public Vercel deployment is a self-contained demo (in-browser backend, data kept per visitor); the real deployment pairs the React frontend with the Django API in `backend/`.
+- The deployment pairs the React frontend with the Django API in `backend/`; there is no demo mode.
 
 ## Capabilities and Constraints
 
@@ -34,22 +34,22 @@ A loan starts at physical pickup, not at approval. Approved requests hold a copy
 - `availableCopies` changes only at pickup (−1) and return (+1). `freeCopies` = `availableCopies` minus copies held for pickup (READY); approval, new requests and queue handoff use it.
 - Returns serve the reservation queue first (FIFO, skipping deactivated members) before a copy is free for anyone else.
 - Deactivating a member blocks sign-in and new requests or reservations.
-- Roles: MEMBER, STAFF, ADMIN; staff and admins join through single-use email invites from an admin.
-- Languages: EN / FR / AR with RTL layout for Arabic.
+- Account types: student (طالب), professor (أستاذ), administrative staff (إداري مسير), external reader (خارجي), librarian (مكتبي, STAFF) and administrator (موظف مسؤول, ADMIN). Admins create accounts of any type, other admins included.
+- Languages: AR (default, RTL) / FR / EN.
 - Stack: React 19, Vite, TypeScript, Tailwind CSS 3, shadcn/ui; Django REST backend.
 
 ## Brand Commitments
 
-- Product name: **LibBorrow**. Institution: **University of Ghardaia** (Université de Ghardaïa / جامعة غرداية); the official seal sits beside the LibBorrow wordmark.
+- Name: **مكتبة كلية الحقوق والعلوم السياسية** (Faculty of Law and Political Sciences Library), **University of Ghardaia** (جامعة غرداية). The university's and the faculty's seals sit beside the library's name.
 - Tone: serious and institutional, suitable for a university; not playful.
 - Palette constraint from the owner: simple colors — green, white and red.
 - Visual standard (owner, 2026-10-03): the category standard, executed to the polish of Apple, top university sites (Harvard, Oxford, MIT) and modern library sites (NYPL, British Library). Not template-like, not bulky, fast on phones; no 3D.
-- Logo: the LibBorrow wordmark, with the University of Ghardaia's official seal beside it. The seal keeps its own colours and is never redrawn or recoloured.
-- Photography: real library photographs; the shipped ones are Unsplash placeholders (credited) that admins can replace in the app.
+- Logo: the library's name with both official seals beside it. The seals keep their own colours and are never redrawn or recoloured.
+- Photography: the faculty and university buildings (from the faculty's banner); admins can replace them in the app.
 
 ## Evidence on Hand
 
-- Seed dataset (18 books, 8 users, sample records and reservations) in `backend/library/management/commands/seed_demo.py`, mirrored in `src/api/demo.ts`.
+- The library's real inventory: 4,487 titles (law and political science, Dewey call numbers, almost all in Arabic) in `backend/library/data/inventory.csv`.
 - No real usage statistics, testimonials or partner institutions exist; do not invent them.
 
 ## Product Principles

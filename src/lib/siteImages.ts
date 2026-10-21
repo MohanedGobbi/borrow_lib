@@ -7,7 +7,7 @@ import type { SiteImageData, SiteImages } from "@/types";
 /**
  * The site's photographs, by the place they appear. Components read them only through `siteImage()`.
  * An administrator can replace each one (Settings, "Site photos"); the API then returns it and this module
- * uses it. A slot nobody changed shows the bundled Unsplash photograph in `public/images/`, which is also
+ * uses it. A slot nobody changed shows the bundled photograph in `public/images/`, which is also
  * what shows while the API answers, so the page never waits on it and nothing moves when the answer arrives.
  */
 export type SiteImageSlot = "hero" | "feature" | "auth";
@@ -56,11 +56,25 @@ function bundled(
   };
 }
 
+/** The university's own photographs: one file at its own width, and no credit line. */
+function own(name: string, width: number, height: number, position: string): SiteImage {
+  return {
+    sources: [{ url: `${BASE}images/${name}-${width}.webp`, width }],
+    width,
+    height,
+    position,
+    alt: "",
+    credit: null,
+    custom: false,
+  };
+}
+
 export const DEFAULTS: Record<SiteImageSlot, SiteImage> = {
   // Every photograph is black and white, so the palette stays green, white and red (uploads are converted the same way).
-  hero: bundled("zurich", 2000, 1333, "62% 45%", "Ilia Bronskiy", "HKwQsyTNRoI"),
-  // A reader at a long desk, for the feature section.
-  feature: bundled("study-desk", 2000, 1333, "40% 50%", "Tat Linh Nguyen", "SFUgDVSkfUM"),
+  // The landing page shows the Faculty of Law and Political Sciences building, in colour, as on the faculty's banner.
+  hero: own("faculty-building", 550, 390, "50% 40%"),
+  // The university's main building.
+  feature: own("university-building", 562, 355, "50% 50%"),
   // Portrait, for the side panel of the sign-in pages.
   auth: bundled("vaulted-aisle", 1333, 2000, "50% 40%", "Frank Huang", "ziEKw11ck_U"),
 };

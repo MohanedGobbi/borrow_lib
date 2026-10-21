@@ -13,6 +13,8 @@ def revoke_invites_from(user_id):
 @receiver(post_save, sender=UserProfile)
 def sync_user_active(sender, instance, **kwargs):
     """Keep User.is_active (which SimpleJWT checks) equal to profile.active, wherever it is saved."""
+    if kwargs.get("raw"):  # restoring a backup: the rows are written exactly as they were saved
+        return
     if instance.user.is_active != instance.active:
         # A queryset update skips User's own signals, so there is no save recursion.
         User.objects.filter(pk=instance.user_id).update(is_active=instance.active)

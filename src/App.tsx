@@ -36,10 +36,6 @@ const AnalyticsPage = lazy(() => import("@/pages/staff/AnalyticsPage"));
 const ActivityPage = lazy(() => import("@/pages/staff/ActivityPage"));
 const SettingsPage = lazy(() => import("@/pages/staff/SettingsPage"));
 
-// Demo builds only: the in-browser "mail server" has no real inbox, so its messages are listed on a page.
-// The literal check lets the bundler drop the import (and the page) from real builds.
-const DemoMailbox = import.meta.env.VITE_DEMO === "true" ? lazy(() => import("@/pages/demo/MailboxPage")) : null;
-
 export default function App() {
   return (
     <>
@@ -52,9 +48,6 @@ export default function App() {
           <Route path="/forgot-password" element={<Suspense fallback={<FullPageLoader />}><ForgotPasswordPage /></Suspense>} />
           <Route path="/reset-password" element={<Suspense fallback={<FullPageLoader />}><ResetPasswordPage /></Suspense>} />
           <Route path="/verify-email" element={<Suspense fallback={<FullPageLoader />}><VerifyEmailPage /></Suspense>} />
-          {DemoMailbox && (
-            <Route path="/demo/mailbox" element={<Suspense fallback={<FullPageLoader />}><DemoMailbox /></Suspense>} />
-          )}
           <Route path="/catalog" element={<CatalogPage />} />
           <Route path="/books/:id" element={<Suspense fallback={<FullPageLoader />}><BookDetailPage /></Suspense>} />
           <Route path="/cart" element={<RequireAuth><Suspense fallback={<FullPageLoader />}><CartPage /></Suspense></RequireAuth>} />

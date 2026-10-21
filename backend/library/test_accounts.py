@@ -38,7 +38,7 @@ def login(client, email, password=PASSWORD):
 
 
 def register(client, email, **extra):
-    payload = {"name": "Nadia Salem", "email": email, "password": "shelf-mark-FIC-7", "studentId": email[:8].upper()}
+    payload = {"name": "Nadia Salem", "email": email, "password": "shelf-mark-FIC-7", "phoneNumber": "0661000000"}
     return client.post("/api/auth/register", {**payload, **extra}, format="json")
 
 

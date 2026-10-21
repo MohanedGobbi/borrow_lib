@@ -181,7 +181,7 @@ A near-monochrome ink-on-paper palette with one institutional green and one alar
 
 ### Primary
 - **University Green** (#0E6B3C): the primary button, the active nav underline, selected sidebar item text, step numerals, availability dots, unread dots, the caret and focus ring. It is also the favicon ground and the browser theme colour.
-- **Deep University Green** (#0A5230): primary hover, text-link colour (arrow links such as "View the full catalog"), text on Green Wash, and the demo notice bar.
+- **Deep University Green** (#0A5230): primary hover, text-link colour (arrow links such as "View the full catalog"), text on Green Wash.
 - **Green Wash** (#E7F2EB): the BORROWED badge ground, selected sidebar row, outline-button hover, the member avatar ground.
 
 ### Tertiary

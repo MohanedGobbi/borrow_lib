@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import emails, services
-from .errors import AppError, BusinessRuleError, Forbidden
+from .errors import AppError, BusinessRuleError, Forbidden, NotFoundError
 from .filters import BookFilter, BorrowRecordFilter, UserFilter
 from .idcard import id_card_response
 from .models import (
@@ -39,8 +39,11 @@ from .serializers import (
     LibrarySettingsSerializer,
     NotificationSerializer,
     ProfileSerializer,
+    ACCOUNT_TYPES,
+    AdminCreateUserSerializer,
     PublicRulesSerializer,
     RegisterSerializer,
+    role_for_account_type,
     ReservationSerializer,
 )
 
@@ -72,9 +75,8 @@ class RegisterView(APIView):
                 password=d["password"], first_name=first, last_name=last,
             )
             UserProfile.objects.create(
-                user=user, student_or_staff_id=d["studentId"],
-                phone_number=d["phoneNumber"], address=d["address"], role=role,
-                language=d["language"],
+                user=user, phone_number=d["phoneNumber"], role=role,
+                member_type=d["memberType"], language=d["language"],
                 email_verified=invite is not None,  # following the invite link proved the address
             )
             if invite:
@@ -545,9 +547,35 @@ class SettingsView(APIView):
 # ------------------------------- admin -------------------------------
 
 class UserListView(generics.ListAPIView):
-    """Staff-only: all user profiles (search by name/email/ID)."""
-    permission_classes = [IsStaffOrAdmin]
+    """Staff: all user profiles (search by name/email/ID). Admins also create accounts of any type here."""
     serializer_class = ProfileSerializer
+
+    def get_permissions(self):
+        return [IsAdmin()] if self.request.method == "POST" else [IsStaffOrAdmin()]
+
+    def post(self, request):
+        s = AdminCreateUserSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        d = s.validated_data
+        first, _, last = d["name"].strip().partition(" ")
+        role, member_type = role_for_account_type(d["accountType"])
+        with transaction.atomic():
+            user = User.objects.create_user(username=d["email"].lower(), email=d["email"].lower(),
+                                            first_name=first, last_name=last)
+            if d["password"]:
+                user.set_password(d["password"])
+            else:
+                user.set_unusable_password()
+            user.save(update_fields=["password"])
+            # The admin typed the address: a password set here is handed over in person, a welcome link proves it.
+            UserProfile.objects.create(user=user, phone_number=d["phoneNumber"], role=role, member_type=member_type,
+                                       language=d["language"], email_verified=bool(d["password"]))
+            log_activity(display_name(request.user), "ACCOUNT_CREATED",
+                         f"Created an account for {display_name(user)} ({d['accountType'].lower()}).",
+                         member=display_name(user), accountType=d["accountType"])
+        if not d["password"]:
+            emails.send_welcome_batch([user])
+        return Response(ProfileSerializer(user.profile).data, status=http.HTTP_201_CREATED)
     pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = UserFilter
@@ -609,18 +637,27 @@ class UserDeleteView(APIView):
 
 
 class UserRoleView(APIView):
+    """Admin: change an account's type ({accountType}), or its bare role ({role}, the older form)."""
     permission_classes = [IsAdmin]
 
     def patch(self, request, pk):
-        profile = get_object_or_404(UserProfile, pk=pk)
-        role = request.data.get("role")
-        if role not in Role.values:
-            raise BusinessRuleError("invalid_role", "Invalid role.")
-        profile.role = role
-        profile.save(update_fields=["role"])
+        profile = get_object_or_404(UserProfile.objects.select_related("user"), pk=pk)
+        account_type = request.data.get("accountType")
+        if account_type is not None:
+            if account_type not in ACCOUNT_TYPES:
+                raise BusinessRuleError("invalid_role", "Invalid account type.")
+            role, member_type = role_for_account_type(account_type)
+        else:
+            role, member_type = request.data.get("role"), profile.member_type
+            if role not in Role.values:
+                raise BusinessRuleError("invalid_role", "Invalid role.")
+        if profile.user == request.user and role != Role.ADMIN:
+            raise BusinessRuleError("cannot_demote_self", "You cannot remove your own administrator access.")
+        profile.role, profile.member_type = role, member_type
+        profile.save(update_fields=["role", "member_type"])
         log_activity(display_name(request.user), "ROLE_CHANGED",
-                     f"Changed {display_name(profile.user)}'s role to {role}.",
-                     member=display_name(profile.user), role=role)
+                     f"Changed {display_name(profile.user)}'s account type to {account_type or role}.",
+                     member=display_name(profile.user), role=account_type or role)
         return Response(ProfileSerializer(profile).data)
 
 
@@ -714,3 +751,94 @@ class AnalyticsView(APIView):
                 100 * BorrowRecord.objects.filter(status__in=[Status.RETURNED, Status.BORROWED, Status.OVERDUE]).count()
                 / max(1, BorrowRecord.objects.count()), 1),
         })
+
+
+# ------------------------------ announcements ------------------------------
+
+class SendNotificationView(APIView):
+    """Staff: send an in-app notification to the readers they select, by account type and/or one by one.
+
+    Body: {message, accountTypes: [...], userIds: [profile ids]}. Members who switched announcements off are
+    skipped (models.notify). Returns how many received it."""
+    permission_classes = [IsStaffOrAdmin]
+
+    def post(self, request):
+        from .models import notify
+        message = str(request.data.get("message", "")).strip()
+        if not message:
+            raise BusinessRuleError("message_missing", "Write a message.")
+        if len(message) > 500:
+            raise BusinessRuleError("message_too_long", "A message is limited to 500 characters.")
+        types = request.data.get("accountTypes") or []
+        ids = request.data.get("userIds") or []
+        if not isinstance(types, list) or not isinstance(ids, list) or any(t not in ACCOUNT_TYPES for t in types):
+            raise BusinessRuleError("recipients_invalid", "Invalid recipients.")
+        if not types and not ids:
+            raise BusinessRuleError("recipients_missing", "Choose who receives the message.")
+        q = Q(pk__in=[i for i in ids if isinstance(i, int)])
+        for account_type in types:
+            role, member_type = role_for_account_type(account_type)
+            q |= Q(role=role, member_type=member_type) if role == Role.MEMBER else Q(role=role)
+        profiles = UserProfile.objects.filter(q, active=True).select_related("user").distinct()
+        sender = display_name(request.user)
+        sent = sum(1 for p in profiles if notify(p.user, "announcement", message, text=message, sender=sender))
+        log_activity(sender, "ANNOUNCEMENT_SENT", f"Sent a notification to {sent} accounts.", count=sent)
+        return Response({"sent": sent})
+
+
+# ------------------------------ maintenance ------------------------------
+
+def check_admin_password(request):
+    if not request.user.check_password(str(request.data.get("password", ""))):
+        raise BusinessRuleError("password_incorrect", "The password is incorrect.")
+
+
+class MaintenanceView(APIView):
+    """Admin: what the database holds, for the maintenance panel."""
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        from . import maintenance
+        return Response(maintenance.counts())
+
+
+class BackupView(APIView):
+    """Admin: download the whole library (accounts, catalogue, circulation, settings) as one JSON file."""
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        from django.http import HttpResponse
+        from . import maintenance
+        res = HttpResponse(maintenance.backup_json(), content_type="application/json; charset=utf-8")
+        res["Content-Disposition"] = f'attachment; filename="library-backup-{timezone.now():%Y-%m-%d-%H%M}.json"'
+        log_activity(display_name(request.user), "BACKUP_DOWNLOADED", "Downloaded a backup of the library.")
+        return res
+
+
+class RestoreView(APIView):
+    """Admin: replace everything with a backup file (multipart: file, password)."""
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        from . import maintenance
+        check_admin_password(request)
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise BusinessRuleError("backup_invalid", "Choose a backup file.")
+        if upload.size > 200 * 1024 * 1024:
+            raise BusinessRuleError("backup_invalid", "This file is too large to be a library backup.")
+        return Response(maintenance.restore(upload.read(), display_name(request.user)))
+
+
+class MaintenanceActionView(APIView):
+    """Admin: one maintenance action (maintenance.ACTIONS) after the admin's password is typed again."""
+    permission_classes = [IsAdmin]
+
+    def post(self, request, action):
+        from . import maintenance
+        run = maintenance.ACTIONS.get(action)
+        if run is None:
+            raise NotFoundError("not_found", "Unknown action.")
+        check_admin_password(request)
+        result = run(display_name(request.user))
+        return Response({"result": result, "counts": maintenance.counts()})

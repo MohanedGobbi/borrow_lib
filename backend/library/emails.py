@@ -40,12 +40,12 @@ GREETING = {
 }
 
 # The library's name in each language. Setting LIBRARY_NAME (the environment variable) replaces all three.
-# The French sentences below put "la" before it, as in "à la Bibliothèque de l'Université de Ghardaïa".
-DEFAULT_LIBRARY_NAME = "University of Ghardaia Library"
+# The French sentences below put "la" before it, as in "à la Bibliothèque de la Faculté de droit".
+DEFAULT_LIBRARY_NAME = "Faculty of Law and Political Sciences Library"
 LIBRARY_NAMES = {
-    "en": "University of Ghardaia Library",
-    "fr": "Bibliothèque de l'Université de Ghardaïa",
-    "ar": "مكتبة جامعة غرداية",
+    "en": "Faculty of Law and Political Sciences Library",
+    "fr": "Bibliothèque de la Faculté de droit et des sciences politiques",
+    "ar": "مكتبة كلية الحقوق والعلوم السياسية",
 }
 
 
@@ -153,8 +153,8 @@ MESSAGES = {
 }
 
 ROLE_NAMES = {
-    "STAFF": {"en": "staff", "fr": "membre du personnel", "ar": "موظف"},
-    "ADMIN": {"en": "admin", "fr": "administrateur", "ar": "مسؤول"},
+    "STAFF": {"en": "librarian", "fr": "bibliothécaire", "ar": "مكتبي"},
+    "ADMIN": {"en": "administrator", "fr": "administrateur", "ar": "موظف مسؤول"},
 }
 
 # Pieces of the reminder emails, per language.
@@ -175,7 +175,7 @@ UNITS = {
 
 def language_of(user) -> str:
     profile = getattr(user, "profile", None)
-    return profile.language if profile and profile.language in GREETING else "en"
+    return profile.language if profile and profile.language in GREETING else "ar"
 
 
 def duration(seconds: int, lang: str) -> str:
@@ -260,7 +260,7 @@ def invite_link(token: str) -> str:
 
 
 def send_staff_invite(invite, token: str) -> bool:
-    lang = language_of(invite.created_by) if invite.created_by else "en"
+    lang = language_of(invite.created_by) if invite.created_by else "ar"
     return deliver("staff_invite", lang, invite.email, None, link=invite_link(token),
                    role=ROLE_NAMES[invite.role][lang],
                    validity=duration(int(INVITE_LIFETIME.total_seconds()), lang))

@@ -87,9 +87,9 @@ def free_copies(book: Book) -> int:
     return max(0, book.available_copies - held)
 
 
-def _wants_email(user: User) -> bool:
-    """The member has an address and has not opted out of reminder emails (notifications always stay on)."""
-    return bool(user.email) and user.profile.email_reminders
+def _wants_email(user: User, kind: str) -> bool:
+    """The member has an address and has not opted out of this kind of email (or of all reminder emails)."""
+    return bool(user.email) and user.profile.wants_email(kind)
 
 
 def _email_ready_after_commit(record: BorrowRecord) -> None:
@@ -101,7 +101,7 @@ def _email_ready_after_commit(record: BorrowRecord) -> None:
 
     def send():
         fresh = BorrowRecord.objects.select_related("user", "book").get(pk=pk)
-        if fresh.status != Status.READY or fresh.ready_email_sent_at or not _wants_email(fresh.user):
+        if fresh.status != Status.READY or fresh.ready_email_sent_at or not _wants_email(fresh.user, "ready"):
             return
         if emails.send_ready_email(fresh):
             BorrowRecord.objects.filter(pk=pk).update(ready_email_sent_at=timezone.now())
@@ -407,7 +407,7 @@ def run_hourly_cancellation(now=None) -> int:
 def _email_overdue(record: BorrowRecord) -> bool:
     """Send the overdue email and mark it sent. A failed send leaves the mark empty, so a later run retries.
     Call with the record locked."""
-    if not _wants_email(record.user) or not emails.send_overdue_email(record):
+    if not _wants_email(record.user, "overdue") or not emails.send_overdue_email(record):
         return False
     record.overdue_email_sent_at = timezone.now()
     record.save(update_fields=["overdue_email_sent_at"])
@@ -468,7 +468,7 @@ def run_daily_reminders(now=None) -> int:
             Book.objects.select_for_update().get(pk=book_id)
             record = BorrowRecord.objects.select_for_update().get(pk=pk)
             if (record.status != Status.BORROWED or record.due_reminder_sent_at
-                    or not (now <= record.due_date <= now + timedelta(days=days)) or not _wants_email(record.user)):
+                    or not (now <= record.due_date <= now + timedelta(days=days)) or not _wants_email(record.user, "dueSoon")):
                 continue  # renewed, returned or reminded since the ids were collected
             can_renew = renewal_blocker(record, LibrarySettings.get(), now) is None
             if emails.send_due_soon_email(record, can_renew):

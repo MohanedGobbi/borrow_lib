@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, Trash2, UserX } from "lucide-react";
+import { ArrowLeft, Trash2, UserCheck, UserX } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiUsers } from "@/api";
@@ -15,6 +15,10 @@ import { EmptyState, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
 import { FullPageLoader } from "@/auth/guards";
 import { tableCls } from "@/lib/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { ACCOUNT_TYPES, type AccountType, type Profile } from "@/types";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -44,6 +48,27 @@ export default function UserDetailPage() {
     },
   });
 
+  const saved = async (profile: Profile, message: string) => {
+    toast.success(message);
+    await qc.invalidateQueries({ queryKey: qk.users.detail(id!) });
+    await invalidateUsers(qc);
+    return profile;
+  };
+  const changeType = useMutation({
+    mutationFn: (accountType: AccountType) => apiUsers.setAccountType(Number(id), accountType),
+    onSuccess: (p) => saved(p, t("users.typeChanged", { type: t(`accountType.${p.accountType}`) })),
+    onError: (e) => {
+      toast.error(errorMessage(t, e));
+    },
+  });
+  const setActive = useMutation({
+    mutationFn: (active: boolean) => apiUsers.setActive(Number(id), active),
+    onSuccess: (p) => saved(p, t(p.active ? "users.reactivated" : "users.deactivated")),
+    onError: (e) => {
+      toast.error(errorMessage(t, e));
+    },
+  });
+
   if (isPending) return <FullPageLoader />;
   if (isError || !data) {
     return (
@@ -61,7 +86,7 @@ export default function UserDetailPage() {
     [t("col.id"), <span dir="ltr" className="font-mono text-[14px]">{member.studentOrStaffId}</span>],
     [t("profile.email"), <span dir="ltr">{member.email}</span>],
     [t("profile.phone"), member.phoneNumber ? <span dir="ltr">{member.phoneNumber}</span> : "—"],
-    [t("profile.role"), t(`role.${member.role}`)],
+    [t("profile.role"), t(`accountType.${member.accountType}`)],
     [t("profile.since"), fmtDate(member.membershipStartDate)],
     ...(member.role === "MEMBER"
       ? [
@@ -109,16 +134,51 @@ export default function UserDetailPage() {
       />
 
       <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <Panel title={t("profile.details")} flush className="h-fit">
-          <dl className="divide-y">
-            {details.map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-4 px-4 py-2.5 text-sm">
-                <dt className="text-muted-foreground">{k}</dt>
-                <dd className="text-end">{v}</dd>
+        <div className="h-fit space-y-6">
+          <Panel title={t("profile.details")} flush>
+            <dl className="divide-y">
+              {details.map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4 px-4 py-2.5 text-sm">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="text-end">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </Panel>
+
+          {me?.role === "ADMIN" && me.id !== member.id && (
+            <Panel title={t("users.manage")}>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="account-type" className="text-sm font-medium">{t("auth.accountType")}</label>
+                  <Select
+                    value={member.accountType}
+                    disabled={changeType.isPending}
+                    onValueChange={(v) => changeType.mutate(v as AccountType)}
+                  >
+                    <SelectTrigger id="account-type" className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ACCOUNT_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>{t(`accountType.${type}`)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={setActive.isPending}
+                  onClick={() => setActive.mutate(!member.active)}
+                >
+                  {member.active
+                    ? <><UserX className="size-4" aria-hidden /> {t("users.deactivate")}</>
+                    : <><UserCheck className="size-4" aria-hidden /> {t("users.reactivate")}</>}
+                </Button>
               </div>
-            ))}
-          </dl>
-        </Panel>
+            </Panel>
+          )}
+        </div>
 
         <div id="history" className="scroll-mt-24">
           <Panel title={t("users.history")} count={records.length} flush>

@@ -12,12 +12,16 @@ import type {
   DashboardStats,
   LibraryRules,
   LibrarySettings,
+  MaintenanceAction,
+  MaintenanceCounts,
+  MemberType,
+  AccountType,
+  NotificationPrefs,
   Page,
   Profile,
   Reservation,
   StudentImportReport,
   CreatedInvite,
-  DemoMail,
   ScanResult,
   SettingsPatch,
   SiteImageData,
@@ -83,13 +87,16 @@ export const apiCategories = {
 
 export const apiAuth = {
   register: (payload: {
-    name: string; email: string; password: string; studentId: string;
-    phoneNumber?: string; address?: string; language?: Lang; inviteToken?: string;
+    name: string; email: string; password: string; phoneNumber: string;
+    memberType?: MemberType; language?: Lang; inviteToken?: string;
   }) => api<Profile>("/auth/register", { method: "POST", body: payload, auth: false }),
   me: () => api<Profile>("/users/me"),
-  /** The member's opt-out of pickup, due-date and overdue emails (notifications stay on). */
+  /** The member's master switch for pickup, due-date and overdue emails. */
   setEmailReminders: (emailReminders: boolean) =>
     api<Profile>("/users/me", { method: "PATCH", body: { emailReminders } }),
+  /** Which notifications the member receives; only the keys sent change. */
+  setNotificationPrefs: (notificationPrefs: NotificationPrefs) =>
+    api<Profile>("/users/me", { method: "PATCH", body: { notificationPrefs } }),
   /** Fire-and-forget from the language switcher; the server uses it for emails. */
   setLanguage: (language: Lang) => api<Profile>("/users/me", { method: "PATCH", body: { language } }),
   requestPasswordReset: (email: string) =>
@@ -159,19 +166,36 @@ export const apiInvites = {
     api<{ email: string; role: "STAFF" | "ADMIN" }>(`/invites/lookup${query({ token })}`, { auth: false }),
 };
 
-/** Demo builds only: the messages the in-browser "server" has sent. */
-export const apiDemo = {
-  mailbox: () => api<DemoMail[]>("/demo/mailbox", { auth: false }),
-};
-
 export const apiUsers = {
   /** Bulk student import (admin). A dry run returns the preview without saving or emailing anything. */
   importRows: (body: { rows: Record<string, unknown>[]; dryRun: boolean; filename: string }) =>
     api<StudentImportReport>("/users/import", { method: "POST", body }),
-  list: (params: PageParams & { search?: string; role?: string } = {}) =>
+  list: (params: PageParams & { search?: string; role?: string; accountType?: string } = {}) =>
     api<Page<Profile>>(`/users${query(params)}`),
   get: (id: number) => api<UserDetail>(`/users/${id}`),
   remove: (id: number) => api<void>(`/users/${id}/delete`, { method: "DELETE" }),
+  /** Admin: an account of any type. Without a password the person gets an email to choose one. */
+  create: (payload: {
+    name: string; email: string; phoneNumber: string; accountType: AccountType; password?: string; language?: Lang;
+  }) => api<Profile>("/users", { method: "POST", body: payload }),
+  setAccountType: (id: number, accountType: AccountType) =>
+    api<Profile>(`/users/${id}/role`, { method: "PATCH", body: { accountType } }),
+  setActive: (id: number, active: boolean) =>
+    api<Profile>(`/users/${id}/active`, { method: "PATCH", body: { active } }),
+};
+
+export const apiMaintenance = {
+  counts: () => api<MaintenanceCounts>("/maintenance"),
+  /** Every action asks for the admin's password again. */
+  run: (action: MaintenanceAction, password: string) =>
+    api<{ result: unknown; counts: MaintenanceCounts }>(`/maintenance/${action}`, { method: "POST", body: { password } }),
+  restore: (file: File, password: string) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("password", password);
+    return api<MaintenanceCounts>("/maintenance/restore", { method: "POST", body });
+  },
+  backup: () => downloadExport("/maintenance/backup", {}, `library-backup-${today()}.json`),
 };
 
 /** Download an authenticated binary (PDF) as a file. */
@@ -211,12 +235,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 export const apiExports = {
   /** The whole catalogue (or the filtered part) in the import format. */
   books: (format: ExportFormat, filters: { search?: string; category?: string } = {}) =>
-    downloadExport("/exports/books", { format, ...filters }, `libborrow-books-${today()}.${format}`),
+    downloadExport("/exports/books", { format, ...filters }, `library-books-${today()}.${format}`),
   /** Borrow records; `from` / `to` are YYYY-MM-DD dates on the request date, `status` a list of statuses. */
   loans: (format: ExportFormat, filters: { status?: string[]; from?: string; to?: string } = {}) =>
     downloadExport("/exports/loans", {
       format, status: filters.status?.join(","), from: filters.from, to: filters.to,
-    }, `libborrow-loans-${today()}.${format}`),
+    }, `library-loans-${today()}.${format}`),
 };
 
 export const apiReservations = {
@@ -234,6 +258,9 @@ export const apiMisc = {
   activity: () => api<ActivityEntry[]>("/activity"),
   notifications: () => api<AppNotification[]>("/notifications/mine"),
   markRead: () => api<{ ok: boolean }>("/notifications/read", { method: "POST" }),
+  /** Staff: a message to the readers chosen by account type and/or one by one (profile ids). */
+  sendNotification: (body: { message: string; accountTypes: AccountType[]; userIds: number[] }) =>
+    api<{ sent: number }>("/notifications/send", { method: "POST", body }),
   runJobs: () => api<{ cancelled: number; flaggedOverdue: number; remindersSent: number }>("/jobs/run", { method: "POST" }),
 };
 
@@ -245,7 +272,7 @@ export async function downloadIdCard() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "libborrow-id-card.pdf";
+  a.download = "library-card.pdf";
   a.click();
   URL.revokeObjectURL(url);
 }

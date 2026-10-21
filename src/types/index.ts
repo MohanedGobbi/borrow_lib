@@ -2,6 +2,23 @@ import type { Lang } from "@/i18n/locales";
 
 export type Role = "MEMBER" | "STAFF" | "ADMIN";
 
+/** The kinds of reader (role MEMBER). */
+export type MemberType = "STUDENT" | "PROFESSOR" | "ADMINISTRATIVE" | "EXTERNAL";
+export const MEMBER_TYPES: MemberType[] = ["STUDENT", "PROFESSOR", "ADMINISTRATIVE", "EXTERNAL"];
+/** What an account is, in one word: a kind of reader, a librarian (STAFF) or an administrator (ADMIN). */
+export type AccountType = MemberType | "LIBRARIAN" | "ADMIN";
+export const ACCOUNT_TYPES: AccountType[] = [...MEMBER_TYPES, "LIBRARIAN", "ADMIN"];
+
+/** In-app notification groups a member can switch off, and the emails. A missing key means "on". */
+export type NotificationGroup = "requests" | "waitingList" | "loans" | "overdue" | "announcements";
+export const NOTIFICATION_GROUPS: NotificationGroup[] = ["requests", "waitingList", "loans", "overdue", "announcements"];
+export type EmailKind = "ready" | "dueSoon" | "overdue";
+export const EMAIL_KINDS: EmailKind[] = ["ready", "dueSoon", "overdue"];
+export interface NotificationPrefs {
+  inApp?: Partial<Record<NotificationGroup, boolean>>;
+  email?: Partial<Record<EmailKind, boolean>>;
+}
+
 export interface Page<T> {
   count: number;
   page: number;
@@ -23,7 +40,7 @@ export interface Book {
   id: number;
   title: string;
   author: string;
-  isbn: string;
+  isbn: string | null;
   category: Category;
   publisher: string;
   year: number | null;
@@ -110,6 +127,8 @@ export interface Profile {
   phoneNumber: string;
   address: string;
   role: Role;
+  memberType: MemberType;
+  accountType: AccountType;
   membershipStartDate: string;
   /** The limit that applies: a personal override, or the default for the role. */
   maxBorrowLimit: number;
@@ -122,6 +141,7 @@ export interface Profile {
   emailVerified: boolean;
   /** False when the member turned off pickup, due-date and overdue emails; notifications always stay on. */
   emailReminders: boolean;
+  notificationPrefs: NotificationPrefs;
   activeLoans: number;
   hasOverdue: boolean;
 }
@@ -139,16 +159,6 @@ export interface StaffInvite {
 /** The invite as first returned: `link` is shown once, in case the email bounces. */
 export interface CreatedInvite extends StaffInvite {
   link: string;
-}
-
-/** A message the demo "sent". Demo builds have no mail server, so these are listed at /demo/mailbox. */
-export interface DemoMail {
-  id: number;
-  to: string;
-  subject: string;
-  body: string;
-  link: string;
-  at: string;
 }
 
 export interface BorrowRecord {
@@ -264,6 +274,23 @@ export interface LibrarySettings extends LibraryRules {
   /** Name of the admin who last changed the rules; null until someone does. */
   updatedBy: string | null;
 }
+
+/** What the database holds, for the maintenance panel in Settings. */
+export interface MaintenanceCounts {
+  books: number;
+  copies: number;
+  categories: number;
+  accounts: number;
+  members: number;
+  records: number;
+  activeLoans: number;
+  reservations: number;
+  notifications: number;
+  activity: number;
+}
+
+export type MaintenanceAction =
+  | "reset-circulation" | "delete-catalogue" | "delete-members" | "clear-activity" | "reload-catalogue";
 
 export type SettingsPatch = Partial<Pick<
   LibrarySettings,

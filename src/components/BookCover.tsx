@@ -63,7 +63,7 @@ export function BookCover({ book, className, size = "md" }: { book: Book; classN
             hero ? "text-[8px] md:text-[10px]" : "text-[9px] sm:text-[10px]",
           )}
         >
-          {t("brand.library")}
+          {t("brand.short")}
         </span>
       )}
     </div>

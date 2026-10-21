@@ -12,7 +12,9 @@ function toVars(t: T, params: Record<string, unknown> | undefined): Record<strin
     // Lengths of time are written in full ("24 hours", "3 days") in the active language.
     else if (key === "hours" && typeof value === "number") vars[key] = fmtHours(value);
     else if (key === "days" && typeof value === "number") vars[key] = fmtDays(value);
+    else if (key === "role" && typeof value === "string" && hasKey(`accountType.${value}`)) vars[key] = t(`accountType.${value}`);
     else if (key === "role" && typeof value === "string" && hasKey(`role.${value}`)) vars[key] = t(`role.${value}`);
+    else if (key === "accountType" && typeof value === "string" && hasKey(`accountType.${value}`)) vars[key] = t(`accountType.${value}`);
     // A site photograph's slot ("hero") is named by where it appears.
     else if (key === "slot" && typeof value === "string" && hasKey(`photos.slot.${value}`)) vars[key] = t(`photos.slot.${value}`);
     else if (typeof value === "number") vars[key] = value;

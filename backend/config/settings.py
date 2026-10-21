@@ -181,7 +181,7 @@ CORS_ALLOW_HEADERS = (*default_headers, "x-libborrow-csrf")
 # Frontend base URL used inside QR codes on ID cards.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
-LIBRARY_NAME = os.environ.get("LIBRARY_NAME", "University of Ghardaia Library")
+LIBRARY_NAME = os.environ.get("LIBRARY_NAME", "Faculty of Law and Political Sciences Library")
 # The time zone dates are written in inside emails (an IANA name, e.g. "Africa/Algiers"). Storage stays UTC.
 LIBRARY_TIME_ZONE = os.environ.get("LIBRARY_TIME_ZONE", "UTC")
 

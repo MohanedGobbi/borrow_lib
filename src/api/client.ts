@@ -6,40 +6,6 @@
 export const API_ROOT = `${(import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "")}/api`;
 const BASE = API_ROOT;
 
-/** Static demo build (`npm run build:demo`): the API runs in the browser, no server needed. */
-export const DEMO = import.meta.env.VITE_DEMO === "true";
-
-export const DEMO_STORAGE_KEY = "lb_demo_state_v11";
-/** Demo-only stand-in for the httpOnly refresh cookie. */
-export const DEMO_REFRESH_KEY = "lb_demo_refresh";
-
-/** Seeded demo accounts offered as one-click sign-ins in demo builds. */
-export const DEMO_ACCOUNTS = [
-  { label: "Admin", name: "Eleanor Vance", email: "admin@libborrow.dev" },
-  { label: "Staff", name: "Marcus Holloway", email: "staff@libborrow.dev" },
-  { label: "Member", name: "Priya Sharma", email: "priya@example.com" },
-  { label: "Member · overdue", name: "Daniel Okafor", email: "daniel@example.com" },
-];
-export const DEMO_PASSWORD = "password123";
-
-/** Wipe the browser-stored demo data and session, then reload onto a fresh seed. */
-export function resetDemo() {
-  try {
-    localStorage.removeItem(DEMO_STORAGE_KEY);
-    localStorage.removeItem(DEMO_REFRESH_KEY);
-  } catch { /* storage blocked — the reload still resets in-memory state */ }
-  window.location.assign("/");
-}
-
-/** `fetch` for API calls — routed to the in-browser mock backend in demo builds. */
-let demoApi: typeof import("@/api/demo") | undefined;
-export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
-  if (!DEMO) return fetch(url, init);
-  // Once loaded the module is used without awaiting, so a keepalive request sent from `pagehide` is applied in time.
-  demoApi ??= await import("@/api/demo");
-  return demoApi.demoFetch(url, init);
-}
-
 export class ApiError extends Error {
   status: number;
   /** Names of the form fields the server complained about, when it answered with field errors. */
@@ -90,7 +56,7 @@ function endSession() {
 
 async function requestRefresh(): Promise<string | null> {
   try {
-    const res = await apiFetch(`${BASE}/auth/refresh`, {
+    const res = await fetch(`${BASE}/auth/refresh`, {
       method: "POST",
       headers: { [CSRF_HEADER]: "1" },
       credentials: "include",
@@ -125,7 +91,7 @@ export async function authFetch(url: string, init: RequestInit = {}): Promise<Re
   const send = (access: string | null) => {
     const headers = new Headers(init.headers);
     if (access) headers.set("Authorization", `Bearer ${access}`);
-    return apiFetch(url, { ...init, headers, credentials: "include" });
+    return fetch(url, { ...init, headers, credentials: "include" });
   };
   let res = await send(accessToken);
   if (res.status === 401) {
@@ -152,7 +118,7 @@ export async function api<T = unknown>(
   try {
     res = auth
       ? await authFetch(`${BASE}${path}`, init)
-      : await apiFetch(`${BASE}${path}`, { ...init, credentials: "include" });
+      : await fetch(`${BASE}${path}`, { ...init, credentials: "include" });
   } catch {
     throw new ApiError(0, "Network error — the server could not be reached.", [], { code: "network" });
   }
@@ -195,7 +161,7 @@ export const auth = {
   async logout() {
     accessToken = null;
     try {
-      await apiFetch(`${BASE}/auth/logout`, {
+      await fetch(`${BASE}/auth/logout`, {
         method: "POST",
         headers: { [CSRF_HEADER]: "1" },
         credentials: "include",

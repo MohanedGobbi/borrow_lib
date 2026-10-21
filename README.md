@@ -1,8 +1,8 @@
-# LibBorrow — Library Borrowing Platform
+# مكتبة كلية الحقوق والعلوم السياسية — Library Borrowing Platform
 
 A full-stack library management system: members browse the catalog and request books;
 staff approve requests, confirm pickups and returns on a live operations dashboard.
-Built for the University of Ghardaia library: a serious, trilingual (French / Arabic / English)
+Built for the library of the Faculty of Law and Political Sciences, University of Ghardaia: a serious, trilingual (French / Arabic / English)
 interface in green, white and red. Design system: `DESIGN.md`.
 
 - **Backend:** Django 6 + Django REST Framework + JWT (SimpleJWT), SQLite dev database
@@ -36,33 +36,44 @@ A copy waiting on the hold shelf (a `READY` record) is not free: **free copies**
 
 ## Accounts and sign-in
 
-Every account below is created by the seed data (`python manage.py seed_demo`, or automatically in the
-no-server demo) and uses the same password: **`password123`**.
+Everyone signs in with **email and password**. Account types:
 
-| Role | Name | Email | Good for trying |
+| Type | Arabic | Role | Can |
 |---|---|---|---|
-| Admin | Eleanor Vance | `admin@libborrow.dev` | Library rules, Site photos, invite staff, import students, everything staff can do |
-| Staff | Marcus Holloway | `staff@libborrow.dev` | The desk: approvals, pickups, returns, desk search (press `/`) |
-| Staff | Greta Weiss | `gweiss@libborrow.dev` | A second staff account |
-| Student | Priya Sharma | `priya@example.com` | A ready hold, a loan, a pending request, a waiting list, the library card |
-| Student (overdue) | Daniel Okafor | `daniel@example.com` | An overdue loan: requests and pickups are blocked until it is returned |
-| Student (overdue) | Tomás Rivera | `tomas@example.com` | Another overdue loan |
+| Student | طالب | MEMBER | borrow, waiting lists, library card |
+| Professor | أستاذ | MEMBER | the same |
+| Administrative staff | إداري مسير | MEMBER | the same |
+| External reader | خارجي | MEMBER | the same |
+| Librarian | مكتبي | STAFF | the staff desk: approvals, pickups, returns, inventory, notifications |
+| Administrator | موظف مسؤول | ADMIN | everything: create accounts of any type (other admins included), library rules, maintenance |
 
-More students, all `…@example.com` with the same password: `sofia`, `hana`, `youssef`, `amira`,
-`lucas`, `ines`, `karim`, `lea`, `omar`, `sara`.
+- **Sign-up** (`/signup`) asks for full name, email, phone number, password and the reader type. New
+  readers confirm their email before borrowing. Every account gets a library card number (`GH-000123`).
+- **Admins** create accounts of any type from Staff desk → Readers → Create account (with a password to hand
+  over, or without one so the person gets an email to choose it), change an account's type and deactivate it.
+- **The first administrator** comes from the command line:
+  `python manage.py create_admin --email … --name "…" --phone …` (asks for the password).
 
-- **No-server demo** (the Vercel site, or `npm run dev:demo` then http://localhost:3000): the sign-in page
-  has one-click buttons for the first accounts. Data lives in your browser; "Reset demo data" in the top
-  bar starts over. Emails (password reset, verification, invites) appear at `/demo/mailbox`.
-- **Real backend:** run `seed_demo` once, then sign in with the same accounts. In development, emails are
-  printed to the Django server's console.
-- **Real accounts:** students register at `/signup` and must verify their email before they can borrow.
-  Staff and admins join through single-use invites (Staff desk → Members → Invite staff). The very first
-  admin comes from `python manage.py createsuperuser`.
+## The catalogue
 
-> **Never run `seed_demo` on a real server.** These accounts and their shared password are public. For a
-> real deployment, create the first admin with `createsuperuser` and import the real catalogue and
-> students instead (see `DEPLOYMENT.md`).
+`backend/library/data/inventory.csv` is the library's inventory (جرد المكتبة): 4,487 titles, 19,243
+copies, with call number, title, author and number of copies. Load it with `python manage.py load_inventory`
+(safe to repeat) or from Settings → Data and maintenance → Reload the catalogue. Categories come from the
+Dewey class of the call number (320 political science, 341 international law, 345 criminal law, …; see
+`backend/library/catalogue.py`). Books need no ISBN: without one, the call number and the title identify a book.
+
+## Notifications
+
+Readers choose in their profile which in-app notifications they get (requests, waiting lists, loans,
+overdue, library announcements) and which emails (ready for pickup, due soon, overdue). Staff send
+announcements from Staff desk → Readers → Send a notification, to whole account types and/or chosen people.
+
+## Maintenance (admins, Settings)
+
+Download a backup (one JSON file: accounts, catalogue, circulation, settings, activity), restore one, reload
+the catalogue from the inventory, run the scheduled checks, reset circulation, clear the activity log, delete
+all reader accounts or the whole catalogue. Everything that changes data asks for the admin's password again.
+Uploaded covers and photographs are not in the backup; keep the media folder backed up separately.
 
 ## Run locally
 
@@ -73,7 +84,8 @@ cd backend
 python -m venv .venv && .venv/Scripts/activate        # Windows; source .venv/bin/activate on Unix
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py seed_demo                             # optional demo dataset
+python manage.py load_inventory                        # the library's catalogue
+python manage.py create_admin --email you@univ-ghardaia.dz --name "Your Name"
 python manage.py runserver 8000
 ```
 
@@ -99,10 +111,7 @@ python manage.py send_reminders           # daily, in the morning
 emails off in their profile; in-app notifications always stay on. Staff can also trigger all
 three on demand from the staff desk ("Run scheduled checks" → `POST /api/jobs/run`).
 
-**Tests:** `cd backend && python manage.py test library` runs the backend suite (state machine, stock rules, queue handoff, jobs, permissions, auth, imports and exports, PDFs). `npm run e2e` runs the Playwright browser tests against both the demo API and a fresh Django.
-
-**No-server demo:** `npm run dev:demo` (or the Vercel deployment) runs the whole API
-in the browser from `src/api/demo.ts`, with one-click demo accounts on the sign-in page.
+**Tests:** `cd backend && python manage.py test library` runs the backend suite (state machine, stock rules, queue handoff, jobs, permissions, auth, account types, imports and exports, maintenance, PDFs).
 
 ## Hosting
 
@@ -124,12 +133,14 @@ gunicorn/uvicorn behind a reverse proxy, set `DJANGO_SECRET_KEY`, `FRONTEND_URL`
 | Background jobs | `backend/library/management/commands/` + `services.run_hourly_cancellation / run_nightly_overdue / run_daily_reminders` |
 | ID card PDF + QR | `backend/library/idcard.py` → `GET /api/users/me/id-card` |
 | Staff QR scan lookup | `GET /api/users/<uuid>/scan` → `/scan/:uuid` page |
-| User management | `/api/users` list/detail, admin-only `DELETE /api/users/<id>/delete` |
+| User management | `/api/users` list/detail, admin-only `POST /api/users` (create), `PATCH /api/users/<id>/role` (account type), `/active`, `DELETE /api/users/<id>/delete` |
 | Analytics | `GET /api/analytics` → charts page (recharts) |
 | API surface | `backend/library/urls.py` |
-| Tests | `backend/library/test_*.py` and `tests.py` (backend), `e2e/` (Playwright, demo API and real Django) |
-| Landing page | `src/pages/LandingPage.tsx` (catalog search, borrowing rules, books on the shelf) |
-| Login / signup | `src/pages/LoginPage.tsx`, `src/pages/SignupPage.tsx` — staff accounts come from admin invites |
+| Tests | `backend/library/test_*.py` and `tests.py` |
+| Landing page | `src/pages/LandingPage.tsx` (both seals, the faculty building, catalogue search, sign in) |
+| Login / signup | `src/pages/LoginPage.tsx`, `src/pages/SignupPage.tsx` — staff accounts come from admins (create account or invite) |
+| Maintenance | `backend/library/maintenance.py` → `/api/maintenance/*`; `src/components/MaintenanceSection.tsx` |
+| Notification choices and announcements | `UserProfile.notification_prefs`, `models.notify`; `POST /api/notifications/send`; `src/components/NotificationSettings.tsx`, `SendNotificationDialog.tsx` |
 | i18n (EN / FR / AR with RTL) | `src/i18n/index.tsx` + header switcher |
 | Request list | `src/cart/CartContext.tsx` + `/cart` page (students send several requests at once) |
 | Staff desk (sidebar, live queue counts) | `src/pages/staff/` — Overview · Approvals · Pickups · Loans · Inventory · Waiting lists · Members · Analytics · Activity log |
@@ -140,5 +151,5 @@ gunicorn/uvicorn behind a reverse proxy, set `DJANGO_SECRET_KEY`, `FRONTEND_URL`
 A standard university-portal look, executed with care: white pages, one deep university green (`#0E6B3C`)
 for primary actions, red (`#B42318`) only for overdue, rejection and destructive actions. Source Serif 4
 (Noto Naskh Arabic) for headlines and the wordmark, Public Sans (Noto Sans Arabic) for the interface,
-hairline borders, black-and-white photography that admins can replace, and the University of Ghardaia seal
-next to the wordmark. Tokens: `tailwind.config.js` and `src/index.css`; full spec in `DESIGN.md`.
+hairline borders, the faculty's own photographs (admins can replace them), and the seals of the University
+of Ghardaia and of the Faculty of Law and Political Sciences beside the library's name. Arabic is the default language. Tokens: `tailwind.config.js` and `src/index.css`; full spec in `DESIGN.md`.

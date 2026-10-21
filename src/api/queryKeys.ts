@@ -33,7 +33,7 @@ export const qk = {
   invites: ["invites"] as const,
   settings: ["settings"] as const,
   siteImages: ["siteImages"] as const,
-  mailbox: ["mailbox"] as const,
+  maintenance: ["maintenance"] as const,
 };
 
 /** Marks every query under these keys stale and refetches the ones on screen. */

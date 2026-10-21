@@ -122,7 +122,7 @@ class ErrorCodeTests(TestCase):
 
     def test_validation_errors_keep_field_messages_and_add_codes(self):
         res = self.client.post("/api/auth/register", {
-            "name": "Nadia Salem", "email": "n@x.com", "studentId": "N1", "password": "password123",
+            "name": "Nadia Salem", "email": "n@x.com", "phoneNumber": "0661000000", "password": "password123",
         }, format="json")
         self.assertError(res, 400, "invalid")
         self.assertEqual(res.data["fieldCodes"]["password"], ["password_too_common"])
@@ -131,7 +131,7 @@ class ErrorCodeTests(TestCase):
 
     def test_duplicate_email_is_unique(self):
         res = self.client.post("/api/auth/register", {
-            "name": "Nadia Salem", "email": "m@x.com", "studentId": "N1", "password": "shelf-mark-FIC-7",
+            "name": "Nadia Salem", "email": "m@x.com", "phoneNumber": "0661000000", "password": "shelf-mark-FIC-7",
         }, format="json")
         self.assertEqual(res.data["fieldCodes"]["email"], ["unique"])
 
@@ -193,7 +193,7 @@ class TranslationCoverageTests(TestCase):
 
     def test_notification_codes_are_translated(self):
         codes = self.scan(r'notify\(\s*[\w.]+,\s*"([a-z_]+)"')
-        self.assertEqual(len(codes), 8)
+        self.assertEqual(len(codes), 9)
         self.assertTranslated("notif", codes)
 
     def test_activity_codes_are_translated(self):

@@ -76,6 +76,7 @@ class BorrowRecordFilter(StableOrderingMixin, df.FilterSet):
 class UserFilter(StableOrderingMixin, df.FilterSet):
     search = df.CharFilter(method="filter_search")
     role = df.CharFilter(field_name="role", lookup_expr="exact")
+    accountType = df.CharFilter(method="filter_account_type")
 
     class Meta:
         model = UserProfile
@@ -85,4 +86,12 @@ class UserFilter(StableOrderingMixin, df.FilterSet):
         return qs.filter(
             Q(user__first_name__icontains=value) | Q(user__last_name__icontains=value)
             | Q(user__email__icontains=value) | Q(student_or_staff_id__icontains=value)
+            | Q(phone_number__icontains=value)
         )
+
+    def filter_account_type(self, qs, name, value):
+        if value == "ADMIN":
+            return qs.filter(Q(role="ADMIN") | Q(user__is_superuser=True))
+        if value == "LIBRARIAN":
+            return qs.filter(role="STAFF", user__is_superuser=False)
+        return qs.filter(role="MEMBER", member_type=value, user__is_superuser=False)
