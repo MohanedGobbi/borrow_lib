@@ -58,6 +58,7 @@ src/hooks/useImportFlow.ts + src/components/ImportParts.tsx   the shared flow an
 src/components/ExportControls.tsx   inventory export menu and loans export dialog
 backend/library/importing.py  bulk import rules (header aliases, ISBN optional, call number + title identity, dry run)
 backend/library/catalogue.py  subjects from Dewey call numbers, the bundled inventory; maintenance.py  backup/restore/resets
+backend/library/pdftext.py  Arabic in the PDFs (Noto Naskh Arabic, reshaping, bidi); draw text through it, not c.drawString
 backend/library/student_import.py  bulk student import (admin; accounts + welcome emails); exports.py  CSV/XLSX exports (formula-injection guard)
 src/pages/              landing, auth, catalog, book, request list, my loans, profile, scan lookup
 src/pages/staff/        staff desk: StaffLayout (sidebar + counts) and one page per function

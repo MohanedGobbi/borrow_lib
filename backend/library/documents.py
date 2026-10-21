@@ -11,7 +11,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
-from .branding import draw_seal
+from . import pdftext
+from .branding import draw_faculty_seal, draw_seal
+from .emails import library_name
 from .models import BorrowRecord, LibrarySettings, display_name
 
 INK = HexColor("#121A16")
@@ -37,8 +39,7 @@ def _field(c, x, y, label, value):
     c.setFont("Helvetica", 6.5)
     c.drawString(x, y, label.upper())
     c.setFillColor(INK)
-    c.setFont("Helvetica-Bold", 9.5)
-    c.drawString(x, y - 4.5 * mm, str(value or "—"))
+    pdftext.draw(c, x, y - 4.5 * mm, pdftext.fit(value or "—", 80 * mm, 9.5, True), 9.5, True)
 
 
 def build_request_document_pdf(record: BorrowRecord) -> bytes:
@@ -51,21 +52,14 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
     rules = LibrarySettings.get()
 
     # ---------- header ----------
-    draw_seal(c, m, H - 31 * mm, 17 * mm)  # the university's seal, on white, top-left
-    c.setFillColor(BRAND)
-    c.circle(W - m - 6 * mm, H - 22 * mm, 6 * mm, stroke=0, fill=1)
-    c.setFillColor(INK)
-    c.setFont("Helvetica-Bold", 8)
-    c.drawCentredString(W - m - 6 * mm, H - 23 * mm, "QR")
+    # the university's seal top-left, the faculty's top-right, both on white
+    draw_seal(c, m, H - 33 * mm, 17 * mm)
+    draw_faculty_seal(c, W - m - 17 * mm, H - 33 * mm, 17 * mm)
 
     c.setFillColor(INK)
-    c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(W / 2, H - 20 * mm, "LIBBORROW")
-    c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(W / 2, H - 27 * mm, "BOOK BORROWING RECEIPT")
-    c.setFillColor(INK)
-    c.setFont("Helvetica", 9)
-    c.drawCentredString(W / 2, H - 33 * mm, settings.LIBRARY_NAME)
+    pdftext.draw(c, W / 2, H - 19 * mm, library_name("ar"), 17, True, align="center")
+    pdftext.draw(c, W / 2, H - 26 * mm, "وصل طلب إعارة · BOOK BORROWING RECEIPT", 10, True, align="center")
+    pdftext.draw(c, W / 2, H - 32 * mm, f"جامعة غرداية · {settings.LIBRARY_NAME}", 9, align="center")
     c.setStrokeColor(INK)
     c.setLineWidth(1.4)
     c.line(m, H - 38 * mm, W - m, H - 38 * mm)
@@ -117,12 +111,11 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
     c.setFillColor(INK)
     c.setFont("Helvetica", 8)
     c.drawString(xs[0], ty - 9 * mm, f"#{record.pk:03d}")
-    c.setFont("Helvetica-Bold", 9)
-    title = book.title if len(book.title) < 42 else book.title[:41] + "…"
-    c.drawString(xs[1], ty - 9 * mm, title)
+    book_w = xs[2] - xs[1] - 3 * mm
+    pdftext.draw(c, xs[1], ty - 9 * mm, pdftext.fit(book.title, book_w, 9, True), 9, True)
     c.setFillColor(MUTED)
-    c.setFont("Helvetica", 7)
-    c.drawString(xs[1], ty - 13.5 * mm, " · ".join(x for x in (book.author, f"ISBN {book.isbn}" if book.isbn else "", f"Shelf {book.shelf_location}") if x))
+    details = " · ".join(x for x in (book.author, f"ISBN {book.isbn}" if book.isbn else "", f"Shelf {book.shelf_location}") if x)
+    pdftext.draw(c, xs[1], ty - 13.5 * mm, pdftext.fit(details, book_w, 7), 7)
     # status pill
     pill_color = GREEN if record.status in ("READY", "BORROWED", "RETURNED") else (
         HexColor("#B42318") if record.status in ("REJECTED", "OVERDUE", "CANCELLED") else BRAND)

@@ -12,3 +12,6 @@ openpyxl==3.1.5
 psycopg[binary]==3.3.6
 # Production WSGI server (Linux hosts; not needed for local development on Windows)
 gunicorn==26.2.0; sys_platform != "win32"
+# Arabic in the PDFs: letter shaping and right-to-left ordering (library/pdftext.py)
+arabic-reshaper==3.0.1
+python-bidi==0.6.12

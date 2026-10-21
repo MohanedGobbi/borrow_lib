@@ -207,3 +207,38 @@ class CreateAdminCommandTests(TestCase):
         self.assertEqual(p.role, Role.ADMIN)
         res = APIClient().post("/api/auth/login", {"username": "boss@x.dz", "password": "shelf-mark-FIC-7"}, format="json")
         self.assertEqual(res.status_code, 200)
+
+
+class ArabicPdfTests(TestCase):
+    def test_receipt_and_card_set_arabic_in_the_arabic_font(self):
+        from reportlab import rl_config
+
+        from . import pdftext
+        from .documents import build_request_document_pdf
+        from .idcard import build_id_card_pdf
+        member = make_user("m@x.dz")
+        member.first_name, member.last_name = "أمينة", "بوعزيز"
+        member.save()
+        staff = make_user("s@x.dz", Role.STAFF)
+        book = make_book()
+        book.title, book.author, book.shelf_location = "العولمة وانعكاساتها على المجتمع المسلم", "أحمد الدغيشي", "320.2"
+        book.save()
+        record = services.create_request(member, book)
+        services.approve(staff, record)
+        rl_config.pageCompression = 0
+        try:
+            for pdf in (build_id_card_pdf(member), build_request_document_pdf(record)):
+                self.assertTrue(pdf.startswith(b"%PDF"))
+                self.assertIn(b"NotoNaskhArabic", pdf)
+        finally:
+            rl_config.pageCompression = 1
+        # letters joined and put in display order; Latin stays in Helvetica
+        runs = pdftext._runs("كتاب 2 Law", False)
+        self.assertEqual({font for font, _ in runs}, {"NotoNaskhArabic", "Helvetica"})
+        self.assertNotIn("كتاب", "".join(t for _, t in runs))  # reshaped into presentation forms
+
+    def test_fit_shortens_long_titles(self):
+        from . import pdftext
+        short = pdftext.fit("دراسات قانونية " * 20, 100, 9)
+        self.assertTrue(short.endswith("…"))
+        self.assertLessEqual(pdftext.text_width(short, 9), 100)
