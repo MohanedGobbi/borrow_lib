@@ -92,7 +92,7 @@
     font-optical-sizing: auto;
     color: inherit;
   }
-  /* Landing section headings and the book page title. */
+  /* The catalogue and book page titles (the landing page's name uses .landing-display). */
   .type-display {
     font-weight: 400;
     font-size: clamp(2.125rem, 1.45rem + 2.2vw, 3.5rem);
@@ -156,6 +156,25 @@
   }
   [dir="rtl"] .link-arrow:hover > svg {
     transform: translateX(-3px) rotate(180deg);
+  }
+
+  /* The landing page's arcade before (or without) WebGL: daylight down the middle, plaster at the edges. */
+  .aisle-placeholder {
+    background:
+      radial-gradient(ellipse 22% 34% at 50% 52%, #FFFFFF 0%, rgb(255 255 255 / 0) 100%),
+      radial-gradient(ellipse 70% 80% at 50% 50%, #F4F6F3 0%, #E3E8E4 70%, #D3DAD5 100%);
+  }
+  /* Keeps the banner and the search legible wherever the stacks fall behind them. */
+  .arrival-scrim {
+    background: radial-gradient(ellipse 30% 34% at 50% 50%, rgb(255 255 255 / 0.78) 0%, rgb(255 255 255 / 0.5) 55%, rgb(255 255 255 / 0) 100%);
+  }
+  /* The faculty's name in the first arch, one step above type-display. */
+  .landing-display {
+    font-size: clamp(2.375rem, 1.4rem + 3.4vw, 4.75rem);
+    line-height: 1.04;
+  }
+  :lang(ar) .landing-display {
+    line-height: 1.3;
   }
 
   /* The auth panel photograph: a gentler foot scrim behind the wordmark. */
