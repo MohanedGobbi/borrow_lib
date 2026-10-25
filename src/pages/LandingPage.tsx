@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { ArrowDown, ArrowLeft, ArrowRight, Clock, MapPin, Pause, Play, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ import { Availability } from "@/components/BookActions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Book, Category } from "@/types";
+import type { Reader } from "@/lib/aisle";
 
 const AisleScene = lazy(() => import("@/pages/landing/AisleScene"));
 
@@ -34,6 +35,9 @@ export default function LandingPage() {
   const lenis = useSmoothScroll(!reduced);
   const track = useRef<HTMLElement>(null);
   const [sceneReady, setSceneReady] = useState(false);
+  // The reader figures that loaded in the arcade; their authors are credited on the last plaque (CC BY).
+  const [readers, setReaders] = useState<Reader[]>([]);
+  const onReaders = useCallback((loaded: Reader[]) => setReaders(loaded), []);
 
   const { data: catalogue } = useQuery({ queryKey: qk.books.list({ pageSize: 1 }), queryFn: () => apiBooks.list({ pageSize: 1 }) });
   const { data: onShelf } = useQuery({
@@ -72,7 +76,7 @@ export default function LandingPage() {
         <div className="aisle-placeholder absolute inset-0" />
         <div className={cn("absolute inset-0 transition-opacity duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]", sceneReady ? "opacity-100" : "opacity-0")}>
           <Suspense fallback={null}>
-            <AisleScene track={track} colors={colors} subjects={signs} still={reduced} onReady={() => setSceneReady(true)} />
+            <AisleScene track={track} colors={colors} subjects={signs} still={reduced} onReady={() => setSceneReady(true)} onReaders={onReaders} />
           </Suspense>
         </div>
       </div>
@@ -82,7 +86,7 @@ export default function LandingPage() {
         <Loans />
         <Subjects total={catalogue?.count} subjects={subjects.slice(0, 8)} pending={subjectsPending} />
         <OnTheShelf books={books} still={reduced} />
-        <Visit />
+        <Visit readers={readers} />
       </div>
     </section>
   );
@@ -338,7 +342,7 @@ function OnTheShelf({ books, still }: { books: Book[]; still: boolean }) {
 }
 
 /** The far arch, where the daylight comes in: the motto, the building, and when the desk is open. */
-function Visit() {
+function Visit({ readers }: { readers: Reader[] }) {
   const { t, dir } = useI18n();
   const { me } = useAuth();
   const Forward = dir === "rtl" ? ArrowLeft : ArrowRight;
@@ -384,6 +388,24 @@ function Visit() {
               <Button asChild size="lg" variant="outline" className="h-12"><Link to="/signup">{t("nav.join")}</Link></Button>
             )}
           </div>
+          {readers.length > 0 && (
+            <div className="mt-8 border-t border-[#B8975A]/30 pt-4 text-xs leading-relaxed text-muted-foreground">
+              <p>{t("landing.figuresCredit")}</p>
+              {/* One credit per line, each isolated left to right, so the Latin titles never reorder in Arabic. */}
+              <ul className="mt-1 space-y-0.5">
+                {readers.map((r) => (
+                  <li key={r.file}>
+                    <bdi dir="ltr">
+                      <a href={r.credit.url} target="_blank" rel="noopener noreferrer" className="underline decoration-ink/20 hover:text-ink">{r.credit.title}</a>
+                      {" by "}{r.credit.author}{" ("}
+                      <a href={r.credit.licenceUrl} target="_blank" rel="noopener noreferrer" className="underline decoration-ink/20 hover:text-ink">{r.credit.licence}</a>
+                      {")"}
+                    </bdi>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </div>

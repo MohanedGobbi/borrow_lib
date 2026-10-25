@@ -5,7 +5,9 @@ import gsap from "gsap";
 import {
   AISLE, RUNNER_REPEAT, archGeometry, cameraZ, floorTexture, labelTexture, plasterTexture, runnerTexture, shelfBooks,
   spineTexture, vaultGeometry,
+  type Reader,
 } from "@/lib/aisle";
+import { Readers } from "@/pages/landing/Readers";
 
 const PLASTER = "#FBFBF8";
 const RUNNER = "#0E6B3C";
@@ -22,6 +24,8 @@ type SceneProps = {
   /** Reduced motion: the camera stays at the first arch and nothing animates on its own. */
   still: boolean;
   onReady: () => void;
+  /** Which reader figures loaded, so the page can credit them. */
+  onReaders: (readers: Reader[]) => void;
 };
 
 /** Scroll progress of the track, 0 when its top meets the viewport's top, 1 when its end leaves the bottom. */
@@ -285,7 +289,7 @@ function hasWebGL() {
 }
 
 /** The arched aisle behind the landing page. Lazy-loaded: three.js stays out of every other page's bundle. */
-export default function AisleScene({ track, colors, subjects, still, onReady }: SceneProps) {
+export default function AisleScene({ track, colors, subjects, still, onReady, onReaders }: SceneProps) {
   const [visible, setVisible] = useState(true);
   const [webgl] = useState(hasWebGL);
   const small = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
@@ -321,6 +325,7 @@ export default function AisleScene({ track, colors, subjects, still, onReady }: 
           <fog attach="fog" args={[FOG, 16, 60]} />
           <Lights shadows={shadows} />
           <Arcade colors={colors} subjects={subjects} shadows={shadows} />
+          <Readers onLoaded={onReaders} />
           <Walk track={track} still={still} />
           <FirstFrame onReady={onReady} />
         </Canvas>

@@ -326,3 +326,51 @@ export function shelfBooks(colors: string[]): BookInstance[] {
 export function cameraZ(progress: number) {
   return AISLE.standOff - progress * AISLE.spacing * (AISLE.sections - 1);
 }
+
+export type Reader = {
+  /** The glTF binary under public/; a missing file is skipped. */
+  file: string;
+  /** The figure is scaled so its bounding box is this tall, in metres (a seated figure with its chair included). */
+  height: number;
+  /** The section stop it stands beside, and which side of the aisle (1 = +x). */
+  stop: number;
+  side: 1 | -1;
+  /** Turn away from facing the visitor, in radians, so the figure reads to the book rather than to camera. */
+  turn?: number;
+  /** Seated figures without a chair of their own sit on a plaster bench. */
+  bench?: boolean;
+  credit: { title: string; author: string; url: string; licence: string; licenceUrl: string };
+};
+
+const CC_BY = { licence: "CC BY 4.0", licenceUrl: "https://creativecommons.org/licenses/by/4.0/" };
+
+/**
+ * The readers in the aisle. Each one stands a little in front of a section's arch, beside the stacks and
+ * clear of the plaque, so the visitor sees them at the stop and while walking past.
+ */
+export const READERS: Reader[] = [
+  {
+    file: "/models/teacher.glb", height: 1.72, stop: 1, side: -1, turn: 0.5,
+    credit: { title: "Casual Teacher In Motion", author: "restore50", url: "https://sketchfab.com/3d-models/casual-teacher-in-motion-746ae24a152647ce98a9338c377a5542", ...CC_BY },
+  },
+  {
+    file: "/models/quiet-reading.glb", height: 1.35, stop: 2, side: 1, turn: 0.7,
+    credit: { title: "Quiet Reading", author: "restore50", url: "https://sketchfab.com/3d-models/quiet-reading-8b90d64c07394a819dd3ec0e258147a2", ...CC_BY },
+  },
+  {
+    file: "/models/professor.glb", height: 1.8, stop: 3, side: -1, turn: 0.35,
+    credit: { title: "Executive in a Navy Suit", author: "restore50", url: "https://sketchfab.com/3d-models/executive-in-a-navy-suit-7a6d2ee920b74a048fb2a21fac8a1c77", ...CC_BY },
+  },
+  {
+    file: "/models/ethics-student.glb", height: 1.65, stop: 4, side: 1, turn: 0.45,
+    credit: { title: "Ethics and Freedom", author: "restore50", url: "https://sketchfab.com/3d-models/ethics-and-freedom-0f4fc1ccce774f6080ab7a3bbf3018a5", ...CC_BY },
+  },
+];
+
+/**
+ * Where a reader stands: 3.6 m ahead of the camera's stop and just in front of the stacks, which at 1440px
+ * puts them beside the section's plaque (about 400px off centre) rather than behind it.
+ */
+export function readerPosition(reader: Reader): [number, number, number] {
+  return [reader.side * 2.5, 0, AISLE.standOff - reader.stop * AISLE.spacing - 3.6];
+}
