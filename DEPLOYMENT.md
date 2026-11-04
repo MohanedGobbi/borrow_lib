@@ -1,5 +1,9 @@
 # Deployment checklist
 
+> **On a Linux server or PC?** [`INSTALL-LINUX.md`](INSTALL-LINUX.md) is a step-by-step tutorial and
+> `deploy/install.sh` does everything below for you (nginx, gunicorn under systemd, PostgreSQL, cron,
+> backups). This file is the reference for the settings and for other hosting set-ups.
+
 ## Backend (Django)
 
 1. **Environment variables**
@@ -26,6 +30,8 @@
    | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP server for password-reset, verification and invite emails (outside debug mode; debug prints them to the console) | none / `587` / none / none / `1` |
    | `DEFAULT_FROM_EMAIL` | sender of those emails | `Faculty Library <no-reply@localhost>` |
    | `DJANGO_SSL_REDIRECT` | redirect HTTP → HTTPS | `1` |
+   | `DJANGO_ALLOW_HTTP` | `1` serves plain HTTP: turns off the redirect, HSTS and the `Secure` flag on cookies (browsers drop those over `http://`, which would sign everyone out on reload). For a trial on a private network only | `0` |
+   | `DJANGO_MEDIA_ROOT` / `DJANGO_STATIC_ROOT` | where uploads and `collectstatic` output live; the reverse proxy must serve them at `/media/` and `/static/` (Django only does so in debug mode) | `backend/media`, `backend/staticfiles` |
    | `DJANGO_HSTS_SECONDS` | HSTS max-age; raise to `31536000` once HTTPS is confirmed | `3600` |
 
    Generate a secret key with

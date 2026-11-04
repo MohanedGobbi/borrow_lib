@@ -17,6 +17,11 @@ def env_list(name: str, default: str = "") -> list[str]:
 # (manage.py does this for local development; gunicorn/WSGI does not).
 DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 
+# A server with no certificate (a trial on the faculty network). Browsers drop Secure cookies
+# received over http://, so the sign-in cookie, the redirect and HSTS all relax together.
+# Never use this on a public site.
+ALLOW_HTTP = not DEBUG and os.environ.get("DJANGO_ALLOW_HTTP", "0") == "1"
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
 
@@ -117,9 +122,11 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"  # collectstatic target for the admin site
+# Where collectstatic (admin site assets) and uploads (covers, site photographs) live. Servers keep
+# them outside the code directory, e.g. /var/lib/lib-borrow (deploy/).
+STATIC_ROOT = Path(os.environ.get("DJANGO_STATIC_ROOT", BASE_DIR / "staticfiles"))
 MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Bulk book imports post up to 5,000 rows as JSON.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
@@ -160,7 +167,7 @@ AUTH_REFRESH_COOKIE = {
     "name": "lb_refresh",
     "path": "/api/auth",
     "samesite": os.environ.get("AUTH_COOKIE_SAMESITE", "Strict"),
-    "secure": not DEBUG,
+    "secure": not DEBUG and not ALLOW_HTTP,
     "domain": os.environ.get("AUTH_COOKIE_DOMAIN") or None,
 }
 AUTH_CSRF_HEADER = "HTTP_X_LIBRARY_CSRF"
@@ -205,10 +212,10 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Faculty Library <no-r
 if not DEBUG:
     # Behind a TLS-terminating proxy (nginx, Render, Railway…) that sets X-Forwarded-Proto.
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_SSL_REDIRECT = os.environ.get("DJANGO_SSL_REDIRECT", "1") == "1"
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "3600"))
+    SECURE_SSL_REDIRECT = not ALLOW_HTTP and os.environ.get("DJANGO_SSL_REDIRECT", "1") == "1"
+    SESSION_COOKIE_SECURE = not ALLOW_HTTP
+    CSRF_COOKIE_SECURE = not ALLOW_HTTP
+    SECURE_HSTS_SECONDS = 0 if ALLOW_HTTP else int(os.environ.get("DJANGO_HSTS_SECONDS", "3600"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_REFERRER_POLICY = "same-origin"

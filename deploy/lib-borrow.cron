@@ -1,0 +1,17 @@
+# The library's scheduled jobs. Installed to /etc/cron.d/lib-borrow by deploy/install.sh.
+# Every job is safe to run twice. Output goes to the system journal: journalctl -t lib-borrow-jobs
+# Times are in the server's time zone (timedatectl); set it to the library's.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Holds not collected within the pickup window are cancelled; the waiting list moves up.
+7 * * * *   libborrow  @APP_DIR@/deploy/manage.sh cancel_expired_pickups 2>&1 | logger -t lib-borrow-jobs
+# Loans past their due date become OVERDUE (and the reader is emailed).
+11 0 * * *  libborrow  @APP_DIR@/deploy/manage.sh mark_overdue 2>&1 | logger -t lib-borrow-jobs
+# "Due soon" reminders, and a retry for overdue emails that failed to send.
+0 8 * * *   libborrow  @APP_DIR@/deploy/manage.sh send_reminders 2>&1 | logger -t lib-borrow-jobs
+# Expired sign-in tokens pile up in the database; prune them weekly.
+30 3 * * 0  libborrow  @APP_DIR@/deploy/manage.sh flushexpiredtokens 2>&1 | logger -t lib-borrow-jobs
+
+# Nightly backup of the database and the uploaded files (keeps the last 14).
+30 2 * * *  root       @APP_DIR@/deploy/backup.sh 2>&1 | logger -t lib-borrow-backup

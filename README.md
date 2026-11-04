@@ -212,7 +212,17 @@ The complete list, with defaults, is in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Deployment
 
-Short version (details in [`DEPLOYMENT.md`](DEPLOYMENT.md)):
+**On Ubuntu or Debian, one command installs everything** (nginx, gunicorn, PostgreSQL, scheduled jobs,
+nightly backups, optional HTTPS):
+
+```bash
+sudo bash deploy/install.sh --domain library.example.edu --certbot-email it@example.edu
+```
+
+The full walkthrough (server with a domain, PC on a private network, updates, backups, restoring,
+troubleshooting) is in [`INSTALL-LINUX.md`](INSTALL-LINUX.md).
+
+Short version for any other set-up (details in [`DEPLOYMENT.md`](DEPLOYMENT.md)):
 
 1. **Backend:** set the environment variables above, then
    ```bash

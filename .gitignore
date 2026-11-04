@@ -24,3 +24,6 @@ backend/staticfiles/
 # files uploaded in the app (site photographs, book covers)
 backend/media/
 
+
+# the offline installation folder built by scripts/make_release.py and the document generators
+university-package/
