@@ -18,8 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# Not needed on a server: design notes, browser tests, CI configuration.
-EXCLUDE = (".impeccable/", "e2e/", ".github/", "deploy/package/")
+# Not needed on a server: design-tool files, CI configuration, the scripts shipped beside the archive.
+EXCLUDE = (".impeccable/", ".github/", "deploy/package/")
 BINARY = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".glb", ".ttf", ".otf", ".woff",
           ".woff2", ".pdf", ".xlsx", ".zip", ".gz"}
 
