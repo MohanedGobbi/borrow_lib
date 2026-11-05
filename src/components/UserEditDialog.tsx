@@ -106,7 +106,7 @@ export function UserEditDialog({
 
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="edit-name">{t("auth.name")}</Label>
+            <Label htmlFor="edit-name">{t("auth.fullname")}</Label>
             <Input
               id="edit-name"
               required

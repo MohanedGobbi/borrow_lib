@@ -147,7 +147,7 @@ const en: Dict = {
 
   "time.expired": "Expired", "time.daysLeft": "{n} days left", "time.dayLeft": "1 day left",
   "time.daysOverdue": "{n} days overdue",
-  "common.skip": "Skip to content", "common.loading": "Loading…", "common.retry": "Try again", "common.cancel": "Cancel",
+  "common.skip": "Skip to content", "common.loading": "Loading…", "common.retry": "Try again", "common.cancel": "Cancel", "common.save": "Save", "common.saving": "Saving…",
   "common.forbidden": "Staff access required", "common.forbiddenSub": "This area is for library staff and administrators.",
   "common.apiDown": "The library service is not responding. Please try again in a moment.",
 
@@ -874,7 +874,7 @@ const fr: Dict = {
 
   "time.expired": "Expiré", "time.daysLeft": "{n} jours restants", "time.dayLeft": "1 jour restant",
   "time.daysOverdue": "{n} jours de retard",
-  "common.skip": "Aller au contenu", "common.loading": "Chargement…", "common.retry": "Réessayer", "common.cancel": "Annuler",
+  "common.skip": "Aller au contenu", "common.loading": "Chargement…", "common.retry": "Réessayer", "common.cancel": "Annuler", "common.save": "Enregistrer", "common.saving": "Enregistrement…",
   "common.forbidden": "Accès réservé au personnel", "common.forbiddenSub": "Cet espace est réservé au personnel et aux administrateurs de la bibliothèque.",
   "common.apiDown": "Le service de la bibliothèque ne répond pas. Veuillez réessayer dans un instant.",
 
@@ -1601,7 +1601,7 @@ const ar: Dict = {
 
   "time.expired": "انتهت المهلة", "time.daysLeft": "متبقٍ {n} أيام", "time.dayLeft": "متبقٍ يوم واحد",
   "time.daysOverdue": "متأخر {n} أيام",
-  "common.skip": "انتقل إلى المحتوى", "common.loading": "جارٍ التحميل…", "common.retry": "حاول مجددًا", "common.cancel": "إلغاء",
+  "common.skip": "انتقل إلى المحتوى", "common.loading": "جارٍ التحميل…", "common.retry": "حاول مجددًا", "common.cancel": "إلغاء", "common.save": "حفظ", "common.saving": "جارٍ الحفظ…",
   "common.forbidden": "يتطلب صلاحية الموظفين", "common.forbiddenSub": "هذه المنطقة مخصصة لموظفي المكتبة والمسؤولين.",
   "common.apiDown": "خدمة المكتبة لا تستجيب. حاول مجددًا بعد قليل.",
 

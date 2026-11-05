@@ -1,6 +1,9 @@
-// Fails when the EN, FR and AR dictionaries in src/i18n/index.tsx do not have the same keys.
+// Fails when the EN, FR and AR dictionaries in src/i18n/index.tsx do not have the same keys,
+// or when the code calls t("some.key") with a key no dictionary defines (it would show the raw key).
 //   node scripts/check-i18n.mjs
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const source = readFileSync(new URL("../src/i18n/index.tsx", import.meta.url), "utf8");
 const langs = ["en", "fr", "ar"];
@@ -26,6 +29,28 @@ for (const lang of langs) {
     console.error(`${lang.toUpperCase()} is missing ${missing.length} key(s):`);
     for (const k of missing) console.error(`  ${k}`);
   }
+}
+
+// Literal keys only: t(`demo.as.${key}`) and other built names are not checked.
+function* sources(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) yield* sources(path);
+    else if (/\.tsx?$/.test(entry.name)) yield path;
+  }
+}
+const srcDir = fileURLToPath(new URL("../src", import.meta.url));
+const used = /\bt\(\s*"([A-Za-z][\w.-]*)"/g;
+const unknown = new Map();
+for (const file of sources(srcDir)) {
+  for (const m of readFileSync(file, "utf8").matchAll(used)) {
+    if (!all.has(m[1])) unknown.set(m[1], file.slice(srcDir.length + 1));
+  }
+}
+if (unknown.size) {
+  failed = true;
+  console.error(`The code uses ${unknown.size} key(s) no dictionary defines:`);
+  for (const [k, f] of [...unknown].sort()) console.error(`  ${k}  (${f})`);
 }
 
 if (failed) process.exit(1);
