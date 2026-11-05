@@ -12,4 +12,12 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 from config.wsgi import application  # noqa: E402
 
+# Only the demo migrates itself; the library's own server migrates when its administrator updates it.
+if os.environ.get("DEMO_MODE") == "1":
+    try:
+        from library.demo import ensure_migrated
+        ensure_migrated()
+    except Exception as exc:  # a racing cold start, or the database waking up: the next start retries
+        print(f"demo: could not check migrations: {exc!r}", file=sys.stderr)
+
 app = application

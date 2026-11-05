@@ -1,7 +1,7 @@
 """The hosted demo: off by default, the reset it runs nightly, and what it refuses to visitors."""
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
 from . import demo
@@ -100,3 +100,18 @@ class DemoGuardTests(TestCase):
                                                       "password": "Visitor-pass-2026", "phoneNumber": "0661000000"}, format="json")
         self.assertEqual(res.status_code, 201)
         self.assertTrue(UserProfile.objects.get(user__email="new.visitor@demo.example").email_verified)
+
+
+class EnsureMigratedTests(TransactionTestCase):
+    """A release that adds a column must not leave the demo's database behind."""
+
+    def test_applies_a_pending_migration_and_is_quiet_when_up_to_date(self):
+        from django.db import connection
+        from django.db.migrations.executor import MigrationExecutor
+        latest = MigrationExecutor(connection).loader.graph.leaf_nodes("library")
+        previous = [("library", "0010_real_library_accounts_and_catalogue")]
+        executor = MigrationExecutor(connection)
+        executor.migrate(previous)                      # the database as the last release left it
+        self.assertTrue(demo.ensure_migrated())         # the new release starts: it catches up
+        self.assertIn(latest[0], MigrationExecutor(connection).loader.applied_migrations)
+        self.assertFalse(demo.ensure_migrated())        # nothing left to do

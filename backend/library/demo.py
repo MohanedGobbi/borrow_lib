@@ -100,6 +100,20 @@ def _move_back(record: BorrowRecord, now, days_ago: int, loan_days: int) -> None
         returned_at=picked + timedelta(days=random.randint(4, loan_days)))
 
 
+def ensure_migrated() -> bool:
+    """Apply any pending migrations; True when it had to. The hosted demo calls this when its function starts
+    (api/index.py), because Vercel deploys code but never migrates: without it, a release that adds a column
+    leaves the shared database behind and every query touching that table fails until the nightly reset."""
+    from django.db import connection
+    from django.db.migrations.executor import MigrationExecutor
+    executor = MigrationExecutor(connection)
+    if not executor.migration_plan(executor.loader.graph.leaf_nodes()):
+        return False
+    from django.core.management import call_command
+    call_command("migrate", interactive=False, verbosity=0)
+    return True
+
+
 def reset() -> dict:
     random.seed(2026)
     now = timezone.now()
