@@ -1,3 +1,15 @@
-# For Vercel, which installs the API function's packages from the repository root.
-# The pinned list lives with the backend.
--r backend/requirements.txt
+# The API function's packages, for Vercel (which reads this file at the repository root and does not
+# follow "-r" includes). Same pins as backend/requirements.txt, without gunicorn, which Vercel does not
+# use; library/test_requirements.py fails if the two lists drift apart.
+Django==6.1.1
+djangorestframework==3.18.1
+djangorestframework-simplejwt==5.5.1
+django-filter==26.1
+django-cors-headers==4.9.0
+reportlab==5.0.1
+qrcode[pil]==8.2
+pillow==12.3.0
+openpyxl==3.1.5
+psycopg[binary]==3.3.6
+arabic-reshaper==3.0.1
+python-bidi==0.6.12

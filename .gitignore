@@ -27,3 +27,7 @@ backend/media/
 
 # the offline installation folder built by scripts/make_release.py and the document generators
 university-package/
+
+# written by the Vercel CLI (vercel link, vercel env pull)
+.env*.local
+.vercel
