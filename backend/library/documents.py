@@ -12,7 +12,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
 from . import pdftext
-from .branding import draw_faculty_seal, draw_seal
+from .branding import draw_faculty_seal, draw_partner_credit, draw_seal
 from .emails import library_name
 from .models import BorrowRecord, LibrarySettings, display_name
 
@@ -163,6 +163,8 @@ def build_request_document_pdf(record: BorrowRecord) -> bytes:
     c.setFont("Helvetica", 6.5)
     c.drawCentredString(W / 2, 24 * mm,
                         f"{settings.LIBRARY_NAME} · {rules.hold_hours}-hour pickup window · {rules.loan_days}-day loan from pickup · REQ-{record.pk:03d}")
+    c.setFillColor(MUTED)
+    draw_partner_credit(c, W / 2, 17 * mm)
 
     c.showPage()
     c.save()

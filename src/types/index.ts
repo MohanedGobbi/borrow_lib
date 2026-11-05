@@ -314,6 +314,13 @@ export interface SiteImageData {
 }
 export type SiteImages = Record<SiteImageSlot, SiteImageData | null>;
 
+/** The hosted demo's shared accounts (GET /demo; the endpoint is a 404 outside the demo). */
+export type DemoAccountKey = "reader" | "overdue" | "librarian" | "admin";
+export interface DemoInfo {
+  password: string;
+  accounts: { key: DemoAccountKey; email: string; name: string; accountType: AccountType | null }[];
+}
+
 export const URGENT_PICKUP_MS = 6 * 60 * 60 * 1000;
 export const DUE_SOON_DAYS = 3;
 export const DUE_SOON_MS = DUE_SOON_DAYS * 24 * 60 * 60 * 1000;

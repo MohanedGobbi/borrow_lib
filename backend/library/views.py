@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import CharField, Count, Exists, IntegerField, OuterRef, Prefetch, Q, Subquery
@@ -10,7 +11,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import emails, services
+from . import demo, emails, services
 from .errors import AppError, BusinessRuleError, Forbidden, NotFoundError
 from .filters import BookFilter, BorrowRecordFilter, UserFilter
 from .idcard import id_card_response
@@ -77,12 +78,13 @@ class RegisterView(APIView):
             UserProfile.objects.create(
                 user=user, phone_number=d["phoneNumber"], role=role,
                 member_type=d["memberType"], language=d["language"],
-                email_verified=invite is not None,  # following the invite link proved the address
+                # following the invite link proved the address; the demo sends no email to confirm
+                email_verified=invite is not None or settings.DEMO_MODE,
             )
             if invite:
                 invite.used_at, invite.used_by = timezone.now(), user
                 invite.save(update_fields=["used_at", "used_by"])
-        if not invite:
+        if not invite and not settings.DEMO_MODE:
             emails.send_verification(user)
         log_activity("System", "REGISTERED", f"{display_name(user)} registered as {role.lower()}.",
                      member=display_name(user), role=role)
@@ -642,6 +644,7 @@ class UserRoleView(APIView):
 
     def patch(self, request, pk):
         profile = get_object_or_404(UserProfile.objects.select_related("user"), pk=pk)
+        demo.protect_account(profile)
         account_type = request.data.get("accountType")
         if account_type is not None:
             if account_type not in ACCOUNT_TYPES:
@@ -665,7 +668,8 @@ class UserActiveView(APIView):
     permission_classes = [IsAdmin]
 
     def patch(self, request, pk):
-        profile = get_object_or_404(UserProfile, pk=pk)
+        profile = get_object_or_404(UserProfile.objects.select_related("user"), pk=pk)
+        demo.protect_account(profile)
         profile.active = bool(request.data.get("active"))
         profile.save(update_fields=["active"])
         # signals.py mirrors this onto User.is_active, which SimpleJWT checks.
@@ -821,6 +825,7 @@ class RestoreView(APIView):
 
     def post(self, request):
         from . import maintenance
+        demo.refuse_maintenance()
         check_admin_password(request)
         upload = request.FILES.get("file")
         if upload is None:
@@ -839,6 +844,38 @@ class MaintenanceActionView(APIView):
         run = maintenance.ACTIONS.get(action)
         if run is None:
             raise NotFoundError("not_found", "Unknown action.")
+        demo.refuse_maintenance()
         check_admin_password(request)
         result = run(display_name(request.user))
         return Response({"result": result, "counts": maintenance.counts()})
+
+
+# ------------------------------- hosted demo -------------------------------
+
+class DemoInfoView(APIView):
+    """Public, demo only: the shared accounts the sign-in page offers. 404 everywhere else."""
+    authentication_classes = ()
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not settings.DEMO_MODE:
+            raise NotFoundError("not_found", "Not a demo.")
+        return Response(demo.info())
+
+
+class DemoResetView(APIView):
+    """Demo only: migrate, then rebuild the demo data. Vercel Cron calls it nightly with
+    `Authorization: Bearer <CRON_SECRET>`; ?token=<CRON_SECRET> works from a browser for the first run."""
+    authentication_classes = ()
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        import hmac
+        from django.core.management import call_command
+        if not settings.DEMO_MODE:
+            raise NotFoundError("not_found", "Not a demo.")
+        given = request.headers.get("Authorization", "").removeprefix("Bearer ") or request.query_params.get("token", "")
+        if not settings.CRON_SECRET or not hmac.compare_digest(given, settings.CRON_SECRET):
+            raise Forbidden("forbidden", "Wrong or missing token.")
+        call_command("migrate", interactive=False, verbosity=0)
+        return Response(demo.reset())

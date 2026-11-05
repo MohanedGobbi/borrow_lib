@@ -18,6 +18,8 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { DemoBanner } from "@/components/DemoBanner";
+import { PartnerCredits } from "@/components/PartnerCredits";
 import { VerifyBanner } from "@/components/VerifyBanner";
 import { Wordmark } from "@/components/Wordmark";
 
@@ -111,6 +113,7 @@ export function Layout() {
       </a>
 
       {/* Notices sit above the header, so the header can lie over the landing photograph. */}
+      <DemoBanner />
       <VerifyBanner wide={isStaffArea} />
 
       <header
@@ -346,6 +349,7 @@ export function Layout() {
               ))}
             </p>
           </div>
+          <PartnerCredits />
         </div>
       </footer>
     </div>

@@ -18,8 +18,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# Not needed on a server: design-tool files, CI configuration, the scripts shipped beside the archive.
-EXCLUDE = (".impeccable/", ".github/", "deploy/package/")
+# Not needed on a server: design-tool files, CI configuration, the scripts shipped beside the archive,
+# and the hosted demo's Vercel files.
+EXCLUDE = (".impeccable/", ".github/", "deploy/package/", "api/", "vercel.json", ".vercelignore",
+           "requirements.txt", ".python-version")
 BINARY = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".glb", ".ttf", ".otf", ".woff",
           ".woff2", ".pdf", ".xlsx", ".zip", ".gz"}
 
@@ -30,7 +32,9 @@ def git(*args: str) -> str:
 
 def files_to_ship() -> list[str]:
     tracked_and_new = git("ls-files", "--cached", "--others", "--exclude-standard").splitlines()
-    paths = [p for p in tracked_and_new if not p.startswith(EXCLUDE) and (ROOT / p).is_file()]
+    # Zip archives lying in the checkout are copies of a package, never part of the platform.
+    paths = [p for p in tracked_and_new
+             if not p.startswith(EXCLUDE) and not p.endswith(".zip") and (ROOT / p).is_file()]
     paths += [p.relative_to(ROOT).as_posix() for p in (ROOT / "dist").rglob("*") if p.is_file()]
     return sorted(set(paths))
 

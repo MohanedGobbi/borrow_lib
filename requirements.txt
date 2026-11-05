@@ -1,0 +1,3 @@
+# For Vercel, which installs the API function's packages from the repository root.
+# The pinned list lives with the backend.
+-r backend/requirements.txt

@@ -32,6 +32,7 @@ export const qk = {
   notifications: ["notifications"] as const,
   invites: ["invites"] as const,
   settings: ["settings"] as const,
+  demo: ["demo"] as const,
   siteImages: ["siteImages"] as const,
   maintenance: ["maintenance"] as const,
 };

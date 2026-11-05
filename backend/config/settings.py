@@ -22,8 +22,20 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 # Never use this on a public site.
 ALLOW_HTTP = not DEBUG and os.environ.get("DJANGO_ALLOW_HTTP", "0") == "1"
 
+# The hosted demo (Vercel): fictional people, a portion of the catalogue, reset every night
+# (library/demo.py, DEPLOYMENT.md). Never on the library's own server.
+DEMO_MODE = os.environ.get("DEMO_MODE", "0") == "1"
+DEMO_PASSWORD = os.environ.get("DEMO_PASSWORD", "Library-Demo-2026")
+DEMO_TITLES = int(os.environ.get("DEMO_TITLES", "800"))  # how much of the inventory the demo loads
+CRON_SECRET = os.environ.get("CRON_SECRET", "")  # Vercel sends it to the nightly demo reset
+
+# On Vercel the deployment's own addresses come from the platform, so they need no configuration.
+VERCEL = os.environ.get("VERCEL") == "1"
+VERCEL_HOSTS = [h for h in (os.environ.get(k, "") for k in
+                ("VERCEL_PROJECT_PRODUCTION_URL", "VERCEL_BRANCH_URL", "VERCEL_URL")) if h]
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
-ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS") + VERCEL_HOSTS
 
 if DEBUG:
     SECRET_KEY = SECRET_KEY or "dev-only-insecure-key-change-me"
@@ -89,17 +101,36 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# SQLite for local dev; swap via DATABASE_URL-style env for Postgres in production.
-DATABASES = {
-    "default": {
-        "ENGINE": os.environ.get("DB_ENGINE", "django.db.backends.sqlite3"),
-        "NAME": os.environ.get("DB_NAME", BASE_DIR / "db.sqlite3"),
-        "USER": os.environ.get("DB_USER", ""),
-        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
-        "HOST": os.environ.get("DB_HOST", ""),
-        "PORT": os.environ.get("DB_PORT", ""),
+def database_from_url(url: str) -> dict:
+    """postgres://user:password@host:port/name?sslmode=require (what Neon and other hosts hand out)."""
+    from urllib.parse import parse_qsl, unquote, urlparse
+    u = urlparse(url)
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": unquote(u.path.lstrip("/")),
+        "USER": unquote(u.username or ""),
+        "PASSWORD": unquote(u.password or ""),
+        "HOST": u.hostname or "",
+        "PORT": str(u.port or ""),
+        "OPTIONS": dict(parse_qsl(u.query)),  # sslmode, channel_binding… go straight to libpq
+        "CONN_MAX_AGE": 0,  # serverless: no connection outlives the request
     }
-}
+
+
+# SQLite for local dev; the DB_* variables (the Linux install) or DATABASE_URL (hosted) for PostgreSQL.
+if os.environ.get("DATABASE_URL") and not os.environ.get("DB_ENGINE"):
+    DATABASES = {"default": database_from_url(os.environ["DATABASE_URL"])}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": os.environ.get("DB_ENGINE", "django.db.backends.sqlite3"),
+            "NAME": os.environ.get("DB_NAME", BASE_DIR / "db.sqlite3"),
+            "USER": os.environ.get("DB_USER", ""),
+            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+            "HOST": os.environ.get("DB_HOST", ""),
+            "PORT": os.environ.get("DB_PORT", ""),
+        }
+    }
 
 # The test suite creates hundreds of users; real password hashing would dominate its run time.
 if "test" in sys.argv[1:2]:
@@ -148,7 +179,8 @@ REST_FRAMEWORK = {
         "auth_refresh": "30/min",
     },
     # Number of reverse proxies in front of Django, so throttles key on the real client address.
-    "NUM_PROXIES": int(os.environ.get("DJANGO_NUM_PROXIES", "0")),
+    # Vercel's edge sets X-Forwarded-For to the visitor's address: one proxy.
+    "NUM_PROXIES": int(os.environ.get("DJANGO_NUM_PROXIES", "1" if VERCEL else "0")),
 }
 
 SIMPLE_JWT = {
@@ -186,7 +218,9 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = (*default_headers, "x-library-csrf")
 
 # Frontend base URL used inside QR codes on ID cards.
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL") or (
+    f"https://{os.environ['VERCEL_PROJECT_PRODUCTION_URL']}" if os.environ.get("VERCEL_PROJECT_PRODUCTION_URL")
+    else "http://localhost:3000")
 
 LIBRARY_NAME = os.environ.get("LIBRARY_NAME", "Faculty of Law and Political Sciences Library")
 # The time zone dates are written in inside emails (an IANA name, e.g. "Africa/Algiers"). Storage stays UTC.
@@ -199,6 +233,8 @@ PASSWORD_RESET_TIMEOUT = 3600
 # swaps in Django's locmem backend by itself.
 if DEBUG:
     EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+elif DEMO_MODE:
+    EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"  # the demo's people are fictional
 else:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
     EMAIL_HOST = os.environ.get("EMAIL_HOST", "")

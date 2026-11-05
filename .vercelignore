@@ -1,5 +1,12 @@
-# Vercel hosts only the Vite frontend; the Django API is deployed separately.
-backend/
-dist/
+# Kept out of the Vercel upload. The site is built there and backend/ runs as the /api function
+# (api/index.py), so only local environments, data and the offline package stay behind.
 node_modules/
+dist/
 .claude/
+backend/.venv/
+backend/db.sqlite3
+backend/media/
+backend/staticfiles/
+**/__pycache__/
+university-package/
+*.zip

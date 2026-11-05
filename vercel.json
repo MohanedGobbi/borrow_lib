@@ -4,8 +4,20 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "regions": ["fra1"],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300,
+      "includeFiles": "backend/**",
+      "excludeFiles": "{backend/.venv/**,backend/media/**,backend/staticfiles/**,backend/db.sqlite3,backend/**/__pycache__/**,backend/library/test_*.py,backend/library/tests.py}"
+    }
+  },
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!api/|media/|assets/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/demo/reset", "schedule": "0 3 * * *" }
   ],
   "headers": [
     {

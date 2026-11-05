@@ -10,7 +10,8 @@ It is a full-stack app:
 
 - **Backend:** Django + Django REST Framework + SimpleJWT in `backend/` (SQLite in dev, PostgreSQL-ready). ReportLab generates receipt and library-card PDFs.
 - **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS 3 + shadcn/ui in `src/`.
-- **Real data:** the catalogue is the library's inventory in `backend/library/data/inventory.csv` (`load_inventory`); there is no demo mode or seed data. Arabic is the default language.
+- **Real data:** the catalogue is the library's inventory in `backend/library/data/inventory.csv` (`load_inventory`); the library's own install has no seed data. Arabic is the default language.
+- **Hosted demo:** `DEMO_MODE=1` (Vercel only) runs `backend/library/demo.py`: fictional accounts on a portion of the inventory, rebuilt nightly by `/api/demo/reset`; it refuses maintenance, changes to the shared accounts and uploads. `api/index.py` + `vercel.json` serve the API as one Python function. See DEPLOYMENT.md.
 
 Key business rules (enforced in `backend/library/services.py`):
 
@@ -50,6 +51,7 @@ src/api/index.ts        typed endpoint functions
 src/i18n/index.tsx      EN / FR / AR dictionaries, t(key, vars), RTL switching
 src/components/Layout.tsx   header, user menu, footer, Container
 src/components/Page.tsx     PageHeader, Panel, EmptyState, ErrorState
+src/components/PartnerCredits.tsx   the ROWD Tech / AFAK credit in every footer (the PDFs use branding.draw_partner_credit)
 src/components/             BookCover, BookActions (+ Availability), StatusBadge, MemberStanding, Countdown, dialogs
 src/lib/time.ts         localized dates, relative times, countdown formatting
 src/lib/table.ts        shared table classes for staff lists

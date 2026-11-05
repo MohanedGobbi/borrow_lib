@@ -64,6 +64,12 @@ class BookSerializer(serializers.ModelSerializer):
                   "totalCopies", "availableCopies", "freeCopies", "shelfLocation", "coverColor", "coverImage",
                   "description", "activeLoanId", "activeLoanMember"]
 
+    def validate_coverImage(self, value):
+        if value:
+            from .demo import refuse_uploads
+            refuse_uploads()
+        return value
+
     def validate_isbn(self, value):
         # Optional: an empty ISBN is stored as NULL, so any number of books can have none.
         return value.strip() if value and value.strip() else None

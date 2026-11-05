@@ -48,6 +48,7 @@ cat <<'EOF'
 
   Faculty of Law and Political Sciences Library - University of Ghardaia
   مكتبة كلية الحقوق والعلوم السياسية - جامعة غرداية
+  Developed by ROWD Tech, in partnership with AFAK (University of Ghardaia)
 
   How will people open the library website?
     1) From the internet, with a domain name and HTTPS (recommended)

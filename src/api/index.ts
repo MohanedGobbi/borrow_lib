@@ -10,6 +10,7 @@ import type {
   BorrowRecord,
   Category,
   DashboardStats,
+  DemoInfo,
   LibraryRules,
   LibrarySettings,
   MaintenanceAction,
@@ -250,6 +251,14 @@ export const apiReservations = {
   leave: (id: number) => api<void>(`/reservations/${id}`, { method: "DELETE" }),
   forBook: (bookId: number) => api<Reservation[]>(`/books/${bookId}/reservations`),
   all: () => api<Reservation[]>("/reservations/all"),
+};
+
+/** The hosted demo: its shared accounts, or null on a real library (the endpoint answers 404). */
+export const apiDemo = {
+  info: () => api<DemoInfo>("/demo", { auth: false }).catch((e: unknown) => {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }),
 };
 
 export const apiMisc = {

@@ -4,7 +4,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import site_images
+from . import demo, site_images
 from .errors import NotFoundError
 from .models import SiteImage, SiteImageSlot, display_name, log_activity
 from .permissions import IsAdmin
@@ -50,6 +50,7 @@ class SiteImageDetailView(APIView):
 
     def put(self, request, slot):
         check_slot(slot)
+        demo.refuse_uploads()
         d = request.data
         texts = site_images.clean_texts(d.get("altEn"), d.get("altFr"), d.get("altAr"), d.get("credit"))
         row = site_images.store(slot, request.FILES.get("file"), texts, request.user)

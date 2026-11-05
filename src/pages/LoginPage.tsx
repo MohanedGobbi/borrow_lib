@@ -4,6 +4,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { AuthHeading, AuthLayout } from "@/components/AuthLayout";
+import { DemoAccounts } from "@/components/DemoAccounts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,12 +20,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const signIn = async (address: string, secret: string) => {
     setBusy(true);
     setError(null);
     try {
-      await login(email.trim(), password);
+      await login(address.trim(), secret);
       navigate(location.state?.from ?? "/catalog", { replace: true });
     } catch (err) {
       setError(errorMessage(t, err, "auth.failed"));
@@ -33,9 +33,22 @@ export default function LoginPage() {
     }
   };
 
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void signIn(email, password);
+  };
+
+  // Hosted demo: a role button fills the form and signs in.
+  const pickDemo = (address: string, secret: string) => {
+    setEmail(address);
+    setPassword(secret);
+    void signIn(address, secret);
+  };
+
   return (
     <AuthLayout>
       <AuthHeading title={t("auth.signin")}>{t("auth.signinSub")}</AuthHeading>
+      <DemoAccounts onPick={pickDemo} busy={busy} />
 
       <form onSubmit={submit} className="mt-8 space-y-5">
         <div className="space-y-1.5">

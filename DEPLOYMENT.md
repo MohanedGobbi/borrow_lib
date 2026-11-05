@@ -2,7 +2,8 @@
 
 > **On a Linux server or PC?** [`INSTALL-LINUX.md`](INSTALL-LINUX.md) is a step-by-step tutorial and
 > `deploy/install.sh` does everything below for you (nginx, gunicorn under systemd, PostgreSQL, cron,
-> backups). This file is the reference for the settings and for other hosting set-ups.
+> backups). This file is the reference for the settings, the public demo on Vercel, and other
+> hosting set-ups.
 
 ## Backend (Django)
 
@@ -126,31 +127,58 @@ The API must therefore be **same-site** with the frontend:
 
 A `VITE_API_URL` on another registrable domain is not supported.
 
-### Vercel
+### Vercel: the public demo (frontend and API in one project)
 
-The repo is Vercel-ready: `vercel.json` sets the Vite build, the SPA fallback
-and long-lived caching for `/assets/*`; `.vercelignore` keeps `backend/` out of
-the upload.
+The repository deploys to Vercel as a working, testable demo: the Vite site plus the Django API
+as one Python function (`api/index.py`, routed by `vercel.json`), on one domain, so sign-in works
+with no CORS setup. `DEMO_MODE=1` turns it into a demo:
 
-Vercel hosts only the frontend, so deploy Django elsewhere
-(Render, Railway, Fly.io, a VPS) with PostgreSQL and persistent media storage, and have Vercel
-proxy `/api` to it so the browser sees one origin (see "Same-site requirement" for why):
+- fictional readers, a librarian and an administrator on a portion of the real inventory
+  (`DEMO_TITLES`, 800 titles), with requests, holds, loans, an overdue loan and a waiting list;
+- the sign-in page offers the shared accounts in one click, and a banner on every page says it is a demo;
+- every night at 03:00 UTC Vercel Cron calls `/api/demo/reset`, which rebuilds all of it;
+- no email is sent (self sign-ups are confirmed at once), uploads are off (Vercel keeps no files), and
+  maintenance actions and changes to the shared accounts are refused, so one visitor cannot spoil it
+  for the next.
 
-1. In `vercel.json` (which already runs `npm run build`), add these rewrites to
-   the *top* of the `rewrites` array, then import the repo in Vercel (framework preset:
-   **Vite**, root: repo root). Leave `VITE_API_URL` unset.
+The library's own installation never sets `DEMO_MODE`; `load_demo` and `/api/demo/*` refuse to run without it.
 
-   ```json
-   { "source": "/api/:path*", "destination": "https://<your-backend-host>/api/:path*" },
-   { "source": "/media/:path*", "destination": "https://<your-backend-host>/media/:path*" }
-   ```
+**Set it up (once):**
 
-2. On the backend set:
-   - `DJANGO_ALLOWED_HOSTS=<your-backend-host>`, `DJANGO_DEBUG=0`, a real `DJANGO_SECRET_KEY`
-   - `FRONTEND_URL=https://<project>.vercel.app` so ID-card QR codes open the deployed app
-   - `DJANGO_NUM_PROXIES=<n>`, the number of proxies between the browser and Django that append
-     to `X-Forwarded-For` (Vercel plus your backend host's own proxy, if it has one)
-   - no `CORS_*` settings are needed, and the cookie stays `SameSite=Strict`.
+1. **Import the repository** in Vercel (Add New → Project → the GitHub repository). Keep the root
+   directory and the detected settings: `vercel.json` already sets the Vite build, the API function,
+   the Frankfurt region (`fra1`, closest to Algeria) and the nightly cron.
+2. **Add the database:** in the project, Storage → Create Database → **Neon** (free plan). Pick the
+   region **AWS eu-central-1 (Frankfurt)**, the same as the function: a reset makes about 2,800
+   queries, so a database on another continent would make it slow. Connect it to the project; Neon
+   sets `DATABASE_URL`.
+3. **Environment variables** (Settings → Environment Variables, for Production and Preview):
+
+   | Name | Value |
+   |---|---|
+   | `DEMO_MODE` | `1` |
+   | `DJANGO_SECRET_KEY` | a random value: `python -c "import secrets; print(secrets.token_urlsafe(64))"` |
+   | `CRON_SECRET` | another random value (at least 16 characters); Vercel sends it to the nightly reset |
+   | `DEMO_PASSWORD` | optional: the shared accounts' password (default `Library-Demo-2026`) |
+
+   Nothing else is needed: the Vercel host names, `FRONTEND_URL` and the proxy count come from the
+   platform. Add `DJANGO_ALLOWED_HOSTS` only for a custom domain.
+4. **Redeploy** (Deployments → ⋯ → Redeploy) so the variables apply.
+5. **Load the demo data once:** open
+   `https://<your-project>.vercel.app/api/demo/reset?token=<CRON_SECRET>`. It creates the tables and
+   the demo, and answers with something like `{"books": 800, "accounts": 15, "records": 53}` after
+   about a minute. From then on the cron does it every night.
+6. Open the site, sign in with one of the demo accounts, and share the address.
+
+**If something is wrong:** the function's log is under Deployments → the deployment → Functions.
+A 500 on every API call before step 5 is expected (no tables yet). `DisallowedHost` means a custom
+domain is missing from `DJANGO_ALLOWED_HOSTS`. A build error about `requirements.txt` means Vercel
+did not follow `-r backend/requirements.txt`: replace that line with the contents of
+`backend/requirements.txt`.
+
+**Limits of the free plans:** the first request after a quiet period starts the function (1–3 s);
+Vercel's Hobby plan runs crons once a day; Neon's free plan sleeps the database when idle and wakes it
+on the next request.
 
 ## Backups
 

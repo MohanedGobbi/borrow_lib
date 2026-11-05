@@ -61,6 +61,8 @@ urlpatterns = [
     path("notifications/send", views.SendNotificationView.as_view()),
     path("jobs/run", views.RunJobsView.as_view()),
     path("settings", views.SettingsView.as_view()),
+    path("demo", views.DemoInfoView.as_view()),
+    path("demo/reset", views.DemoResetView.as_view()),
     path("maintenance", views.MaintenanceView.as_view()),
     path("maintenance/backup", views.BackupView.as_view()),
     path("maintenance/restore", views.RestoreView.as_view()),

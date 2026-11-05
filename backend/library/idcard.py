@@ -10,7 +10,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from . import pdftext
-from .branding import draw_faculty_seal, draw_seal
+from .branding import draw_faculty_seal, draw_partner_credit, draw_seal
 from .emails import library_name
 from .models import display_name
 from .services import active_loan_count
@@ -77,6 +77,10 @@ def build_id_card_pdf(user: User) -> bytes:
 
     # QR
     c.drawImage(ImageReader(qr_buf), CARD_W - 30 * mm, 6 * mm, 24 * mm, 24 * mm)
+
+    # fine print along the foot, left of the QR code
+    c.setFillColor(muted)
+    draw_partner_credit(c, 6 * mm, 4.2 * mm, size=4.6, logo_h=2.6 * mm, align="left")
 
     c.showPage()
     c.save()

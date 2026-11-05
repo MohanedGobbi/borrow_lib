@@ -222,6 +222,9 @@ sudo bash deploy/install.sh --domain library.example.edu --certbot-email it@exam
 The full walkthrough (server with a domain, PC on a private network, updates, backups, restoring,
 troubleshooting) is in [`INSTALL-LINUX.md`](INSTALL-LINUX.md).
 
+**A public demo to test** runs on Vercel (site and API in one project, a free Neon database, fictional
+people, reset every night): the steps are in [`DEPLOYMENT.md`](DEPLOYMENT.md), "Vercel: the public demo".
+
 Short version for any other set-up (details in [`DEPLOYMENT.md`](DEPLOYMENT.md)):
 
 1. **Backend:** set the environment variables above, then
