@@ -172,9 +172,9 @@ The library's own installation never sets `DEMO_MODE`; `load_demo` and `/api/dem
 
 **If something is wrong:** the function's log is under Deployments → the deployment → Functions.
 A 500 on every API call before step 5 is expected (no tables yet). `DisallowedHost` means a custom
-domain is missing from `DJANGO_ALLOWED_HOSTS`. A build error about `requirements.txt` means Vercel
-did not follow `-r backend/requirements.txt`: replace that line with the contents of
-`backend/requirements.txt`.
+domain is missing from `DJANGO_ALLOWED_HOSTS`. Vercel installs the function's packages from the root
+`requirements.txt`, a flat copy of `backend/requirements.txt` without gunicorn (Vercel cannot follow
+`-r` includes); when you change a pin, change both, and `test_requirements.py` checks they agree.
 
 **Limits of the free plans:** the first request after a quiet period starts the function (1–3 s);
 Vercel's Hobby plan runs crons once a day; Neon's free plan sleeps the database when idle and wakes it
