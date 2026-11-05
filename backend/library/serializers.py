@@ -117,12 +117,13 @@ class ProfileSerializer(serializers.ModelSerializer):
     memberType = serializers.CharField(source="member_type", read_only=True)
     accountType = serializers.SerializerMethodField()
     notificationPrefs = serializers.JSONField(source="notification_prefs", required=False)
+    notes = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = UserProfile
         fields = ["id", "uuid", "name", "email", "studentOrStaffId", "phoneNumber", "address",
                   "role", "memberType", "accountType", "membershipStartDate", "maxBorrowLimit", "borrowLimitIsDefault",
-                  "active", "language", "emailVerified", "emailReminders", "notificationPrefs", "activeLoans", "hasOverdue"]
+                  "active", "language", "emailVerified", "emailReminders", "notificationPrefs", "notes", "activeLoans", "hasOverdue"]
         # PATCH /users/me must not let anyone promote or reactivate themselves.
         read_only_fields = ["role", "active"]
 

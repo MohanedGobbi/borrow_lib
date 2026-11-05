@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
-import { BellPlus, MailPlus, Search, Upload, UserPlus, UserX } from "lucide-react";
+import { BellPlus, MailPlus, Pencil, Search, Trash2, Upload, UserPlus, UserX } from "lucide-react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiInvites, apiUsers } from "@/api";
-import { invalidateInvites, qk } from "@/api/queryKeys";
+import { invalidateInvites, invalidateUsers, qk } from "@/api/queryKeys";
 import { useAuth } from "@/auth/AuthContext";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useI18n } from "@/i18n";
@@ -12,6 +12,7 @@ import { errorMessage } from "@/lib/errors";
 import { CreateAccountDialog } from "@/components/CreateAccountDialog";
 import { InviteStaffDialog } from "@/components/InviteStaffDialog";
 import { SendNotificationDialog } from "@/components/SendNotificationDialog";
+import { UserEditDialog } from "@/components/UserEditDialog";
 import { MemberStanding } from "@/components/MemberStanding";
 import { Pager } from "@/components/Pager";
 import { EmptyState, PageHeader, Panel, RowsSkeleton } from "@/components/Page";
@@ -20,18 +21,27 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { fetchPage } from "@/lib/paging";
 import { fmtDate } from "@/lib/time";
 import { tableCls } from "@/lib/table";
-import { ACCOUNT_TYPES } from "@/types";
+import { ACCOUNT_TYPES, type Profile } from "@/types";
 
 export default function UsersPage() {
   const { t } = useI18n();
   const { me } = useAuth();
   const isAdmin = me?.role === "ADMIN";
+  const isStaff = me?.role === "STAFF";
+
   const [inviting, setInviting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [announcing, setAnnouncing] = useState(false);
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [deletingUser, setDeletingUser] = useState<Profile | null>(null);
+
   const qc = useQueryClient();
   const { data: invites } = useQuery({ queryKey: qk.invites, queryFn: apiInvites.list, enabled: isAdmin });
   const revoke = useMutation({
@@ -44,6 +54,19 @@ export default function UsersPage() {
       toast.error(errorMessage(t, e));
     },
   });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => apiUsers.remove(id),
+    onSuccess: () => {
+      toast.success(t("toast.userDeleted"));
+      setDeletingUser(null);
+      return invalidateUsers(qc);
+    },
+    onError: (e) => {
+      toast.error(errorMessage(t, e));
+    },
+  });
+
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
   const debouncedSearch = useDebounced(search.trim(), 300);
@@ -154,31 +177,92 @@ export default function UsersPage() {
                   <th className={tableCls.th}>{t("col.role")}</th>
                   <th className={tableCls.th}>{t("col.loans")}</th>
                   <th className={tableCls.th}>{t("col.standing")}</th>
+                  <th className={tableCls.th}><span className="sr-only">{t("col.actions")}</span></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u) => (
-                  <tr key={u.id} className={tableCls.row}>
-                    <td className={tableCls.td}>
-                      <Link dir="auto" to={`/staff/users/${u.id}`} className="font-medium hover:text-brand-dark hover:underline">{u.name}</Link>
-                      <div dir="ltr" className="text-xs text-muted-foreground rtl:text-end">{u.email}</div>
-                    </td>
-                    <td className={tableCls.td}><span dir="ltr" className="font-mono text-[13px]">{u.studentOrStaffId}</span></td>
-                    <td className={tableCls.td}>{t(`accountType.${u.accountType}`)}</td>
-                    <td className={tableCls.td}>
-                      {u.role === "MEMBER"
-                        ? <bdi dir="ltr" className="tabular inline-block">{u.activeLoans} / {u.maxBorrowLimit}</bdi>
-                        : <span className="text-muted-foreground"><span aria-hidden>—</span><span className="sr-only">{t("users.noLimit")}</span></span>}
-                    </td>
-                    <td className={tableCls.td}><MemberStanding member={u} /></td>
-                  </tr>
-                ))}
+                {filtered.map((u) => {
+                  const canEditThis = isAdmin || (isStaff && u.role === "MEMBER");
+                  const canDeleteThis = isAdmin && u.id !== me?.id;
+                  return (
+                    <tr key={u.id} className={tableCls.row}>
+                      <td className={tableCls.td}>
+                        <Link dir="auto" to={`/staff/users/${u.id}`} className="font-medium hover:text-brand-dark hover:underline">{u.name}</Link>
+                        <div dir="ltr" className="text-xs text-muted-foreground rtl:text-end">{u.email}</div>
+                      </td>
+                      <td className={tableCls.td}><span dir="ltr" className="font-mono text-[13px]">{u.studentOrStaffId}</span></td>
+                      <td className={tableCls.td}>{t(`accountType.${u.accountType}`)}</td>
+                      <td className={tableCls.td}>
+                        {u.role === "MEMBER"
+                          ? <bdi dir="ltr" className="tabular inline-block">{u.activeLoans} / {u.maxBorrowLimit}</bdi>
+                          : <span className="text-muted-foreground"><span aria-hidden>—</span><span className="sr-only">{t("users.noLimit")}</span></span>}
+                      </td>
+                      <td className={tableCls.td}><MemberStanding member={u} /></td>
+                      <td className={`${tableCls.td} text-end`}>
+                        <div className="flex items-center justify-end gap-1">
+                          {canEditThis && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="size-8 p-0 text-muted-foreground hover:text-ink"
+                              onClick={() => setEditingUser(u)}
+                              title={t("users.edit")}
+                            >
+                              <Pencil className="size-4" aria-hidden />
+                              <span className="sr-only">{t("users.edit")}</span>
+                            </Button>
+                          )}
+                          {canDeleteThis && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="size-8 p-0 text-muted-foreground hover:bg-danger-soft hover:text-danger"
+                              onClick={() => setDeletingUser(u)}
+                              title={t("users.delete")}
+                            >
+                              <Trash2 className="size-4" aria-hidden />
+                              <span className="sr-only">{t("users.delete")}</span>
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
         {result && <Pager page={result.page} pageSize={result.pageSize} count={result.count} onPage={setPage} />}
       </Panel>
+
+      <UserEditDialog
+        member={editingUser}
+        open={!!editingUser}
+        onOpenChange={(open) => { if (!open) setEditingUser(null); }}
+      />
+
+      {deletingUser && (
+        <AlertDialog open={!!deletingUser} onOpenChange={(open) => { if (!open) setDeletingUser(null); }}>
+          <AlertDialogContent className="bg-white">
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("users.deleteConfirm")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deletingUser.name} · <span dir="ltr">{deletingUser.email}</span>. {t("users.deleteBody")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-danger text-white hover:bg-danger/90"
+                onClick={() => remove.mutate(deletingUser.id)}
+              >
+                {t("users.delete")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

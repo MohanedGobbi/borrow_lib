@@ -153,6 +153,8 @@ class UserProfile(models.Model):
     email_verified = models.BooleanField(default=True)
     # Opt-out of the ready / due-soon / overdue reminder emails. In-app notifications always stay on.
     email_reminders = models.BooleanField(default=True)
+    # Internal text notes written by librarians or administrators.
+    notes = models.TextField(blank=True, default="")
     # Which notifications the member wants, per group: {"inApp": {group: bool}, "email": {kind: bool}}.
     # A missing key means "on" (see wants_notification / wants_email).
     notification_prefs = models.JSONField(default=dict, blank=True)

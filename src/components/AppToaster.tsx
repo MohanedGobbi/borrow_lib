@@ -5,13 +5,13 @@ import { useI18n } from "@/i18n";
 /**
  * The app's transient messages, in the system's own tokens: white surface, hairline border, 6px radius,
  * a leading icon in green (success) or red (error), and the Undo action as a secondary button.
- * They sit at the end of the reading direction: bottom-right in LTR, bottom-left in RTL.
+ * They sit at the end of the reading direction: top-right in LTR, top-left in RTL.
  */
 export function AppToaster() {
   const { dir } = useI18n();
   return (
     <Toaster
-      position={dir === "rtl" ? "bottom-left" : "bottom-right"}
+      position={dir === "rtl" ? "top-left" : "top-right"}
       dir={dir}
       icons={{
         success: <CheckCircle2 className="size-[18px] text-brand" aria-hidden />,

@@ -183,6 +183,16 @@ export const apiUsers = {
     api<Profile>(`/users/${id}/role`, { method: "PATCH", body: { accountType } }),
   setActive: (id: number, active: boolean) =>
     api<Profile>(`/users/${id}/active`, { method: "PATCH", body: { active } }),
+  update: (id: number, payload: {
+    name?: string;
+    phoneNumber?: string;
+    notes?: string;
+    email?: string;
+    studentOrStaffId?: string;
+    accountType?: AccountType;
+    maxBorrowLimit?: number | null;
+    active?: boolean;
+  }) => api<Profile>(`/users/${id}`, { method: "PATCH", body: payload }),
 };
 
 export const apiMaintenance = {

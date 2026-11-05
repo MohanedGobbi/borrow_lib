@@ -263,3 +263,76 @@ class LoginCsrfTests(TestCase):
         res = APIClient().post("/api/auth/login", {"username": "m@x.com", "password": PASSWORD})  # multipart
         self.assertEqual(res.status_code, 415)
         self.assertNotIn("lb_refresh", res.cookies)
+
+
+class UserManagementTests(TestCase):
+    def setUp(self):
+        self.admin = make_user("admin@x.com", Role.ADMIN)
+        self.staff = make_user("librarian@x.com", Role.STAFF)
+        self.member = make_user("reader@x.com", Role.MEMBER)
+
+        self.admin_client = APIClient()
+        self.admin_client.force_authenticate(self.admin)
+
+        self.staff_client = APIClient()
+        self.staff_client.force_authenticate(self.staff)
+
+        self.member_client = APIClient()
+        self.member_client.force_authenticate(self.member)
+
+    def test_librarian_can_edit_simple_info_and_notes_on_member(self):
+        res = self.staff_client.patch(f"/api/users/{self.member.profile.pk}", {
+            "name": "Fatima Zahra",
+            "phoneNumber": "0555123456",
+            "notes": "Prefers law review books in Arabic.",
+        }, format="json")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["name"], "Fatima Zahra")
+        self.assertEqual(res.data["phoneNumber"], "0555123456")
+        self.assertEqual(res.data["notes"], "Prefers law review books in Arabic.")
+
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.get_full_name(), "Fatima Zahra")
+        self.assertEqual(self.member.profile.notes, "Prefers law review books in Arabic.")
+
+    def test_librarian_cannot_edit_admin_only_fields(self):
+        res = self.staff_client.patch(f"/api/users/{self.member.profile.pk}", {
+            "email": "hacked@x.com",
+        }, format="json")
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data["code"], "forbidden_field")
+
+    def test_librarian_cannot_edit_staff_or_admin_account(self):
+        res = self.staff_client.patch(f"/api/users/{self.admin.profile.pk}", {
+            "name": "New Admin Name",
+        }, format="json")
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data["code"], "staff_cannot_edit_staff")
+
+    def test_admin_can_edit_all_fields(self):
+        res = self.admin_client.patch(f"/api/users/{self.member.profile.pk}", {
+            "name": "Amina Said",
+            "email": "amina.new@x.com",
+            "phoneNumber": "0666000111",
+            "studentOrStaffId": "CARD-99999",
+            "accountType": "PROFESSOR",
+            "maxBorrowLimit": 15,
+            "notes": "Faculty professor.",
+        }, format="json")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["name"], "Amina Said")
+        self.assertEqual(res.data["email"], "amina.new@x.com")
+        self.assertEqual(res.data["studentOrStaffId"], "CARD-99999")
+        self.assertEqual(res.data["accountType"], "PROFESSOR")
+        self.assertEqual(res.data["maxBorrowLimit"], 15)
+        self.assertEqual(res.data["notes"], "Faculty professor.")
+
+    def test_delete_user_blocked_if_active_loans(self):
+        from .tests import make_book
+        from .models import BorrowRecord, Status
+        book = make_book(3)
+        BorrowRecord.objects.create(user=self.member, book=book, status=Status.BORROWED)
+
+        res = self.admin_client.delete(f"/api/users/{self.member.profile.pk}/delete")
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data["code"], "user_has_active_loans")

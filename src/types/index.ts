@@ -142,6 +142,7 @@ export interface Profile {
   /** False when the member turned off pickup, due-date and overdue emails; notifications always stay on. */
   emailReminders: boolean;
   notificationPrefs: NotificationPrefs;
+  notes?: string;
   activeLoans: number;
   hasOverdue: boolean;
 }

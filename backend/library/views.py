@@ -1,3 +1,4 @@
+import re
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -31,7 +32,7 @@ from .models import (
     log_activity,
 )
 from .pagination import StandardPagination
-from .permissions import IsAdmin, IsStaffOrAdmin
+from .permissions import IsAdmin, IsStaffOrAdmin, role_of
 from .serializers import (
     ActivitySerializer,
     BookSerializer,
@@ -610,7 +611,9 @@ class UserImportView(APIView):
 
 
 class UserDetailView(APIView):
-    """Staff-only: one member's profile + full borrowing history."""
+    """Staff-only: one member's profile + full borrowing history.
+    Librarians can update simple info (name, phone) and internal notes on reader accounts.
+    Administrators can update all fields including email, ID, role, and borrow limit."""
     permission_classes = [IsStaffOrAdmin]
 
     def get(self, request, pk):
@@ -621,6 +624,94 @@ class UserDetailView(APIView):
             "records": BorrowRecordSerializer(records, many=True).data,
         })
 
+    def patch(self, request, pk):
+        profile = get_object_or_404(UserProfile.objects.select_related("user"), pk=pk)
+        demo.protect_account(profile)
+        actor_role = role_of(request.user)
+        is_admin = (actor_role == Role.ADMIN)
+
+        if not is_admin:
+            if profile.role != Role.MEMBER:
+                raise BusinessRuleError("staff_cannot_edit_staff", "Librarians can only edit reader accounts.")
+            admin_only_fields = {"email", "studentOrStaffId", "accountType", "maxBorrowLimit", "active"}
+            for k in admin_only_fields:
+                if k in request.data:
+                    raise BusinessRuleError("forbidden_field", "Only administrators can change this field.")
+
+        user = profile.user
+        user_changed = False
+
+        if "name" in request.data:
+            name = str(request.data["name"]).strip()
+            if not name:
+                raise BusinessRuleError("name_required", "Name cannot be empty.")
+            parts = name.split(None, 1)
+            user.first_name = parts[0]
+            user.last_name = parts[1] if len(parts) > 1 else ""
+            user_changed = True
+
+        if "phoneNumber" in request.data:
+            profile.phone_number = str(request.data["phoneNumber"]).strip()[:40]
+
+        if "notes" in request.data:
+            profile.notes = str(request.data["notes"]).strip()
+
+        if is_admin:
+            if "email" in request.data:
+                new_email = str(request.data["email"]).strip().lower()
+                if not new_email or "@" not in new_email:
+                    raise BusinessRuleError("invalid_email", "Enter a valid email address.")
+                if new_email != user.email:
+                    if User.objects.exclude(pk=user.pk).filter(email__iexact=new_email).exists():
+                        raise BusinessRuleError("email_in_use", "An account with this email address already exists.")
+                    user.email = new_email
+                    user.username = new_email
+                    user_changed = True
+
+            if "studentOrStaffId" in request.data:
+                new_id = str(request.data["studentOrStaffId"]).strip()
+                if not new_id:
+                    raise BusinessRuleError("id_required", "Card number or ID cannot be empty.")
+                if new_id != profile.student_or_staff_id:
+                    if UserProfile.objects.exclude(pk=profile.pk).filter(student_or_staff_id=new_id).exists():
+                        raise BusinessRuleError("id_in_use", "An account with this ID or card number already exists.")
+                    profile.student_or_staff_id = new_id
+
+            if "accountType" in request.data:
+                account_type = request.data["accountType"]
+                if account_type not in ACCOUNT_TYPES:
+                    raise BusinessRuleError("invalid_role", "Invalid account type.")
+                role, member_type = role_for_account_type(account_type)
+                if user == request.user and role != Role.ADMIN:
+                    raise BusinessRuleError("cannot_demote_self", "You cannot remove your own administrator access.")
+                profile.role = role
+                profile.member_type = member_type
+
+            if "maxBorrowLimit" in request.data:
+                limit_val = request.data["maxBorrowLimit"]
+                if limit_val is None or limit_val == "" or limit_val == "default":
+                    profile.max_borrow_limit = None
+                else:
+                    try:
+                        ival = int(limit_val)
+                        if ival < 1 or ival > 100:
+                            raise ValueError()
+                        profile.max_borrow_limit = ival
+                    except (ValueError, TypeError):
+                        raise BusinessRuleError("invalid_borrow_limit", "Borrow limit must be between 1 and 100.")
+
+            if "active" in request.data:
+                profile.active = bool(request.data["active"])
+
+        if user_changed:
+            user.save()
+        profile.save()
+
+        name = display_name(user)
+        log_activity(display_name(request.user), "ACCOUNT_UPDATED",
+                     f"Updated {name}'s account details.", member=name)
+        return Response(ProfileSerializer(profile).data)
+
 
 class UserDeleteView(APIView):
     """Admin-only: permanently delete a user account."""
@@ -628,10 +719,13 @@ class UserDeleteView(APIView):
 
     def delete(self, request, pk):
         profile = get_object_or_404(UserProfile, pk=pk)
+        demo.protect_account(profile)
         if profile.user == request.user:
             raise BusinessRuleError("cannot_delete_self", "You cannot delete your own account.")
         if profile.role == Role.ADMIN and not profile.user.is_superuser:
             raise BusinessRuleError("cannot_delete_admin", "Only superusers can delete admin accounts.")
+        if profile.user.borrow_records.filter(status__in=services.ACTIVE_STATUSES).exists():
+            raise BusinessRuleError("user_has_active_loans", "Cannot delete an account that currently has active loans or items held for pickup.")
         name = display_name(profile.user)
         profile.user.delete()
         log_activity(display_name(request.user), "ACCOUNT_DELETED", f"Deleted {name}'s account.", member=name)

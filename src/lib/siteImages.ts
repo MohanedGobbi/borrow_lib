@@ -40,26 +40,12 @@ export interface SiteImage {
 }
 
 const BASE = import.meta.env.BASE_URL;
-const WIDTHS = [640, 1200, 2000];
 
-function bundled(
-  name: string, width: number, height: number, position: string, photographer: string, unsplashId: string,
-): SiteImage {
-  return {
-    sources: WIDTHS.map((w) => ({ url: `${BASE}images/${name}-${w}.webp`, width: w })),
-    width,
-    height,
-    position,
-    alt: "",
-    credit: { kind: "unsplash", name: photographer, url: `https://unsplash.com/photos/${unsplashId}` },
-    custom: false,
-  };
-}
 
 /** The university's own photographs: one file at its own width, and no credit line. */
-function own(name: string, width: number, height: number, position: string): SiteImage {
+function own(name: string, width: number, height: number, position: string, widths?: number[]): SiteImage {
   return {
-    sources: [{ url: `${BASE}images/${name}-${width}.webp`, width }],
+    sources: (widths && widths.length ? widths : [width]).map((w) => ({ url: `${BASE}images/${name}-${w}.webp`, width: w })),
     width,
     height,
     position,
@@ -72,11 +58,11 @@ function own(name: string, width: number, height: number, position: string): Sit
 export const DEFAULTS: Record<SiteImageSlot, SiteImage> = {
   // Every photograph is black and white, so the palette stays green, white and red (uploads are converted the same way).
   // The landing page shows the Faculty of Law and Political Sciences building, in colour, as on the faculty's banner.
-  hero: own("faculty-building", 550, 390, "50% 40%"),
+  hero: own("faculty-building", 560, 315, "50% 40%"),
   // The university's main building.
   feature: own("university-building", 562, 355, "50% 50%"),
   // Portrait, for the side panel of the sign-in pages.
-  auth: bundled("vaulted-aisle", 1333, 2000, "50% 40%", "Frank Huang", "ziEKw11ck_U"),
+  auth: own("univ-ghardaia", 1024, 768, "50% 50%", [640, 1024]),
 };
 
 /** The API's photographs. They change only when an admin edits them, so ten minutes is fresh. */

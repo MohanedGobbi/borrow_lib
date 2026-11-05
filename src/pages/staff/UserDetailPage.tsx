@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, Trash2, UserCheck, UserX } from "lucide-react";
+import { ArrowLeft, NotebookPen, Pencil, Trash2, UserCheck, UserX } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiUsers } from "@/api";
@@ -10,9 +11,11 @@ import { errorMessage } from "@/lib/errors";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RequestDocButton } from "@/components/RequestDocButton";
 import { MemberDesk } from "@/components/MemberDesk";
+import { UserEditDialog } from "@/components/UserEditDialog";
 import { fmtDate } from "@/lib/time";
 import { EmptyState, Panel } from "@/components/Page";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { FullPageLoader } from "@/auth/guards";
 import { tableCls } from "@/lib/table";
 import {
@@ -26,16 +29,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-/** Staff view of one member: details and full borrowing history. Admins can delete the account. */
+/** Staff view of one member: details, internal staff notes, and full borrowing history. Admins can delete or edit the account. */
 export default function UserDetailPage() {
   const { id } = useParams();
   const { me } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [noteInput, setNoteInput] = useState<string | null>(null);
+
   const { data, isPending, isError } = useQuery({
     queryKey: qk.users.detail(id!), queryFn: () => apiUsers.get(Number(id)),
   });
+
   const remove = useMutation({
     mutationFn: (memberId: number) => apiUsers.remove(memberId),
     onSuccess: () => {
@@ -50,10 +57,12 @@ export default function UserDetailPage() {
 
   const saved = async (profile: Profile, message: string) => {
     toast.success(message);
+    setNoteInput(null);
     await qc.invalidateQueries({ queryKey: qk.users.detail(id!) });
     await invalidateUsers(qc);
     return profile;
   };
+
   const changeType = useMutation({
     mutationFn: (accountType: AccountType) => apiUsers.setAccountType(Number(id), accountType),
     onSuccess: (p) => saved(p, t("users.typeChanged", { type: t(`accountType.${p.accountType}`) })),
@@ -61,9 +70,18 @@ export default function UserDetailPage() {
       toast.error(errorMessage(t, e));
     },
   });
+
   const setActive = useMutation({
     mutationFn: (active: boolean) => apiUsers.setActive(Number(id), active),
     onSuccess: (p) => saved(p, t(p.active ? "users.reactivated" : "users.deactivated")),
+    onError: (e) => {
+      toast.error(errorMessage(t, e));
+    },
+  });
+
+  const saveNote = useMutation({
+    mutationFn: (notes: string) => apiUsers.update(Number(id), { notes }),
+    onSuccess: (p) => saved(p, t("users.notesSaved")),
     onError: (e) => {
       toast.error(errorMessage(t, e));
     },
@@ -79,6 +97,8 @@ export default function UserDetailPage() {
   }
 
   const { member, records } = data;
+  const currentNotes = noteInput !== null ? noteInput : (member.notes ?? "");
+  const canEdit = me?.role === "ADMIN" || (me?.role === "STAFF" && member.role === "MEMBER");
 
   const deleteAccount = () => remove.mutate(member.id);
 
@@ -107,29 +127,36 @@ export default function UserDetailPage() {
         records={records}
         historyHref="#history"
         actions={
-          me?.role === "ADMIN" && me.id !== member.id && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button size="sm" variant="outline" className="text-danger hover:border-danger/40 hover:bg-danger-soft hover:text-danger">
-                  <Trash2 className="size-4" aria-hidden /> {t("users.delete")}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="bg-white">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t("users.deleteConfirm")}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {member.name} · <span dir="ltr">{member.email}</span>. {t("users.deleteBody")}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                  <AlertDialogAction className="bg-danger text-white hover:bg-danger/90" onClick={deleteAccount}>
-                    {t("users.delete")}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && (
+              <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                <Pencil className="size-4" aria-hidden /> {t("users.edit")}
+              </Button>
+            )}
+            {me?.role === "ADMIN" && me.id !== member.id && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="text-danger hover:border-danger/40 hover:bg-danger-soft hover:text-danger">
+                    <Trash2 className="size-4" aria-hidden /> {t("users.delete")}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-white">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t("users.deleteConfirm")}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {member.name} · <span dir="ltr">{member.email}</span>. {t("users.deleteBody")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                    <AlertDialogAction className="bg-danger text-white hover:bg-danger/90" onClick={deleteAccount}>
+                      {t("users.delete")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         }
       />
 
@@ -144,6 +171,29 @@ export default function UserDetailPage() {
                 </div>
               ))}
             </dl>
+          </Panel>
+
+          {/* Internal staff notes: editable by both librarians and admins */}
+          <Panel title={t("users.notes")} flush>
+            <div className="space-y-3 p-4">
+              <p className="text-xs text-muted-foreground">{t("users.notesSub")}</p>
+              <Textarea
+                rows={3}
+                placeholder={t("users.notesPlaceholder")}
+                value={currentNotes}
+                onChange={(e) => setNoteInput(e.target.value)}
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={saveNote.isPending || currentNotes.trim() === (member.notes ?? "").trim()}
+                  onClick={() => saveNote.mutate(currentNotes.trim())}
+                >
+                  <NotebookPen className="size-3.5 me-1" aria-hidden />
+                  {saveNote.isPending ? t("common.saving") : t("users.saveNotes")}
+                </Button>
+              </div>
+            </div>
           </Panel>
 
           {me?.role === "ADMIN" && me.id !== member.id && (
@@ -215,6 +265,13 @@ export default function UserDetailPage() {
           </Panel>
         </div>
       </div>
+
+      <UserEditDialog
+        member={member}
+        open={editing}
+        onOpenChange={setEditing}
+        onSuccess={(p) => saved(p, t("users.updated"))}
+      />
     </div>
   );
 }
