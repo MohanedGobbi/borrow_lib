@@ -15,6 +15,7 @@ import type {
   LibrarySettings,
   MaintenanceAction,
   MaintenanceCounts,
+  UpdateStatus,
   MemberType,
   AccountType,
   NotificationPrefs,
@@ -207,6 +208,10 @@ export const apiMaintenance = {
     return api<MaintenanceCounts>("/maintenance/restore", { method: "POST", body });
   },
   backup: () => downloadExport("/maintenance/backup", {}, `library-backup-${today()}.json`),
+  updateStatus: () => api<UpdateStatus>("/maintenance/update"),
+  /** Asks the server to check GitHub for a new release now (needs the admin's password again). */
+  requestUpdate: (password: string) =>
+    api<UpdateStatus>("/maintenance/update", { method: "POST", body: { password } }),
 };
 
 /** Download an authenticated binary (PDF) as a file. */

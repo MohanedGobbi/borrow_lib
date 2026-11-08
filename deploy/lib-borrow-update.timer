@@ -1,0 +1,12 @@
+[Unit]
+Description=Check GitHub for a new release of the library platform every night
+
+[Timer]
+# After the 02:30 backup and outside opening hours; the site restarts for a few seconds when it updates.
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=20min
+# A night the server was off is caught up at the next boot.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

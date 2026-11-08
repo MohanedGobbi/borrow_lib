@@ -1,0 +1,11 @@
+[Unit]
+Description=Install a newer release of the library platform from GitHub, if there is one
+Documentation=file://@APP_DIR@/INSTALL-LINUX.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as root: it replaces the program folder and restarts the services. See deploy/auto-update.sh.
+ExecStart=/bin/bash @APP_DIR@/deploy/auto-update.sh
+TimeoutStartSec=45min

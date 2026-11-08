@@ -38,6 +38,27 @@ class SignupTests(TestCase):
         res = APIClient().post("/api/auth/register", {**base, "phoneNumber": "1", "memberType": "ADMIN"}, format="json")
         self.assertEqual(res.status_code, 400)
 
+    def test_signup_cannot_choose_administrative_staff(self):
+        res = APIClient().post("/api/auth/register", {
+            "name": "A B", "email": "a@x.dz", "password": "shelf-mark-FIC-7", "phoneNumber": "1",
+            "memberType": "ADMINISTRATIVE"}, format="json")
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(UserProfile.objects.exists())
+
+    def test_signup_needs_a_university_address_when_domains_are_set(self):
+        from django.test import override_settings
+
+        base = {"name": "A B", "password": "shelf-mark-FIC-7", "phoneNumber": "1"}
+        with override_settings(REGISTRATION_EMAIL_DOMAINS=["univ-ghardaia.dz"]):
+            for email in ("a@gmail.com", "a@univ-ghardaia.dz.evil.com", "a@notuniv-ghardaia.dz"):
+                res = APIClient().post("/api/auth/register", {**base, "email": email}, format="json")
+                self.assertEqual((res.status_code, res.data["code"]), (400, "email_domain"), email)
+                self.assertEqual(res.data["params"], {"domains": "@univ-ghardaia.dz"})
+            for email in ("a@univ-ghardaia.dz", "b@etu.UNIV-GHARDAIA.dz"):
+                res = APIClient().post("/api/auth/register", {**base, "email": email}, format="json")
+                self.assertEqual(res.status_code, 201, (email, res.data))
+        self.assertFalse(UserProfile.objects.filter(user__email="a@gmail.com").exists())
+
 
 class AdminAccountTests(TestCase):
     def setUp(self):

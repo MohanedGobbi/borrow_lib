@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { LinkIcon, ShieldCheck } from "lucide-react";
 import { apiInvites } from "@/api";
-import { MEMBER_TYPES, type MemberType } from "@/types";
+import { SIGNUP_MEMBER_TYPES, type MemberType } from "@/types";
 import { useAuth } from "@/auth/AuthContext";
 import { useI18n } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
@@ -118,10 +118,12 @@ export default function SignupPage() {
             <Label htmlFor="email">{t("auth.email")}</Label>
             <Input
               id="email" type="email" required autoComplete="email" dir="ltr" value={email} onChange={set("email")}
-              readOnly={!!invited} aria-describedby={invited ? "email-locked" : undefined}
+              readOnly={!!invited} aria-describedby={invited ? "email-locked" : "email-hint"}
               className={invited ? "h-11 bg-surface" : "h-11"}
             />
-            {invited && <p id="email-locked" className="text-xs text-muted-foreground">{t("invite.emailLocked")}</p>}
+            {invited
+              ? <p id="email-locked" className="text-xs text-muted-foreground">{t("invite.emailLocked")}</p>
+              : <p id="email-hint" className="text-xs text-muted-foreground">{t("auth.emailHint")}</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="phone">{t("auth.phone")}</Label>
@@ -139,9 +141,9 @@ export default function SignupPage() {
             <RadioGroup
               value={memberType}
               onValueChange={(v) => setMemberType(v as MemberType)}
-              className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+              className="grid grid-cols-1 gap-2 sm:grid-cols-3"
             >
-              {MEMBER_TYPES.map((type) => (
+              {SIGNUP_MEMBER_TYPES.map((type) => (
                 <Label
                   key={type}
                   htmlFor={`type-${type}`}

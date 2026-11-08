@@ -35,6 +35,7 @@ export const qk = {
   demo: ["demo"] as const,
   siteImages: ["siteImages"] as const,
   maintenance: ["maintenance"] as const,
+  update: ["update"] as const,
 };
 
 /** Marks every query under these keys stale and refetches the ones on screen. */

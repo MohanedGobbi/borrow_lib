@@ -201,6 +201,14 @@ class StaffInviteTests(TestCase):
         self.assertEqual(register(APIClient(), "librarian2@x.com", inviteToken=token).status_code, 400)
         self.assertEqual(self.admin.get("/api/invites").json(), [])  # no longer pending
 
+    def test_an_invite_is_not_held_to_the_university_domains(self):
+        from django.test import override_settings
+
+        self.invite()
+        token = invite_link(mail.outbox[0])
+        with override_settings(REGISTRATION_EMAIL_DOMAINS=["univ-ghardaia.dz"]):
+            self.assertEqual(register(APIClient(), "librarian@x.com", inviteToken=token).status_code, 201)
+
     def test_invite_is_bound_to_its_email(self):
         self.invite()
         token = invite_link(mail.outbox[0])

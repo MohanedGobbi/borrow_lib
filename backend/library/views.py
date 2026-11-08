@@ -60,6 +60,13 @@ class RegisterView(APIView):
         s = RegisterSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         d = s.validated_data
+        # An invite names its address, so only open sign-ups are held to the university domains.
+        domains = settings.REGISTRATION_EMAIL_DOMAINS
+        if domains and not d["inviteToken"]:
+            host = d["email"].rsplit("@", 1)[-1].lower()
+            if not any(host == dom or host.endswith("." + dom) for dom in domains):
+                raise BusinessRuleError("email_domain", "Sign up with your university email address.",
+                                        domains=", ".join("@" + dom for dom in domains))
         first, _, last = d["name"].strip().partition(" ")
         # The invite check and the sign-up share one transaction, with the invite row locked, so two
         # sign-ups cannot use the same token.
@@ -927,6 +934,24 @@ class RestoreView(APIView):
         if upload.size > 200 * 1024 * 1024:
             raise BusinessRuleError("backup_invalid", "This file is too large to be a library backup.")
         return Response(maintenance.restore(upload.read(), display_name(request.user)))
+
+
+class UpdateView(APIView):
+    """Admin: the installed version and the server's automatic updates (library/updates.py). POST, with
+    the admin's password, asks the server to check GitHub for a new release now."""
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        from . import updates
+        return Response(updates.status())
+
+    def post(self, request):
+        from . import updates
+        demo.refuse_maintenance()
+        check_admin_password(request)
+        updates.request_update()
+        log_activity(display_name(request.user), "UPDATE_REQUESTED", "Asked the server to check for a new version.")
+        return Response(updates.status(), status=http.HTTP_202_ACCEPTED)
 
 
 class MaintenanceActionView(APIView):

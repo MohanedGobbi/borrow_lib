@@ -84,8 +84,16 @@ if [ "$(timedatectl show -p Timezone --value 2>/dev/null || true)" != "Africa/Al
   fi
 fi
 
+UPDATE_REPO="MohanedGobbi/borrow_lib"
+AUTO=""
+if ask_yes "Install new versions automatically every night from github.com/$UPDATE_REPO? (needs internet access)"; then
+  ARGS+=(--auto-update "$UPDATE_REPO")
+  AUTO="  Updates: automatic, every night, from github.com/$UPDATE_REPO"
+fi
+
 echo
 echo "  The site will be at:  $URL"
+[ -z "$AUTO" ] || echo "$AUTO"
 echo "  Database: PostgreSQL. Takes about 5 minutes."
 echo
 ask_yes "Start the installation?" || exit 0

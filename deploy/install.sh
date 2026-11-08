@@ -15,12 +15,15 @@
 #   --workers N            gunicorn workers                     (default 2 x CPUs + 1, at most 5)
 #   --skip-build           do not build the site (dist/ is already there)
 #   --no-inventory         do not load the library's catalogue
+#   --auto-update OWNER/REPO  install new releases of that GitHub repository every night on their
+#                          own (deploy/auto-update.sh); kept when the installer runs again
+#   --no-auto-update       switch automatic updates off
 #   --yes                  never ask questions (no first administrator is created)
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 DOMAINS=""; HTTP_ONLY=0; CERTBOT_EMAIL=""; USE_SQLITE=0; TIMEZONE="Africa/Algiers"
-WORKERS=""; SKIP_BUILD=0; LOAD_INVENTORY=1; ASSUME_YES=0
+WORKERS=""; SKIP_BUILD=0; LOAD_INVENTORY=1; ASSUME_YES=0; AUTO_UPDATE=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -32,6 +35,8 @@ while [ $# -gt 0 ]; do
     --workers)        WORKERS="${2:?--workers needs a value}"; shift 2 ;;
     --skip-build)     SKIP_BUILD=1; shift ;;
     --no-inventory)   LOAD_INVENTORY=0; shift ;;
+    --auto-update)    AUTO_UPDATE="${2:?--auto-update needs OWNER/REPO}"; shift 2 ;;
+    --no-auto-update) AUTO_UPDATE="off"; shift ;;
     --yes|-y)         ASSUME_YES=1; shift ;;
     -h|--help)        sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)                die "Unknown option: $1 (see --help)" ;;
@@ -63,6 +68,10 @@ if [ -z "$DOMAINS" ]; then
   [ -n "$DOMAINS" ] || die "A domain or IP address is required."
 fi
 if [ -n "$CERTBOT_EMAIL" ] && [ "$HTTP_ONLY" -eq 1 ]; then die "--certbot-email and --http-only exclude each other."; fi
+if [ -n "$AUTO_UPDATE" ] && [ "$AUTO_UPDATE" != off ]; then
+  [[ "$AUTO_UPDATE" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "--auto-update takes the GitHub repository as OWNER/NAME."
+  [ "$APP_DIR" = /opt/lib-borrow ] || die "Automatic updates need the installation in /opt/lib-borrow (it is in $APP_DIR)."
+fi
 if [ -z "$WORKERS" ]; then
   WORKERS=$(( 2 * $(nproc) + 1 )); [ "$WORKERS" -le 5 ] || WORKERS=5
 fi
@@ -143,6 +152,8 @@ DJANGO_MEDIA_ROOT=$DATA_DIR/media
 DJANGO_STATIC_ROOT=$DATA_DIR/static
 LIBRARY_TIME_ZONE=$TIMEZONE
 #LIBRARY_NAME="Faculty of Law and Political Sciences Library"
+# Open sign-up accepts only these email domains (and their subdomains); empty accepts any address.
+#REGISTRATION_EMAIL_DOMAINS=univ-ghardaia.dz
 
 EOF
     if [ "$USE_SQLITE" -eq 1 ]; then
@@ -215,6 +226,25 @@ log "Installing the service, the web server configuration and the scheduled jobs
 render "$APP_DIR/deploy/lib-borrow.service" > "/etc/systemd/system/$SERVICE.service"
 render "$APP_DIR/deploy/lib-borrow.cron"    > /etc/cron.d/lib-borrow
 chmod 644 /etc/cron.d/lib-borrow
+render "$APP_DIR/deploy/lib-borrow-update.service" > /etc/systemd/system/lib-borrow-update.service
+render "$APP_DIR/deploy/lib-borrow-update.timer"   > /etc/systemd/system/lib-borrow-update.timer
+render "$APP_DIR/deploy/lib-borrow-update.path"    > /etc/systemd/system/lib-borrow-update.path
+UPDATE_CONF="$ENV_DIR/auto-update.env"
+UPDATE_REQUEST_DIR="$DATA_DIR/update-request"   # the admin page's "Check now" drops a file here
+if [ "$AUTO_UPDATE" = off ]; then
+  rm -f "$UPDATE_CONF"
+elif [ -n "$AUTO_UPDATE" ] && [ -e "$UPDATE_CONF" ]; then
+  sed -i "s|^UPDATE_REPO=.*|UPDATE_REPO=$AUTO_UPDATE|" "$UPDATE_CONF"   # keeps a token, if one was added
+elif [ -n "$AUTO_UPDATE" ]; then
+  install -m 600 -o root -g root /dev/null "$UPDATE_CONF"
+  cat > "$UPDATE_CONF" <<EOF
+# Automatic updates (deploy/auto-update.sh): every night the server installs the newest release
+# of this GitHub repository, if it is newer than the one running. Remove this file to stop them.
+UPDATE_REPO=$AUTO_UPDATE
+# Only for a private repository: a read-only token (fine-grained, "Contents: read").
+#GITHUB_TOKEN=
+EOF
+fi
 if [ ! -e /etc/nginx/sites-available/lib-borrow ] || ! grep -q 'listen 443' /etc/nginx/sites-available/lib-borrow; then
   # Not yet touched by certbot: safe to (re)write.
   render "$APP_DIR/deploy/nginx.conf" > /etc/nginx/sites-available/lib-borrow
@@ -227,6 +257,14 @@ rm -f /etc/nginx/sites-enabled/default      # it would also claim port 80 as the
 systemctl daemon-reload
 systemctl enable --now cron >/dev/null 2>&1 || warn "Could not start cron: the scheduled jobs will not run (systemctl status cron)."
 systemctl enable "$SERVICE" >/dev/null
+if [ -e "$UPDATE_CONF" ]; then
+  install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$UPDATE_REQUEST_DIR"
+  systemctl enable --now lib-borrow-update.timer lib-borrow-update.path >/dev/null 2>&1 \
+    || warn "Could not start the automatic updates (systemctl status lib-borrow-update.timer lib-borrow-update.path)."
+else
+  systemctl disable --now lib-borrow-update.timer lib-borrow-update.path >/dev/null 2>&1 || true
+  rm -rf "$UPDATE_REQUEST_DIR"   # the admin page then shows that updates are off
+fi
 systemctl restart "$SERVICE"
 nginx -t
 systemctl enable nginx >/dev/null 2>&1 || true
@@ -283,5 +321,6 @@ $( [ "$HTTP_ONLY" -eq 0 ] && ! grep -q 'listen 443' /etc/nginx/sites-available/l
 Logs:      journalctl -u $SERVICE -f
 Jobs:      journalctl -t lib-borrow-jobs
 Upgrade:   git pull && sudo bash deploy/update.sh
+$( [ -e "$UPDATE_CONF" ] && echo "Updates:   automatic, nightly from github.com/$(sed -n 's/^UPDATE_REPO=//p' "$UPDATE_CONF") (journalctl -u lib-borrow-update)" )
 Backups:   $BACKUP_DIR (nightly, and: sudo bash deploy/backup.sh)
 EOF

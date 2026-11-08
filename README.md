@@ -205,6 +205,7 @@ required; the usual columns are `الشفرة` (call number), `الـعنـوا�
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | SMTP for verification, password reset and reminder emails |
 | `LIBRARY_TIME_ZONE` | e.g. `Africa/Algiers`, for dates written in emails |
 | `LIBRARY_NAME` | overrides the library's name in emails and PDFs |
+| `REGISTRATION_EMAIL_DOMAINS` | email domains open sign-up accepts (default `univ-ghardaia.dz`, subdomains included) |
 
 The complete list, with defaults, is in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 

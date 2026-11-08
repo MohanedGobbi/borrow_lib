@@ -27,6 +27,7 @@
    | `CSRF_TRUSTED_ORIGINS` | origins allowed to post to the Django admin | none |
    | `FRONTEND_URL` | base URL embedded in ID-card QR codes and in the links of password-reset, verification and invite emails | `http://localhost:3000` |
    | `LIBRARY_NAME` | printed on ID cards and in emails; when set, it replaces the French and Arabic names in emails too | Faculty of Law and Political Sciences Library |
+   | `REGISTRATION_EMAIL_DOMAINS` | comma-separated email domains open sign-up accepts (subdomains included, e.g. `etu.univ-ghardaia.dz`); empty accepts any address. Staff invites and accounts made by an admin are not limited | `univ-ghardaia.dz` (none in the demo) |
    | `LIBRARY_TIME_ZONE` | IANA time zone (e.g. `Africa/Algiers`) that dates and times inside emails are written in; stored times stay UTC | `UTC` |
    | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP server for password-reset, verification and invite emails (outside debug mode; debug prints them to the console) | none / `587` / none / none / `1` |
    | `DEFAULT_FROM_EMAIL` | sender of those emails | `Faculty Library <no-reply@localhost>` |

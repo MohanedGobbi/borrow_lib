@@ -25,7 +25,7 @@ A step-by-step guide, from an empty machine to a working site. It uses the scrip
 > **Installing at an institution without Git or Node.js?** Build the installation folder on your own
 > computer with `python scripts/make_release.py` (it runs `npm run build` first). It writes
 > `university-package/1-Installation/`: the code with the site already built, a checksum, and the
-> scripts from `deploy/package/`: `install.sh` (asks two questions and runs `deploy/install.sh --skip-build`),
+> scripts from `deploy/package/`: `install.sh` (asks a few questions, including whether to update itself from GitHub, and runs `deploy/install.sh --skip-build`),
 > `update.sh` (installs a newer archive over the running one and keeps `/opt/lib-borrow.previous`),
 > `status.sh` (health check) and `send-to-server.bat` (copies the folder from Windows over SSH and runs
 > one of them). Copy that folder to the server and run `sudo bash install.sh`. The rest of this guide
@@ -283,6 +283,53 @@ sudo bash deploy/update.sh
 `update.sh` takes a backup first, updates the dependencies, rebuilds the site, applies database
 migrations and restarts the service. If the nginx or systemd templates in `deploy/` changed, run
 `sudo bash deploy/install.sh --domain <same domain> [same options]` again; it keeps your settings.
+
+### Automatic updates from GitHub
+
+For a server nobody can log in to after the installation: it checks GitHub for a new **release**
+every night (03:30, after the backup) and installs it on its own. Switch it on during the installation
+(the offline installer asks; otherwise add `--auto-update MohanedGobbi/borrow_lib` to `install.sh`).
+The server needs outgoing HTTPS to `api.github.com`, `github.com` and `*.githubusercontent.com`, and
+to PyPI for the Python packages.
+
+**Publishing a version** (from the development machine). Only releases are installed, never ordinary
+pushes, so work in progress on `main` stays on GitHub until you release it:
+
+```bash
+npm version patch        # or minor / major: bumps package.json, commits, tags v1.0.1
+git push --follow-tags
+```
+
+The tag starts `.github/workflows/release.yml`: it runs the tests, builds the server package and
+publishes it as a GitHub release. If the tests fail, nothing is published.
+
+**On the server, each night** `deploy/auto-update.sh`:
+
+1. compares the latest release with the installed version and stops if it is not newer;
+2. downloads the package and checks its SHA-256 checksum;
+3. takes a backup, switches to the new version (the old one stays in `/opt/lib-borrow.previous`),
+   installs dependencies, migrates the database and restarts;
+4. if the new version does not start, puts the previous version **and the database from that backup**
+   back, keeps the broken copy in `/opt/lib-borrow.failed`, and skips that release until a newer one
+   is published. Fix the problem and publish the next version.
+
+**From the site.** Administrators see the installed version, the latest release and the result of the last
+check under Settings → **Software updates**, with a **Check for updates now** button (it asks for their
+password). The site never runs anything as root: the button only creates
+`/var/lib/lib-borrow/update-request/requested`, and the `lib-borrow-update.path` unit starts the update
+script when that file appears. The script reports its progress in `/var/lib/lib-borrow-update/status.json`,
+which the page reads.
+
+| | |
+|---|---|
+| Check now | Settings → Software updates → Check for updates now, or `sudo systemctl start lib-borrow-update` |
+| What it did | `journalctl -u lib-borrow-update`, and `/var/lib/lib-borrow-update/history` |
+| When it next runs | `systemctl list-timers lib-borrow-update.timer` |
+| Switch off | `sudo bash deploy/install.sh --domain <same domain> --no-auto-update` (or delete `/etc/lib-borrow/auto-update.env`) |
+| Private repository | add a read-only token (`GITHUB_TOKEN=`) to `/etc/lib-borrow/auto-update.env` |
+
+Whoever can publish a release on that GitHub repository can change what runs on this server: keep
+two-factor authentication on the GitHub account.
 
 ## 10. Backups and restoring
 

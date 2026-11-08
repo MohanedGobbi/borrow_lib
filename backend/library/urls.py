@@ -66,6 +66,7 @@ urlpatterns = [
     path("maintenance", views.MaintenanceView.as_view()),
     path("maintenance/backup", views.BackupView.as_view()),
     path("maintenance/restore", views.RestoreView.as_view()),
+    path("maintenance/update", views.UpdateView.as_view()),
     path("maintenance/<str:action>", views.MaintenanceActionView.as_view()),
     path("site-images", site_image_views.SiteImageListView.as_view()),
     path("site-images/<str:slot>", site_image_views.SiteImageDetailView.as_view()),

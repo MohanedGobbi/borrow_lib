@@ -223,6 +223,15 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL") or (
     else "http://localhost:3000")
 
 LIBRARY_NAME = os.environ.get("LIBRARY_NAME", "Faculty of Law and Political Sciences Library")
+# Automatic updates (deploy/auto-update.sh): the progress report the admin settings page reads, and the
+# file that page creates to ask for a check now. They only exist on a server installed with --auto-update.
+UPDATE_STATUS_FILE = os.environ.get("LIB_BORROW_UPDATE_STATUS", "/var/lib/lib-borrow-update/status.json")
+UPDATE_REQUEST_FILE = os.environ.get("LIB_BORROW_UPDATE_REQUEST", "/var/lib/lib-borrow/update-request/requested")
+# Self-registration accepts only addresses at these domains or their subdomains (comma-separated).
+# Empty means any address. Staff invites and accounts made by an admin are not limited. The demo and
+# the test suite default to no limit.
+REGISTRATION_EMAIL_DOMAINS = [d.lower().lstrip("@.") for d in env_list(
+    "REGISTRATION_EMAIL_DOMAINS", "" if DEMO_MODE or "test" in sys.argv[1:2] else "univ-ghardaia.dz")]
 # The time zone dates are written in inside emails (an IANA name, e.g. "Africa/Algiers"). Storage stays UTC.
 LIBRARY_TIME_ZONE = os.environ.get("LIBRARY_TIME_ZONE", "UTC")
 

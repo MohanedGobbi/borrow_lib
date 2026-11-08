@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for a new version when an administrator asks for it on the site
+
+[Path]
+# The site (as the libborrow user) can only create this file; deploy/auto-update.sh deletes it.
+PathExists=/var/lib/lib-borrow/update-request/requested
+Unit=lib-borrow-update.service
+
+[Install]
+WantedBy=multi-user.target

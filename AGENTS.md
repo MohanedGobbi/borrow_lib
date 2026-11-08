@@ -62,7 +62,7 @@ backend/library/importing.py  bulk import rules (header aliases, ISBN optional, 
 backend/library/catalogue.py  subjects from Dewey call numbers, the bundled inventory; maintenance.py  backup/restore/resets
 backend/library/pdftext.py  Arabic in the PDFs (Noto Naskh Arabic, reshaping, bidi); draw text through it, not c.drawString
 backend/library/student_import.py  bulk student import (admin; accounts + welcome emails); exports.py  CSV/XLSX exports (formula-injection guard)
-deploy/                 Linux server install: install.sh / update.sh / backup.sh, manage.sh (manage.py with the production env), systemd + nginx + cron templates; guide in INSTALL-LINUX.md
+deploy/                 Linux server install: install.sh / update.sh / backup.sh / auto-update.sh (nightly self-update from GitHub releases, rollback on failure), manage.sh (manage.py with the production env), systemd + nginx + cron templates; guide in INSTALL-LINUX.md
 deploy/package/         the scripts shipped beside the offline archive (install wizard, update, status, send-to-server.bat); scripts/make_release.py builds that folder into university-package/ (gitignored)
 src/pages/              landing, auth, catalog, book, request list, my loans, profile, scan lookup
 src/pages/staff/        staff desk: StaffLayout (sidebar + counts) and one page per function

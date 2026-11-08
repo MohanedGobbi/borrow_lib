@@ -5,6 +5,8 @@ export type Role = "MEMBER" | "STAFF" | "ADMIN";
 /** The kinds of reader (role MEMBER). */
 export type MemberType = "STUDENT" | "PROFESSOR" | "ADMINISTRATIVE" | "EXTERNAL";
 export const MEMBER_TYPES: MemberType[] = ["STUDENT", "PROFESSOR", "ADMINISTRATIVE", "EXTERNAL"];
+/** The reader types open sign-up offers; administrative staff accounts are made by an admin. */
+export const SIGNUP_MEMBER_TYPES: MemberType[] = ["STUDENT", "PROFESSOR", "EXTERNAL"];
 /** What an account is, in one word: a kind of reader, a librarian (STAFF) or an administrator (ADMIN). */
 export type AccountType = MemberType | "LIBRARIAN" | "ADMIN";
 export const ACCOUNT_TYPES: AccountType[] = [...MEMBER_TYPES, "LIBRARIAN", "ADMIN"];
@@ -292,6 +294,24 @@ export interface MaintenanceCounts {
 
 export type MaintenanceAction =
   | "reset-circulation" | "delete-catalogue" | "delete-members" | "clear-activity" | "reload-catalogue";
+
+/** What deploy/auto-update.sh last reported; "" before its first run. */
+export type UpdateState =
+  | "" | "checking" | "up_to_date" | "downloading" | "installing" | "updated" | "failed" | "skipped" | "error";
+
+/** The installed version and the server's automatic updates, for the admin settings page. */
+export interface UpdateStatus {
+  version: string;
+  /** false when the server was not installed with automatic updates (and in the demo). */
+  available: boolean;
+  /** "Check now" was pressed and the server has not picked the request up yet. */
+  requested: boolean;
+  state: UpdateState;
+  latest: string;
+  checkedAt: string | null;
+  message: string;
+  repo: string;
+}
 
 export type SettingsPatch = Partial<Pick<
   LibrarySettings,

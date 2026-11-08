@@ -174,6 +174,8 @@ class ProfileSerializer(serializers.ModelSerializer):
 # One list for the interface: the four kinds of reader, then the two kinds of library staff.
 ACCOUNT_TYPES = [*MemberType.values, "LIBRARIAN", "ADMIN"]
 MEMBER_TYPES = MemberType.values
+# The reader types someone may choose when signing up on their own.
+SIGNUP_MEMBER_TYPES = [(v, label) for v, label in MemberType.choices if v != MemberType.ADMINISTRATIVE]
 
 
 def account_type_of(profile) -> str:
@@ -337,8 +339,9 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)  # length and strength: Django's validators, below
     phoneNumber = serializers.CharField(max_length=40)
-    # Self-registration chooses one of the reader types; staff accounts come from an admin or an invite.
-    memberType = serializers.ChoiceField(choices=MemberType.choices, required=False, default=MemberType.STUDENT)
+    # Self-registration chooses one of the reader types; staff accounts come from an admin or an invite,
+    # and so do administrative-staff reader accounts.
+    memberType = serializers.ChoiceField(choices=SIGNUP_MEMBER_TYPES, required=False, default=MemberType.STUDENT)
     language = serializers.ChoiceField(choices=Language.choices, required=False, default=Language.AR)
     inviteToken = serializers.CharField(required=False, allow_blank=True, default="", write_only=True)
 
